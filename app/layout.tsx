@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,11 +24,27 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className="bg-slate-950 text-white">
-        <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-slate-950/80 backdrop-blur">
+      <body className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+        <header className="fixed left-0 top-0 z-50 w-full border-b border-[#D9A441]/20 bg-[#0B0610]/90 backdrop-blur">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-            <Link href="/" className="text-xl font-black tracking-tight">
-              GSF Compet
+            <Link href="/" className="flex items-center gap-3">
+              <Image
+                src="/logo-gf.png"
+                alt="Guardian's Family"
+                width={46}
+                height={46}
+                className="rounded-full border border-[#D9A441]/50 shadow-[0_0_20px_rgba(217,164,65,0.25)]"
+                priority
+              />
+
+              <div>
+                <p className="text-lg font-black tracking-tight text-[#F7E9C5]">
+                  GSF Compet
+                </p>
+                <p className="text-xs text-[#D8C7A0]">
+                  Guardian&apos;s Family
+                </p>
+              </div>
             </Link>
 
             <div className="hidden items-center gap-5 md:flex">
@@ -35,7 +52,7 @@ export default function RootLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-sm text-slate-300 transition hover:text-emerald-300"
+                  className="text-sm font-medium text-[#D8C7A0] transition hover:text-[#F2D27A]"
                 >
                   {item.label}
                 </Link>
@@ -44,7 +61,7 @@ export default function RootLayout({
           </nav>
         </header>
 
-        <div className="pt-20">{children}</div>
+        <div className="pt-24">{children}</div>
       </body>
     </html>
   );
