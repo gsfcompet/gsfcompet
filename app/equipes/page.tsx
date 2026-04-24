@@ -9,26 +9,39 @@ const teams = [
 
 export default function EquipesPage() {
   return (
-    <main className="mx-auto min-h-screen max-w-6xl px-6 py-12">
-      <h1 className="mb-3 text-4xl font-black">Équipes</h1>
-      <p className="mb-8 text-slate-400">
-        Liste des équipes inscrites aux compétitions GSF Compet.
-      </p>
+    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <section className="mx-auto max-w-6xl px-6 py-12">
+        <div className="mb-10">
+          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+            Participants
+          </p>
 
-      <div className="grid gap-5 md:grid-cols-3">
-        {teams.map((team) => (
-          <div
-            key={team}
-            className="rounded-2xl border border-white/10 bg-white/5 p-6"
-          >
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-400/10 text-2xl font-black text-emerald-300">
-              {team.charAt(0)}
+          <h1 className="text-4xl font-black md:text-5xl">Équipes</h1>
+
+          <p className="mt-3 max-w-2xl text-[#D8C7A0]">
+            Liste des équipes inscrites aux compétitions GSF Compet.
+          </p>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-3">
+          {teams.map((team) => (
+            <div
+              key={team}
+              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/20"
+            >
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#D9A441]/30 bg-[#A61E22]/30 text-2xl font-black text-[#F2D27A]">
+                {team.charAt(0)}
+              </div>
+
+              <h2 className="text-xl font-black text-[#F7E9C5]">{team}</h2>
+
+              <p className="mt-2 text-sm text-[#D8C7A0]">
+                Manager à définir
+              </p>
             </div>
-            <h2 className="text-xl font-black">{team}</h2>
-            <p className="mt-2 text-sm text-slate-400">Manager à définir</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
