@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-const competitions = [
-  "Guardian's League",
-  "Coupe Guardian's Family",
-  "Super Cup FC26",
-];
+type Competition = {
+  id: string;
+  name: string;
+  type: string;
+  season: string | null;
+  status: string;
+};
 
 const teams = [
   "Guardian's Family",
@@ -20,6 +22,25 @@ const teams = [
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("competition");
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
+
+  async function loadCompetitions() {
+    const { data, error } = await supabase
+      .from("competitions")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error.message);
+      return;
+    }
+
+    setCompetitions(data ?? []);
+  }
+
+  useEffect(() => {
+    loadCompetitions();
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -66,8 +87,12 @@ export default function AdminPage() {
           />
         </div>
 
-        {activeTab === "competition" && <CompetitionForm />}
-        {activeTab === "team" && <TeamForm />}
+        {activeTab === "competition" && (
+          <CompetitionForm onCompetitionCreated={loadCompetitions} />
+        )}
+
+        {activeTab === "team" && <TeamForm competitions={competitions} />}
+
         {activeTab === "match" && <MatchForm />}
         {activeTab === "score" && <ScoreForm />}
       </section>
@@ -165,7 +190,11 @@ function FormCard({
   );
 }
 
-function CompetitionForm() {
+function CompetitionForm({
+  onCompetitionCreated,
+}: {
+  onCompetitionCreated: () => Promise<void>;
+}) {
   const [name, setName] = useState("");
   const [type, setType] = useState("");
   const [season, setSeason] = useState("");
@@ -203,6 +232,8 @@ function CompetitionForm() {
     setType("");
     setSeason("");
     setMessage("Compétition créée avec succès ✅");
+
+    await onCompetitionCreated();
   }
 
   return (
@@ -257,36 +288,112 @@ function CompetitionForm() {
   );
 }
 
-function TeamForm() {
+function TeamForm({ competitions }: { competitions: Competition[] }) {
+  const [name, setName] = useState("");
+  const [manager, setManager] = useState("");
+  const [competitionId, setCompetitionId] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleCreateTeam(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!name) {
+      setMessage("Merci de renseigner le nom de l’équipe.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    const { data: createdTeam, error: teamError } = await supabase
+      .from("teams")
+      .insert({
+        name,
+        manager,
+      })
+      .select()
+      .single();
+
+    if (teamError) {
+      setLoading(false);
+      setMessage(`Erreur : ${teamError.message}`);
+      return;
+    }
+
+    if (competitionId && createdTeam) {
+      const { error: linkError } = await supabase
+        .from("competition_teams")
+        .insert({
+          competition_id: competitionId,
+          team_id: createdTeam.id,
+        });
+
+      if (linkError) {
+        setLoading(false);
+        setMessage(
+          `Équipe créée, mais erreur d’inscription : ${linkError.message}`
+        );
+        return;
+      }
+    }
+
+    setLoading(false);
+    setName("");
+    setManager("");
+    setCompetitionId("");
+    setMessage("Équipe ajoutée avec succès ✅");
+  }
+
   return (
     <FormCard
       title="Ajouter une équipe"
       description="Inscris une équipe ou un membre dans la compétition."
     >
-      <form className="grid gap-5">
+      <form onSubmit={handleCreateTeam} className="grid gap-5">
+        {message && (
+          <div className="rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-4 py-3 text-sm text-[#F2D27A]">
+            {message}
+          </div>
+        )}
+
         <div>
           <FieldLabel>Nom de l’équipe</FieldLabel>
-          <Input placeholder="Ex : Guardian's Family" />
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Ex : Guardian's Family"
+          />
         </div>
 
         <div>
           <FieldLabel>Manager</FieldLabel>
-          <Input placeholder="Ex : Mika, Yanis, Rayan..." />
+          <Input
+            value={manager}
+            onChange={(event) => setManager(event.target.value)}
+            placeholder="Ex : Mika, Yanis, Rayan..."
+          />
         </div>
 
         <div>
           <FieldLabel>Compétition</FieldLabel>
-          <Select defaultValue="">
-            <option value="" disabled>
-              Choisir une compétition
-            </option>
+          <Select
+            value={competitionId}
+            onChange={(event) => setCompetitionId(event.target.value)}
+          >
+            <option value="">Aucune compétition</option>
+
             {competitions.map((competition) => (
-              <option key={competition}>{competition}</option>
+              <option key={competition.id} value={competition.id}>
+                {competition.name}
+              </option>
             ))}
           </Select>
         </div>
 
-        <SubmitButton>Ajouter l’équipe</SubmitButton>
+        <SubmitButton disabled={loading}>
+          {loading ? "Ajout en cours..." : "Ajouter l’équipe"}
+        </SubmitButton>
       </form>
     </FormCard>
   );
@@ -305,9 +412,6 @@ function MatchForm() {
             <option value="" disabled>
               Choisir une compétition
             </option>
-            {competitions.map((competition) => (
-              <option key={competition}>{competition}</option>
-            ))}
           </Select>
         </div>
 
