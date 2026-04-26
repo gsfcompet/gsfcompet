@@ -11,18 +11,30 @@ type Competition = {
   status: string;
 };
 
-const teams = [
-  "Guardian's Family",
-  "Elite Squad",
-  "North Kings",
-  "Black Lions",
-  "Street Ballers",
-  "Final Boss FC",
-];
+type Team = {
+  id: string;
+  name: string;
+  manager: string | null;
+};
+
+type Match = {
+  id: string;
+  competition_id: string;
+  home_team_id: string;
+  away_team_id: string;
+  match_date: string | null;
+  status: string;
+  home_score: number | null;
+  away_score: number | null;
+  mvp: string | null;
+};
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("competition");
   const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [debugMessage, setDebugMessage] = useState("");
 
   async function loadCompetitions() {
     const { data, error } = await supabase
@@ -31,16 +43,55 @@ export default function AdminPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error(error.message);
+      setDebugMessage(`Erreur competitions : ${error.message}`);
       return;
     }
 
     setCompetitions(data ?? []);
   }
 
+  async function loadTeams() {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setDebugMessage(`Erreur teams : ${error.message}`);
+      return;
+    }
+
+    setTeams(data ?? []);
+  }
+
+  async function loadMatches() {
+    const { data, error } = await supabase
+      .from("matches")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setDebugMessage(`Erreur matches : ${error.message}`);
+      return;
+    }
+
+    setMatches(data ?? []);
+  }
+
+  async function refreshData() {
+    setDebugMessage("");
+    await loadCompetitions();
+    await loadTeams();
+    await loadMatches();
+  }
+
   useEffect(() => {
-    loadCompetitions();
+    refreshData();
   }, []);
+
+  function getTeamName(teamId: string) {
+    return teams.find((team) => team.id === teamId)?.name ?? "Équipe inconnue";
+  }
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -55,6 +106,15 @@ export default function AdminPage() {
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
             Gérez les compétitions, équipes, matchs et scores de GSF Compet.
           </p>
+
+          <div className="mt-6 rounded-xl border border-[#D9A441]/20 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
+            <p>Compétitions chargées : {competitions.length}</p>
+            <p>Équipes chargées : {teams.length}</p>
+            <p>Matchs chargés : {matches.length}</p>
+            {debugMessage && (
+              <p className="mt-2 text-red-300">{debugMessage}</p>
+            )}
+          </div>
         </div>
 
         <div className="mb-8 grid gap-3 md:grid-cols-4">
@@ -88,13 +148,28 @@ export default function AdminPage() {
         </div>
 
         {activeTab === "competition" && (
-          <CompetitionForm onCompetitionCreated={loadCompetitions} />
+          <CompetitionForm onCompetitionCreated={refreshData} />
         )}
 
-        {activeTab === "team" && <TeamForm competitions={competitions} />}
+        {activeTab === "team" && (
+          <TeamForm competitions={competitions} onTeamCreated={refreshData} />
+        )}
 
-        {activeTab === "match" && <MatchForm />}
-        {activeTab === "score" && <ScoreForm />}
+        {activeTab === "match" && (
+          <MatchForm
+            competitions={competitions}
+            teams={teams}
+            onMatchCreated={refreshData}
+          />
+        )}
+
+        {activeTab === "score" && (
+          <ScoreForm
+            matches={matches}
+            getTeamName={getTeamName}
+            onScoreAdded={refreshData}
+          />
+        )}
       </section>
     </main>
   );
@@ -182,10 +257,18 @@ function FormCard({
   return (
     <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
       <h2 className="text-2xl font-black text-[#F7E9C5]">{title}</h2>
-
       <p className="mt-2 text-[#D8C7A0]">{description}</p>
-
       <div className="mt-8">{children}</div>
+    </div>
+  );
+}
+
+function MessageBox({ message }: { message: string }) {
+  if (!message) return null;
+
+  return (
+    <div className="rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-4 py-3 text-sm text-[#F2D27A]">
+      {message}
     </div>
   );
 }
@@ -242,11 +325,7 @@ function CompetitionForm({
       description="Ajoute un championnat, une coupe ou un tournoi EA FC 26."
     >
       <form onSubmit={handleCreateCompetition} className="grid gap-5">
-        {message && (
-          <div className="rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-4 py-3 text-sm text-[#F2D27A]">
-            {message}
-          </div>
-        )}
+        <MessageBox message={message} />
 
         <div>
           <FieldLabel>Nom de la compétition</FieldLabel>
@@ -288,7 +367,13 @@ function CompetitionForm({
   );
 }
 
-function TeamForm({ competitions }: { competitions: Competition[] }) {
+function TeamForm({
+  competitions,
+  onTeamCreated,
+}: {
+  competitions: Competition[];
+  onTeamCreated: () => Promise<void>;
+}) {
   const [name, setName] = useState("");
   const [manager, setManager] = useState("");
   const [competitionId, setCompetitionId] = useState("");
@@ -343,6 +428,8 @@ function TeamForm({ competitions }: { competitions: Competition[] }) {
     setManager("");
     setCompetitionId("");
     setMessage("Équipe ajoutée avec succès ✅");
+
+    await onTeamCreated();
   }
 
   return (
@@ -351,11 +438,7 @@ function TeamForm({ competitions }: { competitions: Competition[] }) {
       description="Inscris une équipe ou un membre dans la compétition."
     >
       <form onSubmit={handleCreateTeam} className="grid gap-5">
-        {message && (
-          <div className="rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-4 py-3 text-sm text-[#F2D27A]">
-            {message}
-          </div>
-        )}
+        <MessageBox message={message} />
 
         <div>
           <FieldLabel>Nom de l’équipe</FieldLabel>
@@ -399,43 +482,115 @@ function TeamForm({ competitions }: { competitions: Competition[] }) {
   );
 }
 
-function MatchForm() {
+function MatchForm({
+  competitions,
+  teams,
+  onMatchCreated,
+}: {
+  competitions: Competition[];
+  teams: Team[];
+  onMatchCreated: () => Promise<void>;
+}) {
+  const [competitionId, setCompetitionId] = useState("");
+  const [homeTeamId, setHomeTeamId] = useState("");
+  const [awayTeamId, setAwayTeamId] = useState("");
+  const [matchDate, setMatchDate] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleCreateMatch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!competitionId || !homeTeamId || !awayTeamId) {
+      setMessage("Merci de choisir une compétition et deux équipes.");
+      return;
+    }
+
+    if (homeTeamId === awayTeamId) {
+      setMessage("Une équipe ne peut pas jouer contre elle-même.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase.from("matches").insert({
+      competition_id: competitionId,
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      match_date: matchDate || null,
+      status: "scheduled",
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(`Erreur : ${error.message}`);
+      return;
+    }
+
+    setCompetitionId("");
+    setHomeTeamId("");
+    setAwayTeamId("");
+    setMatchDate("");
+    setMessage("Match créé avec succès ✅");
+
+    await onMatchCreated();
+  }
+
   return (
     <FormCard
       title="Créer un match"
       description="Programme une rencontre entre deux équipes."
     >
-      <form className="grid gap-5">
+      <form onSubmit={handleCreateMatch} className="grid gap-5">
+        <MessageBox message={message} />
+
         <div>
           <FieldLabel>Compétition</FieldLabel>
-          <Select defaultValue="">
-            <option value="" disabled>
-              Choisir une compétition
-            </option>
+          <Select
+            value={competitionId}
+            onChange={(event) => setCompetitionId(event.target.value)}
+          >
+            <option value="">Choisir une compétition</option>
+
+            {competitions.map((competition) => (
+              <option key={competition.id} value={competition.id}>
+                {competition.name}
+              </option>
+            ))}
           </Select>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
           <div>
             <FieldLabel>Équipe domicile</FieldLabel>
-            <Select defaultValue="">
-              <option value="" disabled>
-                Choisir une équipe
-              </option>
+            <Select
+              value={homeTeamId}
+              onChange={(event) => setHomeTeamId(event.target.value)}
+            >
+              <option value="">Choisir une équipe</option>
+
               {teams.map((team) => (
-                <option key={team}>{team}</option>
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
               ))}
             </Select>
           </div>
 
           <div>
             <FieldLabel>Équipe extérieur</FieldLabel>
-            <Select defaultValue="">
-              <option value="" disabled>
-                Choisir une équipe
-              </option>
+            <Select
+              value={awayTeamId}
+              onChange={(event) => setAwayTeamId(event.target.value)}
+            >
+              <option value="">Choisir une équipe</option>
+
               {teams.map((team) => (
-                <option key={team}>{team}</option>
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
               ))}
             </Select>
           </div>
@@ -443,52 +598,156 @@ function MatchForm() {
 
         <div>
           <FieldLabel>Date du match</FieldLabel>
-          <Input type="datetime-local" />
+          <Input
+            type="datetime-local"
+            value={matchDate}
+            onChange={(event) => setMatchDate(event.target.value)}
+          />
         </div>
 
-        <SubmitButton>Créer le match</SubmitButton>
+        <SubmitButton disabled={loading}>
+          {loading ? "Création en cours..." : "Créer le match"}
+        </SubmitButton>
       </form>
     </FormCard>
   );
 }
 
-function ScoreForm() {
+function ScoreForm({
+  matches,
+  getTeamName,
+  onScoreAdded,
+}: {
+  matches: Match[];
+  getTeamName: (teamId: string) => string;
+  onScoreAdded: () => Promise<void>;
+}) {
+  const [matchId, setMatchId] = useState("");
+  const [homeScore, setHomeScore] = useState("");
+  const [awayScore, setAwayScore] = useState("");
+  const [mvp, setMvp] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleAddScore(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!matchId) {
+      setMessage("Merci de choisir un match.");
+      return;
+    }
+
+    if (homeScore === "" || awayScore === "") {
+      setMessage("Merci de renseigner les deux scores.");
+      return;
+    }
+
+    const homeScoreNumber = Number(homeScore);
+    const awayScoreNumber = Number(awayScore);
+
+    if (homeScoreNumber < 0 || awayScoreNumber < 0) {
+      setMessage("Les scores ne peuvent pas être négatifs.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("matches")
+      .update({
+        home_score: homeScoreNumber,
+        away_score: awayScoreNumber,
+        mvp: mvp || null,
+        status: "completed",
+      })
+      .eq("id", matchId);
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(`Erreur : ${error.message}`);
+      return;
+    }
+
+    setMatchId("");
+    setHomeScore("");
+    setAwayScore("");
+    setMvp("");
+    setMessage("Score ajouté avec succès ✅");
+
+    await onScoreAdded();
+  }
+
+  const pendingMatches = matches.filter((match) => match.status !== "completed");
+
   return (
     <FormCard
       title="Ajouter un score"
       description="Saisis le résultat d’un match terminé."
     >
-      <form className="grid gap-5">
+      <form onSubmit={handleAddScore} className="grid gap-5">
+        <MessageBox message={message} />
+
         <div>
           <FieldLabel>Match</FieldLabel>
-          <Select defaultValue="">
-            <option value="" disabled>
-              Choisir un match
-            </option>
-            <option>Guardian&apos;s Family vs Elite Squad</option>
-            <option>North Kings vs Black Lions</option>
-            <option>Street Ballers vs Final Boss FC</option>
+          <Select
+            value={matchId}
+            onChange={(event) => setMatchId(event.target.value)}
+          >
+            <option value="">Choisir un match</option>
+
+            {pendingMatches.map((match) => (
+              <option key={match.id} value={match.id}>
+                {getTeamName(match.home_team_id)} vs{" "}
+                {getTeamName(match.away_team_id)}
+              </option>
+            ))}
           </Select>
+
+          {pendingMatches.length === 0 && (
+            <p className="mt-2 text-sm text-[#D8C7A0]">
+              Aucun match en attente de score.
+            </p>
+          )}
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
           <div>
             <FieldLabel>Score domicile</FieldLabel>
-            <Input type="number" min="0" placeholder="0" />
+            <Input
+              type="number"
+              min="0"
+              value={homeScore}
+              onChange={(event) => setHomeScore(event.target.value)}
+              placeholder="0"
+            />
           </div>
 
           <div>
             <FieldLabel>Score extérieur</FieldLabel>
-            <Input type="number" min="0" placeholder="0" />
+            <Input
+              type="number"
+              min="0"
+              value={awayScore}
+              onChange={(event) => setAwayScore(event.target.value)}
+              placeholder="0"
+            />
           </div>
         </div>
 
         <div>
           <FieldLabel>Homme du match</FieldLabel>
-          <Input placeholder="Ex : joueur MVP" />
+          <Input
+            value={mvp}
+            onChange={(event) => setMvp(event.target.value)}
+            placeholder="Ex : joueur MVP"
+          />
         </div>
 
-        <SubmitButton>Valider le score</SubmitButton>
+        <SubmitButton disabled={loading}>
+          {loading ? "Validation en cours..." : "Valider le score"}
+        </SubmitButton>
       </form>
     </FormCard>
   );
