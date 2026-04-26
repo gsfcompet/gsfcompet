@@ -30,11 +30,19 @@ type Match = {
   mvp: string | null;
 };
 
+type EaTeam = {
+  id: string;
+  country: string;
+  league: string;
+  name: string;
+};
+
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("competition");
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [eaTeams, setEaTeams] = useState<EaTeam[]>([]);
   const [debugMessage, setDebugMessage] = useState("");
 
   async function loadCompetitions() {
@@ -79,11 +87,28 @@ export default function AdminPage() {
     setMatches(data ?? []);
   }
 
+  async function loadEaTeams() {
+    const { data, error } = await supabase
+      .from("ea_teams")
+      .select("*")
+      .order("country", { ascending: true })
+      .order("league", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) {
+      setDebugMessage(`Erreur équipes EA FC : ${error.message}`);
+      return;
+    }
+
+    setEaTeams(data ?? []);
+  }
+
   async function refreshData() {
     setDebugMessage("");
     await loadCompetitions();
     await loadTeams();
     await loadMatches();
+    await loadEaTeams();
   }
 
   useEffect(() => {
@@ -105,20 +130,21 @@ export default function AdminPage() {
           <h1 className="text-4xl font-black md:text-5xl">Admin</h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Gérez les compétitions, équipes, matchs et scores de GSF Compet.
+            Gérez les compétitions, équipes, matchs, scores et équipes EA FC.
           </p>
 
           <div className="mt-6 rounded-xl border border-[#D9A441]/20 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
             <p>Compétitions chargées : {competitions.length}</p>
             <p>Équipes chargées : {teams.length}</p>
             <p>Matchs chargés : {matches.length}</p>
+            <p>Équipes EA FC chargées : {eaTeams.length}</p>
             {debugMessage && (
               <p className="mt-2 text-red-300">{debugMessage}</p>
             )}
           </div>
         </div>
 
-        <div className="mb-8 grid gap-3 md:grid-cols-4">
+        <div className="mb-8 grid gap-3 md:grid-cols-5">
           <TabButton
             label="Compétition"
             value="competition"
@@ -143,6 +169,13 @@ export default function AdminPage() {
           <TabButton
             label="Score"
             value="score"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+
+          <TabButton
+            label="Équipes EA FC"
+            value="ea-teams"
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />
@@ -173,6 +206,10 @@ export default function AdminPage() {
             getTeamName={getTeamName}
             onScoreAdded={refreshData}
           />
+        )}
+
+        {activeTab === "ea-teams" && (
+          <EaTeamsForm eaTeams={eaTeams} onEaTeamsChanged={refreshData} />
         )}
       </section>
     </main>
@@ -779,7 +816,9 @@ function TeamForm({
 
     if (deleteLinksError) {
       setLoading(false);
-      setMessage(`Erreur suppression inscriptions : ${deleteLinksError.message}`);
+      setMessage(
+        `Erreur suppression inscriptions : ${deleteLinksError.message}`
+      );
       return;
     }
 
@@ -923,6 +962,256 @@ function TeamForm({
                   <button
                     type="button"
                     onClick={() => handleDeleteTeam(team)}
+                    className="rounded-lg bg-[#A61E22]/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#8E171C]"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- ÉQUIPES EA FC ----------------------------- */
+
+function EaTeamsForm({
+  eaTeams,
+  onEaTeamsChanged,
+}: {
+  eaTeams: EaTeam[];
+  onEaTeamsChanged: () => Promise<void>;
+}) {
+  const [editingEaTeamId, setEditingEaTeamId] = useState("");
+  const [country, setCountry] = useState("");
+  const [league, setLeague] = useState("");
+  const [name, setName] = useState("");
+  const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function resetForm() {
+    setEditingEaTeamId("");
+    setCountry("");
+    setLeague("");
+    setName("");
+    setMessage("");
+  }
+
+  function selectEaTeam(team: EaTeam) {
+    setEditingEaTeamId(team.id);
+    setCountry(team.country);
+    setLeague(team.league);
+    setName(team.name);
+    setMessage(`Modification de : ${team.name}`);
+  }
+
+  async function handleSaveEaTeam(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!country || !league || !name) {
+      setMessage("Merci de remplir le pays, le championnat et l’équipe.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    if (editingEaTeamId) {
+      const { error } = await supabase
+        .from("ea_teams")
+        .update({
+          country,
+          league,
+          name,
+        })
+        .eq("id", editingEaTeamId);
+
+      setLoading(false);
+
+      if (error) {
+        setMessage(`Erreur modification : ${error.message}`);
+        return;
+      }
+
+      resetForm();
+      setMessage("Équipe EA FC modifiée avec succès ✅");
+      await onEaTeamsChanged();
+      return;
+    }
+
+    const { error } = await supabase.from("ea_teams").insert({
+      country,
+      league,
+      name,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(`Erreur création : ${error.message}`);
+      return;
+    }
+
+    resetForm();
+    setMessage("Équipe EA FC ajoutée avec succès ✅");
+    await onEaTeamsChanged();
+  }
+
+  async function handleDeleteEaTeam(team: EaTeam) {
+    const confirmDelete = window.confirm(
+      `Supprimer "${team.name}" de la liste EA FC ?`
+    );
+
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("ea_teams")
+      .delete()
+      .eq("id", team.id);
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(`Erreur suppression : ${error.message}`);
+      return;
+    }
+
+    if (editingEaTeamId === team.id) {
+      resetForm();
+    }
+
+    setMessage("Équipe EA FC supprimée avec succès ✅");
+    await onEaTeamsChanged();
+  }
+
+  const filteredTeams = eaTeams.filter((team) => {
+    const value = `${team.country} ${team.league} ${team.name}`.toLowerCase();
+    return value.includes(search.toLowerCase());
+  });
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1.1fr_1.2fr]">
+      <FormCard
+        title={
+          editingEaTeamId
+            ? "Modifier une équipe EA FC"
+            : "Ajouter une équipe EA FC"
+        }
+        description="Gère la liste Pays → Championnat → Équipe utilisée pour les inscriptions joueurs."
+      >
+        <form onSubmit={handleSaveEaTeam} className="grid gap-5">
+          <MessageBox message={message} />
+
+          <div>
+            <FieldLabel>Pays</FieldLabel>
+            <Input
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+              placeholder="Ex : Angleterre"
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Championnat</FieldLabel>
+            <Input
+              value={league}
+              onChange={(event) => setLeague(event.target.value)}
+              placeholder="Ex : Premier League"
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Équipe</FieldLabel>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Ex : Arsenal"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <SubmitButton disabled={loading}>
+              {loading
+                ? "Enregistrement..."
+                : editingEaTeamId
+                  ? "Modifier l’équipe EA FC"
+                  : "Ajouter l’équipe EA FC"}
+            </SubmitButton>
+
+            {editingEaTeamId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+              >
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
+      </FormCard>
+
+      <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <h2 className="text-2xl font-black text-[#F7E9C5]">
+          Liste équipes EA FC
+        </h2>
+
+        <p className="mt-2 text-[#D8C7A0]">
+          Recherche, modifie ou supprime une équipe de la liste.
+        </p>
+
+        <div className="mt-5">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher pays, championnat ou équipe..."
+          />
+        </div>
+
+        <div className="mt-6 max-h-[560px] space-y-3 overflow-y-auto pr-2">
+          {filteredTeams.length === 0 && (
+            <p className="rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+              Aucune équipe EA FC trouvée.
+            </p>
+          )}
+
+          {filteredTeams.map((team) => (
+            <div
+              key={team.id}
+              className={`rounded-xl border p-4 transition ${
+                editingEaTeamId === team.id
+                  ? "border-[#D9A441]/60 bg-[#A61E22]/20"
+                  : "border-[#D9A441]/15 bg-[#0B0610]/70"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-black text-[#F7E9C5]">{team.name}</h3>
+
+                  <p className="mt-1 text-sm text-[#D8C7A0]">
+                    {team.country} · {team.league}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => selectEaTeam(team)}
+                    className="rounded-lg border border-[#D9A441]/30 bg-[#160A12] px-3 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+                  >
+                    Modifier
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteEaTeam(team)}
                     className="rounded-lg bg-[#A61E22]/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#8E171C]"
                   >
                     Supprimer
