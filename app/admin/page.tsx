@@ -265,7 +265,9 @@ export default function AdminPage() {
         {activeTab === "score" && (
           <ScoreForm
             matches={matches}
-            getTeamName={getTeamName}
+            teams={teams}
+            players={players}
+            competitionPlayers={competitionPlayers}
             onScoreAdded={refreshData}
           />
         )}
@@ -2065,11 +2067,15 @@ function MatchForm({
 
 function ScoreForm({
   matches,
-  getTeamName,
+  teams,
+  players,
+  competitionPlayers,
   onScoreAdded,
 }: {
   matches: Match[];
-  getTeamName: (teamId: string) => string;
+  teams: Team[];
+  players: Player[];
+  competitionPlayers: CompetitionPlayer[];
   onScoreAdded: () => Promise<void>;
 }) {
   const [matchId, setMatchId] = useState("");
@@ -2078,6 +2084,42 @@ function ScoreForm({
   const [mvp, setMvp] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function getTeamName(teamId: string | null) {
+    if (!teamId) return "Équipe inconnue";
+    return teams.find((team) => team.id === teamId)?.name ?? "Équipe inconnue";
+  }
+
+  function getPlayerName(playerId: string) {
+    return players.find((player) => player.id === playerId)?.name ?? "Joueur inconnu";
+  }
+
+  function getCompetitionPlayerLabel(registrationId: string | null) {
+    if (!registrationId) return "Joueur inconnu";
+
+    const registration = competitionPlayers.find(
+      (item) => item.id === registrationId
+    );
+
+    if (!registration) return "Joueur inconnu";
+
+    return `${getPlayerName(registration.player_id)} · ${registration.ea_team_name}`;
+  }
+
+  function getMatchLabel(match: Match) {
+    const isPlayerMatch =
+      match.home_competition_player_id && match.away_competition_player_id;
+
+    if (isPlayerMatch) {
+      return `${getCompetitionPlayerLabel(
+        match.home_competition_player_id
+      )} vs ${getCompetitionPlayerLabel(match.away_competition_player_id)}`;
+    }
+
+    return `${getTeamName(match.home_team_id)} vs ${getTeamName(
+      match.away_team_id
+    )}`;
+  }
 
   async function handleAddScore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2134,7 +2176,7 @@ function ScoreForm({
   return (
     <FormCard
       title="Ajouter un score"
-      description="Saisis le résultat d’un match terminé."
+      description="Saisis le résultat d’un match terminé, team ou joueur EA FC."
     >
       <form onSubmit={handleAddScore} className="grid gap-5">
         <MessageBox message={message} />
@@ -2149,8 +2191,7 @@ function ScoreForm({
 
             {pendingMatches.map((match) => (
               <option key={match.id} value={match.id}>
-                {getTeamName(match.home_team_id)} vs{" "}
-                {getTeamName(match.away_team_id)}
+                {getMatchLabel(match)}
               </option>
             ))}
           </Select>
