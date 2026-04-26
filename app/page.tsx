@@ -1,7 +1,43 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const [competitionsCount, setCompetitionsCount] = useState(0);
+  const [teamsCount, setTeamsCount] = useState(0);
+  const [playedMatchesCount, setPlayedMatchesCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  async function loadStats() {
+    setLoading(true);
+
+    const competitionsResult = await supabase
+      .from("competitions")
+      .select("id", { count: "exact", head: true });
+
+    const teamsResult = await supabase
+      .from("teams")
+      .select("id", { count: "exact", head: true });
+
+    const playedMatchesResult = await supabase
+      .from("matches")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "completed");
+
+    setCompetitionsCount(competitionsResult.count ?? 0);
+    setTeamsCount(teamsResult.count ?? 0);
+    setPlayedMatchesCount(playedMatchesResult.count ?? 0);
+
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#0B0610] text-[#F7E9C5]">
       <section className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-6 py-16 text-center">
@@ -50,28 +86,40 @@ export default function Home() {
         </div>
 
         <div className="grid w-full max-w-4xl gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg">
-            <p className="text-3xl font-black text-[#F2D27A]">0</p>
-            <p className="mt-2 text-sm text-[#D8C7A0]">Compétitions</p>
-          </div>
+          <StatCard
+            value={loading ? "..." : competitionsCount}
+            label="Compétitions"
+          />
 
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg">
-            <p className="text-3xl font-black text-[#F2D27A]">0</p>
-            <p className="mt-2 text-sm text-[#D8C7A0]">Équipes</p>
-          </div>
+          <StatCard value={loading ? "..." : teamsCount} label="Équipes" />
 
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg">
-            <p className="text-3xl font-black text-[#F2D27A]">0</p>
-            <p className="mt-2 text-sm text-[#D8C7A0]">Matchs joués</p>
-          </div>
+          <StatCard
+            value={loading ? "..." : playedMatchesCount}
+            label="Matchs joués"
+          />
         </div>
 
         <div className="mt-10 rounded-2xl border border-[#D9A441]/15 bg-[#160A12]/70 px-6 py-4">
           <p className="text-sm text-[#D8C7A0]">
-            Site officiel Guardian&apos;s Family · Saison 1 bientôt disponible
+            Site officiel Guardian&apos;s Family · Saison 1 en cours
           </p>
         </div>
       </section>
     </main>
+  );
+}
+
+function StatCard({
+  value,
+  label,
+}: {
+  value: number | string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg">
+      <p className="text-3xl font-black text-[#F2D27A]">{value}</p>
+      <p className="mt-2 text-sm text-[#D8C7A0]">{label}</p>
+    </div>
   );
 }
