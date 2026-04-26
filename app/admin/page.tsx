@@ -9,6 +9,7 @@ type Competition = {
   type: string;
   season: string | null;
   status: string;
+  participant_type: "teams" | "players";
 };
 
 type Team = {
@@ -290,6 +291,9 @@ function CompetitionForm({
   const [type, setType] = useState("");
   const [season, setSeason] = useState("");
   const [status, setStatus] = useState("active");
+  const [participantType, setParticipantType] = useState<"teams" | "players">(
+    "teams"
+  );
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -299,6 +303,7 @@ function CompetitionForm({
     setType("");
     setSeason("");
     setStatus("active");
+    setParticipantType("teams");
     setMessage("");
   }
 
@@ -308,6 +313,7 @@ function CompetitionForm({
     setType(competition.type);
     setSeason(competition.season ?? "");
     setStatus(competition.status);
+    setParticipantType(competition.participant_type ?? "teams");
     setMessage(`Modification de : ${competition.name}`);
   }
 
@@ -332,6 +338,7 @@ function CompetitionForm({
           type,
           season: season || null,
           status,
+          participant_type: participantType,
         })
         .eq("id", editingCompetitionId);
 
@@ -353,6 +360,7 @@ function CompetitionForm({
       type,
       season: season || null,
       status,
+      participant_type: participantType,
     });
 
     setLoading(false);
@@ -405,6 +413,11 @@ function CompetitionForm({
     return value;
   }
 
+  function getParticipantTypeLabel(value: string) {
+    if (value === "players") return "Joueurs EA FC";
+    return "Teams / clubs";
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
       <FormCard
@@ -452,6 +465,24 @@ function CompetitionForm({
               onChange={(event) => setSeason(event.target.value)}
               placeholder="Ex : Saison 1"
             />
+          </div>
+
+          <div>
+            <FieldLabel>Format de participation</FieldLabel>
+            <Select
+              value={participantType}
+              onChange={(event) =>
+                setParticipantType(event.target.value as "teams" | "players")
+              }
+            >
+              <option value="teams">Teams / clubs</option>
+              <option value="players">Joueurs avec équipes EA FC</option>
+            </Select>
+
+            <p className="mt-2 text-sm text-[#8F7B5C]">
+              Teams / clubs = compétition inter-team. Joueurs EA FC = chaque
+              joueur choisit une équipe du jeu.
+            </p>
           </div>
 
           <div>
@@ -525,9 +556,15 @@ function CompetitionForm({
                     {competition.season || "Saison non définie"}
                   </p>
 
-                  <p className="mt-1 text-xs text-[#F2D27A]">
-                    {getStatusLabel(competition.status)}
-                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-[#D9A441]/20 bg-[#160A12] px-3 py-1 text-xs text-[#F2D27A]">
+                      {getParticipantTypeLabel(competition.participant_type)}
+                    </span>
+
+                    <span className="rounded-full border border-[#D9A441]/20 bg-[#160A12] px-3 py-1 text-xs text-[#D8C7A0]">
+                      {getStatusLabel(competition.status)}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex shrink-0 gap-2">
@@ -977,6 +1014,7 @@ function MatchForm({
             {competitions.map((competition) => (
               <option key={competition.id} value={competition.id}>
                 {competition.name}
+                {competition.season ? ` · ${competition.season}` : ""}
               </option>
             ))}
           </Select>
