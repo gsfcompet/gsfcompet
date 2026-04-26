@@ -25,25 +25,27 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <header className="fixed left-0 top-0 z-50 w-full border-b border-[#D9A441]/20 bg-[#0B0610]/90 backdrop-blur">
+        <header className="fixed left-0 top-0 z-50 w-full border-b border-[#D9A441]/20 bg-[#0B0610]/95 backdrop-blur">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-3">
-              <Image
-                src="/logo-gf.png"
-                alt="Guardian's Family"
-                width={46}
-                height={46}
-                className="rounded-full border border-[#D9A441]/50 shadow-[0_0_20px_rgba(217,164,65,0.25)]"
-                priority
-              />
+              <div className="relative h-11 w-11 overflow-hidden rounded-full border border-[#D9A441]/45 bg-[#140A12] shadow-[0_0_18px_rgba(217,164,65,0.25)]">
+                <Image
+                  src="/logo-gf.png"
+                  alt="Guardian's Family"
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              </div>
 
-              <div>
-                <p className="text-lg font-black tracking-tight text-[#F7E9C5]">
-                  GSF Compet
-                </p>
-                <p className="text-xs text-[#D8C7A0]">
+              <div className="flex flex-col leading-tight">
+                <span className="text-[16px] font-black tracking-tight text-[#F7E9C5] md:text-[18px]">
                   Guardian&apos;s Family
-                </p>
+                </span>
+
+                <span className="text-[12px] text-[#E8D7AA] md:text-[13px]">
+                  GSF Compet
+                </span>
               </div>
             </Link>
 
