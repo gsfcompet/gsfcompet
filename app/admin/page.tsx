@@ -155,7 +155,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === "team" && (
-          <TeamForm competitions={competitions} onTeamCreated={refreshData} />
+          <TeamForm competitions={competitions} onTeamChanged={refreshData} />
         )}
 
         {activeTab === "match" && (
@@ -275,6 +275,8 @@ function MessageBox({ message }: { message: string }) {
     </div>
   );
 }
+
+/* ----------------------------- COMPÉTITIONS ----------------------------- */
 
 function CompetitionForm({
   competitions,
@@ -554,20 +556,71 @@ function CompetitionForm({
   );
 }
 
+/* -------------------------------- ÉQUIPES -------------------------------- */
+
 function TeamForm({
   competitions,
-  onTeamCreated,
+  onTeamChanged,
 }: {
   competitions: Competition[];
-  onTeamCreated: () => Promise<void>;
+  onTeamChanged: () => Promise<void>;
 }) {
+  const [teamsList, setTeamsList] = useState<Team[]>([]);
+  const [editingTeamId, setEditingTeamId] = useState("");
   const [name, setName] = useState("");
   const [manager, setManager] = useState("");
   const [competitionId, setCompetitionId] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleCreateTeam(event: React.FormEvent<HTMLFormElement>) {
+  async function loadTeamsForEdit() {
+    const { data, error } = await supabase
+      .from("teams")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setMessage(`Erreur chargement équipes : ${error.message}`);
+      return;
+    }
+
+    setTeamsList(data ?? []);
+  }
+
+  useEffect(() => {
+    loadTeamsForEdit();
+  }, []);
+
+  function resetForm() {
+    setEditingTeamId("");
+    setName("");
+    setManager("");
+    setCompetitionId("");
+    setMessage("");
+  }
+
+  async function selectTeam(team: Team) {
+    setEditingTeamId(team.id);
+    setName(team.name);
+    setManager(team.manager ?? "");
+    setMessage(`Modification de : ${team.name}`);
+
+    const { data, error } = await supabase
+      .from("competition_teams")
+      .select("competition_id")
+      .eq("team_id", team.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      setCompetitionId("");
+      return;
+    }
+
+    setCompetitionId(data?.competition_id ?? "");
+  }
+
+  async function handleSaveTeam(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!name) {
@@ -578,18 +631,72 @@ function TeamForm({
     setLoading(true);
     setMessage("");
 
+    if (editingTeamId) {
+      const { error: updateError } = await supabase
+        .from("teams")
+        .update({
+          name,
+          manager: manager || null,
+        })
+        .eq("id", editingTeamId);
+
+      if (updateError) {
+        setLoading(false);
+        setMessage(`Erreur modification : ${updateError.message}`);
+        return;
+      }
+
+      const { error: deleteLinksError } = await supabase
+        .from("competition_teams")
+        .delete()
+        .eq("team_id", editingTeamId);
+
+      if (deleteLinksError) {
+        setLoading(false);
+        setMessage(
+          `Équipe modifiée, mais erreur compétition : ${deleteLinksError.message}`
+        );
+        return;
+      }
+
+      if (competitionId) {
+        const { error: linkError } = await supabase
+          .from("competition_teams")
+          .insert({
+            competition_id: competitionId,
+            team_id: editingTeamId,
+          });
+
+        if (linkError) {
+          setLoading(false);
+          setMessage(
+            `Équipe modifiée, mais erreur inscription : ${linkError.message}`
+          );
+          return;
+        }
+      }
+
+      setLoading(false);
+      resetForm();
+      setMessage("Équipe modifiée avec succès ✅");
+
+      await loadTeamsForEdit();
+      await onTeamChanged();
+      return;
+    }
+
     const { data: createdTeam, error: teamError } = await supabase
       .from("teams")
       .insert({
         name,
-        manager,
+        manager: manager || null,
       })
       .select()
       .single();
 
     if (teamError) {
       setLoading(false);
-      setMessage(`Erreur : ${teamError.message}`);
+      setMessage(`Erreur création : ${teamError.message}`);
       return;
     }
 
@@ -611,63 +718,189 @@ function TeamForm({
     }
 
     setLoading(false);
-    setName("");
-    setManager("");
-    setCompetitionId("");
+    resetForm();
     setMessage("Équipe ajoutée avec succès ✅");
 
-    await onTeamCreated();
+    await loadTeamsForEdit();
+    await onTeamChanged();
+  }
+
+  async function handleDeleteTeam(team: Team) {
+    const confirmDelete = window.confirm(
+      `Supprimer l’équipe "${team.name}" ? Si elle a déjà des matchs, la suppression peut être refusée.`
+    );
+
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    setMessage("");
+
+    const { error: deleteLinksError } = await supabase
+      .from("competition_teams")
+      .delete()
+      .eq("team_id", team.id);
+
+    if (deleteLinksError) {
+      setLoading(false);
+      setMessage(`Erreur suppression inscriptions : ${deleteLinksError.message}`);
+      return;
+    }
+
+    const { error: deleteTeamError } = await supabase
+      .from("teams")
+      .delete()
+      .eq("id", team.id);
+
+    setLoading(false);
+
+    if (deleteTeamError) {
+      setMessage(
+        `Erreur suppression : ${deleteTeamError.message}. Si cette équipe a des matchs, supprime ou modifie d’abord les matchs liés.`
+      );
+      return;
+    }
+
+    if (editingTeamId === team.id) {
+      resetForm();
+    }
+
+    setMessage("Équipe supprimée avec succès ✅");
+
+    await loadTeamsForEdit();
+    await onTeamChanged();
   }
 
   return (
-    <FormCard
-      title="Ajouter une équipe"
-      description="Inscris une équipe ou un membre dans la compétition."
-    >
-      <form onSubmit={handleCreateTeam} className="grid gap-5">
-        <MessageBox message={message} />
+    <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <FormCard
+        title={editingTeamId ? "Modifier une équipe" : "Ajouter une équipe"}
+        description={
+          editingTeamId
+            ? "Modifie le nom, le manager ou la compétition liée."
+            : "Inscris une équipe ou un membre dans la compétition."
+        }
+      >
+        <form onSubmit={handleSaveTeam} className="grid gap-5">
+          <MessageBox message={message} />
 
-        <div>
-          <FieldLabel>Nom de l’équipe</FieldLabel>
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Ex : Guardian's Family"
-          />
+          <div>
+            <FieldLabel>Nom de l’équipe</FieldLabel>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Ex : Guardian's Family"
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Manager</FieldLabel>
+            <Input
+              value={manager}
+              onChange={(event) => setManager(event.target.value)}
+              placeholder="Ex : Mika, Yanis, Rayan..."
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Compétition</FieldLabel>
+            <Select
+              value={competitionId}
+              onChange={(event) => setCompetitionId(event.target.value)}
+            >
+              <option value="">Aucune compétition</option>
+
+              {competitions.map((competition) => (
+                <option key={competition.id} value={competition.id}>
+                  {competition.name}
+                  {competition.season ? ` · ${competition.season}` : ""}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <SubmitButton disabled={loading}>
+              {loading
+                ? "Enregistrement..."
+                : editingTeamId
+                  ? "Modifier l’équipe"
+                  : "Ajouter l’équipe"}
+            </SubmitButton>
+
+            {editingTeamId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+              >
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
+      </FormCard>
+
+      <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <h2 className="text-2xl font-black text-[#F7E9C5]">
+          Équipes existantes
+        </h2>
+
+        <p className="mt-2 text-[#D8C7A0]">
+          Sélectionne une équipe pour la modifier ou la supprimer.
+        </p>
+
+        <div className="mt-6 space-y-3">
+          {teamsList.length === 0 && (
+            <p className="rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+              Aucune équipe créée pour le moment.
+            </p>
+          )}
+
+          {teamsList.map((team) => (
+            <div
+              key={team.id}
+              className={`rounded-xl border p-4 transition ${
+                editingTeamId === team.id
+                  ? "border-[#D9A441]/60 bg-[#A61E22]/20"
+                  : "border-[#D9A441]/15 bg-[#0B0610]/70"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-black text-[#F7E9C5]">{team.name}</h3>
+
+                  <p className="mt-1 text-sm text-[#D8C7A0]">
+                    Manager : {team.manager || "À définir"}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => selectTeam(team)}
+                    className="rounded-lg border border-[#D9A441]/30 bg-[#160A12] px-3 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+                  >
+                    Modifier
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTeam(team)}
+                    className="rounded-lg bg-[#A61E22]/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#8E171C]"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-
-        <div>
-          <FieldLabel>Manager</FieldLabel>
-          <Input
-            value={manager}
-            onChange={(event) => setManager(event.target.value)}
-            placeholder="Ex : Mika, Yanis, Rayan..."
-          />
-        </div>
-
-        <div>
-          <FieldLabel>Compétition</FieldLabel>
-          <Select
-            value={competitionId}
-            onChange={(event) => setCompetitionId(event.target.value)}
-          >
-            <option value="">Aucune compétition</option>
-
-            {competitions.map((competition) => (
-              <option key={competition.id} value={competition.id}>
-                {competition.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <SubmitButton disabled={loading}>
-          {loading ? "Ajout en cours..." : "Ajouter l’équipe"}
-        </SubmitButton>
-      </form>
-    </FormCard>
+      </div>
+    </div>
   );
 }
+
+/* -------------------------------- MATCHS -------------------------------- */
 
 function MatchForm({
   competitions,
@@ -799,6 +1032,8 @@ function MatchForm({
     </FormCard>
   );
 }
+
+/* -------------------------------- SCORES -------------------------------- */
 
 function ScoreForm({
   matches,
