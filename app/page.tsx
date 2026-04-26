@@ -40,52 +40,55 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#0B0610] text-[#F7E9C5]">
-      <section className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-6 py-16 text-center">
-        <div className="absolute left-1/2 top-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#A61E22]/20 blur-3xl" />
-        <div className="absolute right-10 top-28 -z-10 h-64 w-64 rounded-full bg-[#D9A441]/10 blur-3xl" />
-        <div className="absolute bottom-20 left-10 -z-10 h-72 w-72 rounded-full bg-[#6E1015]/30 blur-3xl" />
-
-        <div className="mb-8">
+      <section className="mx-auto max-w-7xl px-6 py-8">
+        <div className="relative overflow-hidden rounded-[2rem] border border-[#D9A441]/25 bg-black shadow-2xl shadow-black/40">
           <Image
-            src="/logo-gf.png"
+            src="/banniere-gsf-v2.png"
             alt="Guardian's Family"
-            width={180}
-            height={180}
-            className="mx-auto rounded-full border border-[#D9A441]/40 shadow-[0_0_45px_rgba(217,164,65,0.35)]"
+            width={2048}
+            height={768}
+            className="h-[320px] w-full object-cover object-center md:h-[460px]"
             priority
           />
+
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0B0610]/60 via-transparent to-transparent" />
+
+          <div className="absolute bottom-5 left-[13%] hidden md:block">
+            <Link
+              href="/competitions"
+              className="rounded-lg bg-[#A61E22]/85 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+            >
+              Voir les compétitions
+            </Link>
+          </div>
+
+          <div className="absolute bottom-5 right-[13%] hidden md:block">
+            <Link
+              href="/classement"
+              className="rounded-lg border border-[#D9A441]/30 bg-[#160A12]/75 px-4 py-2 text-sm font-semibold text-[#F2D27A] shadow-lg shadow-black/20 backdrop-blur transition hover:bg-[#1E1016]"
+            >
+              Voir le classement
+            </Link>
+          </div>
+
+          <div className="absolute inset-x-0 bottom-4 flex justify-center gap-3 px-4 md:hidden">
+            <Link
+              href="/competitions"
+              className="rounded-md bg-[#A61E22]/85 px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-[#A61E22]/15"
+            >
+              Compétitions
+            </Link>
+
+            <Link
+              href="/classement"
+              className="rounded-md border border-[#D9A441]/30 bg-[#160A12]/75 px-3 py-1.5 text-xs font-semibold text-[#F2D27A] backdrop-blur"
+            >
+              Classement
+            </Link>
+          </div>
         </div>
 
-        <div className="mb-6 rounded-full border border-[#D9A441]/30 bg-[#160A12] px-5 py-2 text-sm font-semibold text-[#F2D27A]">
-          EA FC 26 · Guardian&apos;s Family
-        </div>
-
-        <h1 className="mb-6 text-5xl font-black tracking-tight text-[#F7E9C5] md:text-7xl">
-          GSF Compet
-        </h1>
-
-        <p className="mb-8 max-w-2xl text-lg leading-relaxed text-[#D8C7A0] md:text-xl">
-          Le hub officiel pour organiser les championnats, coupes, matchs,
-          résultats et classements de la Guardian&apos;s Family.
-        </p>
-
-        <div className="mb-10 flex flex-wrap justify-center gap-4">
-          <Link
-            href="/competitions"
-            className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/25 transition hover:bg-[#8E171C]"
-          >
-            Voir les compétitions
-          </Link>
-
-          <Link
-            href="/classement"
-            className="rounded-xl border border-[#D9A441]/30 bg-[#160A12] px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
-          >
-            Voir le classement
-          </Link>
-        </div>
-
-        <div className="grid w-full max-w-4xl gap-4 md:grid-cols-3">
+        <div className="mx-auto mt-8 grid max-w-4xl gap-4 md:grid-cols-3">
           <StatCard
             value={loading ? "..." : competitionsCount}
             label="Compétitions"
@@ -99,7 +102,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="mt-10 rounded-2xl border border-[#D9A441]/15 bg-[#160A12]/70 px-6 py-4">
+        <div className="mx-auto mt-8 max-w-4xl rounded-2xl border border-[#D9A441]/15 bg-[#160A12]/70 px-6 py-4 text-center">
           <p className="text-sm text-[#D8C7A0]">
             Site officiel Guardian&apos;s Family · Saison 1 en cours
           </p>
@@ -117,7 +120,7 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg">
+    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
       <p className="text-3xl font-black text-[#F2D27A]">{value}</p>
       <p className="mt-2 text-sm text-[#D8C7A0]">{label}</p>
     </div>
