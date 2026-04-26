@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+
+type Competition = {
+  id: string;
+  name: string;
+  type: string;
+  season: string | null;
+  status: string;
+};
 
 type Team = {
   id: string;
@@ -22,14 +30,21 @@ type Match = {
 };
 
 export default function MatchsPage() {
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   async function loadData() {
     setLoading(true);
     setErrorMessage("");
+
+    const competitionsResult = await supabase
+      .from("competitions")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     const teamsResult = await supabase
       .from("teams")
@@ -40,6 +55,14 @@ export default function MatchsPage() {
       .from("matches")
       .select("*")
       .order("match_date", { ascending: true, nullsFirst: false });
+
+    if (competitionsResult.error) {
+      setErrorMessage(
+        `Erreur compétitions : ${competitionsResult.error.message}`
+      );
+      setLoading(false);
+      return;
+    }
 
     if (teamsResult.error) {
       setErrorMessage(`Erreur équipes : ${teamsResult.error.message}`);
@@ -53,14 +76,40 @@ export default function MatchsPage() {
       return;
     }
 
+    const competitionsData = competitionsResult.data ?? [];
+
+    setCompetitions(competitionsData);
     setTeams(teamsResult.data ?? []);
     setMatches(matchesResult.data ?? []);
+
+    if (!selectedCompetitionId && competitionsData.length > 0) {
+      setSelectedCompetitionId(competitionsData[0].id);
+    }
+
     setLoading(false);
   }
 
   useEffect(() => {
     loadData();
   }, []);
+
+  const selectedCompetition = competitions.find(
+    (competition) => competition.id === selectedCompetitionId
+  );
+
+  const filteredMatches = useMemo(() => {
+    return matches.filter(
+      (match) => match.competition_id === selectedCompetitionId
+    );
+  }, [matches, selectedCompetitionId]);
+
+  const scheduledMatches = filteredMatches.filter(
+    (match) => match.status !== "completed"
+  );
+
+  const completedMatches = filteredMatches.filter(
+    (match) => match.status === "completed"
+  );
 
   function getTeamName(teamId: string) {
     return teams.find((team) => team.id === teamId)?.name ?? "Équipe inconnue";
@@ -94,13 +143,14 @@ export default function MatchsPage() {
       <section className="mx-auto max-w-6xl px-6 py-12">
         <div className="mb-10">
           <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-            Calendrier
+            Calendrier officiel
           </p>
 
           <h1 className="text-4xl font-black md:text-5xl">Matchs</h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Calendrier des matchs et résultats officiels de la saison.
+            Choisis une compétition pour afficher son calendrier et ses
+            résultats.
           </p>
         </div>
 
@@ -116,56 +166,160 @@ export default function MatchsPage() {
           </div>
         )}
 
-        {!loading && !errorMessage && matches.length === 0 && (
+        {!loading && !errorMessage && competitions.length === 0 && (
           <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-[#D8C7A0]">
-            Aucun match créé pour le moment.
+            Aucune compétition disponible pour le moment.
           </div>
         )}
 
-        {!loading && !errorMessage && matches.length > 0 && (
-          <div className="space-y-4">
-            {matches.map((match) => (
-              <article
-                key={match.id}
-                className="grid gap-5 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 md:grid-cols-[1fr_auto_1fr_auto]"
+        {!loading && !errorMessage && competitions.length > 0 && (
+          <>
+            <div className="mb-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+              <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                Choisir une compétition
+              </label>
+
+              <select
+                value={selectedCompetitionId}
+                onChange={(event) =>
+                  setSelectedCompetitionId(event.target.value)
+                }
+                className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
               >
-                <div>
-                  <p className="text-sm text-[#8F7B5C]">Domicile</p>
-                  <p className="text-xl font-black text-[#F7E9C5]">
-                    {getTeamName(match.home_team_id)}
-                  </p>
-                </div>
+                {competitions.map((competition) => (
+                  <option key={competition.id} value={competition.id}>
+                    {competition.name}
+                    {competition.season ? ` · ${competition.season}` : ""}
+                  </option>
+                ))}
+              </select>
 
-                <div className="flex items-center justify-center rounded-xl border border-[#D9A441]/30 bg-[#A61E22]/30 px-8 py-3 text-xl font-black text-[#F2D27A]">
-                  {getScore(match)}
-                </div>
-
-                <div>
-                  <p className="text-sm text-[#8F7B5C]">Extérieur</p>
-                  <p className="text-xl font-black text-[#F7E9C5]">
-                    {getTeamName(match.away_team_id)}
-                  </p>
-                </div>
-
-                <div className="md:text-right">
-                  <p className="text-sm text-[#8F7B5C]">
-                    {getStatusLabel(match.status)}
-                  </p>
-                  <p className="font-semibold text-[#D8C7A0]">
-                    {formatDate(match.match_date)}
-                  </p>
-
-                  {match.mvp && (
-                    <p className="mt-2 text-sm text-[#F2D27A]">
-                      MVP : {match.mvp}
+              {selectedCompetition && (
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
+                    <p className="text-sm text-[#8F7B5C]">Compétition</p>
+                    <p className="font-black text-[#F7E9C5]">
+                      {selectedCompetition.name}
                     </p>
-                  )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
+                    <p className="text-sm text-[#8F7B5C]">Matchs à venir</p>
+                    <p className="font-black text-[#F2D27A]">
+                      {scheduledMatches.length}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
+                    <p className="text-sm text-[#8F7B5C]">Matchs terminés</p>
+                    <p className="font-black text-[#F2D27A]">
+                      {completedMatches.length}
+                    </p>
+                  </div>
                 </div>
-              </article>
-            ))}
-          </div>
+              )}
+            </div>
+
+            {filteredMatches.length === 0 && (
+              <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-[#D8C7A0]">
+                Aucun match créé pour cette compétition.
+              </div>
+            )}
+
+            {scheduledMatches.length > 0 && (
+              <div className="mb-10">
+                <h2 className="mb-4 text-2xl font-black text-[#F7E9C5]">
+                  Matchs à venir
+                </h2>
+
+                <div className="space-y-4">
+                  {scheduledMatches.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      getTeamName={getTeamName}
+                      getScore={getScore}
+                      getStatusLabel={getStatusLabel}
+                      formatDate={formatDate}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {completedMatches.length > 0 && (
+              <div>
+                <h2 className="mb-4 text-2xl font-black text-[#F7E9C5]">
+                  Résultats
+                </h2>
+
+                <div className="space-y-4">
+                  {completedMatches.map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      getTeamName={getTeamName}
+                      getScore={getScore}
+                      getStatusLabel={getStatusLabel}
+                      formatDate={formatDate}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
     </main>
+  );
+}
+
+function MatchCard({
+  match,
+  getTeamName,
+  getScore,
+  getStatusLabel,
+  formatDate,
+}: {
+  match: Match;
+  getTeamName: (teamId: string) => string;
+  getScore: (match: Match) => string;
+  getStatusLabel: (status: string) => string;
+  formatDate: (date: string | null) => string;
+}) {
+  return (
+    <article className="grid gap-5 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 md:grid-cols-[1fr_auto_1fr_auto]">
+      <div>
+        <p className="text-sm text-[#8F7B5C]">Domicile</p>
+        <p className="text-xl font-black text-[#F7E9C5]">
+          {getTeamName(match.home_team_id)}
+        </p>
+      </div>
+
+      <div className="flex items-center justify-center rounded-xl border border-[#D9A441]/30 bg-[#A61E22]/30 px-8 py-3 text-xl font-black text-[#F2D27A]">
+        {getScore(match)}
+      </div>
+
+      <div>
+        <p className="text-sm text-[#8F7B5C]">Extérieur</p>
+        <p className="text-xl font-black text-[#F7E9C5]">
+          {getTeamName(match.away_team_id)}
+        </p>
+      </div>
+
+      <div className="md:text-right">
+        <p className="text-sm text-[#8F7B5C]">
+          {getStatusLabel(match.status)}
+        </p>
+
+        <p className="font-semibold text-[#D8C7A0]">
+          {formatDate(match.match_date)}
+        </p>
+
+        {match.mvp && (
+          <p className="mt-2 text-sm text-[#F2D27A]">MVP : {match.mvp}</p>
+        )}
+      </div>
+    </article>
   );
 }
