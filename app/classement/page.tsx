@@ -9,6 +9,7 @@ type Competition = {
   type: string;
   season: string | null;
   status: string;
+  participant_type: "teams" | "players";
 };
 
 type Team = {
@@ -17,25 +18,39 @@ type Team = {
   manager: string | null;
 };
 
-type CompetitionTeam = {
+type Player = {
+  id: string;
+  name: string;
+  ea_name: string | null;
+  platform: string | null;
+};
+
+type CompetitionPlayer = {
   id: string;
   competition_id: string;
-  team_id: string;
+  player_id: string;
+  ea_team_id: string | null;
+  ea_team_name: string;
 };
 
 type Match = {
   id: string;
   competition_id: string;
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_competition_player_id: string | null;
+  away_competition_player_id: string | null;
+  match_date: string | null;
   status: string;
   home_score: number | null;
   away_score: number | null;
+  mvp: string | null;
 };
 
-type Standing = {
-  teamId: string;
-  teamName: string;
+type RankingRow = {
+  id: string;
+  name: string;
+  subtitle: string;
   played: number;
   wins: number;
   draws: number;
@@ -49,9 +64,10 @@ type Standing = {
 export default function ClassementPage() {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [competitionTeams, setCompetitionTeams] = useState<CompetitionTeam[]>(
-    []
-  );
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [competitionPlayers, setCompetitionPlayers] = useState<
+    CompetitionPlayer[]
+  >([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -69,13 +85,21 @@ export default function ClassementPage() {
     const teamsResult = await supabase
       .from("teams")
       .select("*")
-      .order("created_at", { ascending: true });
+      .order("name", { ascending: true });
 
-    const competitionTeamsResult = await supabase
-      .from("competition_teams")
+    const playersResult = await supabase
+      .from("players")
+      .select("*")
+      .order("name", { ascending: true });
+
+    const competitionPlayersResult = await supabase
+      .from("competition_players")
       .select("*");
 
-    const matchesResult = await supabase.from("matches").select("*");
+    const matchesResult = await supabase
+      .from("matches")
+      .select("*")
+      .order("match_date", { ascending: true, nullsFirst: false });
 
     if (competitionsResult.error) {
       setErrorMessage(
@@ -91,9 +115,15 @@ export default function ClassementPage() {
       return;
     }
 
-    if (competitionTeamsResult.error) {
+    if (playersResult.error) {
+      setErrorMessage(`Erreur joueurs : ${playersResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    if (competitionPlayersResult.error) {
       setErrorMessage(
-        `Erreur inscriptions : ${competitionTeamsResult.error.message}`
+        `Erreur inscriptions joueurs : ${competitionPlayersResult.error.message}`
       );
       setLoading(false);
       return;
@@ -109,10 +139,11 @@ export default function ClassementPage() {
 
     setCompetitions(competitionsData);
     setTeams(teamsResult.data ?? []);
-    setCompetitionTeams(competitionTeamsResult.data ?? []);
+    setPlayers(playersResult.data ?? []);
+    setCompetitionPlayers(competitionPlayersResult.data ?? []);
     setMatches(matchesResult.data ?? []);
 
-    if (!selectedCompetitionId && competitionsData.length > 0) {
+    if (competitionsData.length > 0) {
       setSelectedCompetitionId(competitionsData[0].id);
     }
 
@@ -123,40 +154,46 @@ export default function ClassementPage() {
     loadData();
   }, []);
 
-  const selectedCompetition = competitions.find(
-    (competition) => competition.id === selectedCompetitionId
-  );
-
-  const filteredMatches = useMemo(() => {
-    return matches.filter(
-      (match) =>
-        match.competition_id === selectedCompetitionId &&
-        match.status === "completed"
+  const selectedCompetition = useMemo(() => {
+    return competitions.find(
+      (competition) => competition.id === selectedCompetitionId
     );
-  }, [matches, selectedCompetitionId]);
+  }, [competitions, selectedCompetitionId]);
 
-  const standings = useMemo(() => {
-    if (!selectedCompetitionId) return [];
+  const ranking = useMemo(() => {
+    if (!selectedCompetition) return [];
 
-    const linkedTeamIds = competitionTeams
-      .filter((item) => item.competition_id === selectedCompetitionId)
-      .map((item) => item.team_id);
+    if (selectedCompetition.participant_type === "players") {
+      return buildPlayersRanking(selectedCompetition.id);
+    }
 
-    const matchTeamIds = filteredMatches.flatMap((match) => [
-      match.home_team_id,
-      match.away_team_id,
-    ]);
+    return buildTeamsRanking(selectedCompetition.id);
+  }, [selectedCompetition, teams, players, competitionPlayers, matches]);
 
-    const teamIds = Array.from(new Set([...linkedTeamIds, ...matchTeamIds]));
+  function getPlayerName(playerId: string) {
+    return (
+      players.find((player) => player.id === playerId)?.name ?? "Joueur inconnu"
+    );
+  }
 
-    const participatingTeams = teams.filter((team) => teamIds.includes(team.id));
+  function getPlayerEaName(playerId: string) {
+    return players.find((player) => player.id === playerId)?.ea_name;
+  }
 
-    const table: Record<string, Standing> = {};
+  function buildPlayersRanking(competitionId: string): RankingRow[] {
+    const registrations = competitionPlayers.filter(
+      (registration) => registration.competition_id === competitionId
+    );
 
-    participatingTeams.forEach((team) => {
-      table[team.id] = {
-        teamId: team.id,
-        teamName: team.name,
+    const rows: RankingRow[] = registrations.map((registration) => {
+      const eaName = getPlayerEaName(registration.player_id);
+
+      return {
+        id: registration.id,
+        name: getPlayerName(registration.player_id),
+        subtitle: eaName
+          ? `${registration.ea_team_name} · ${eaName}`
+          : registration.ea_team_name,
         played: 0,
         wins: 0,
         draws: 0,
@@ -168,72 +205,154 @@ export default function ClassementPage() {
       };
     });
 
-    filteredMatches.forEach((match) => {
-      if (
-        match.home_score === null ||
-        match.away_score === null ||
-        !table[match.home_team_id] ||
-        !table[match.away_team_id]
-      ) {
-        return;
-      }
+    const completedMatches = matches.filter(
+      (match) =>
+        match.competition_id === competitionId &&
+        match.status === "completed" &&
+        match.home_score !== null &&
+        match.away_score !== null &&
+        match.home_competition_player_id !== null &&
+        match.away_competition_player_id !== null
+    );
 
-      const home = table[match.home_team_id];
-      const away = table[match.away_team_id];
+    completedMatches.forEach((match) => {
+      const homeRow = rows.find(
+        (row) => row.id === match.home_competition_player_id
+      );
 
-      home.played += 1;
-      away.played += 1;
+      const awayRow = rows.find(
+        (row) => row.id === match.away_competition_player_id
+      );
 
-      home.goalsFor += match.home_score;
-      home.goalsAgainst += match.away_score;
+      if (!homeRow || !awayRow) return;
+      if (match.home_score === null || match.away_score === null) return;
 
-      away.goalsFor += match.away_score;
-      away.goalsAgainst += match.home_score;
-
-      if (match.home_score > match.away_score) {
-        home.wins += 1;
-        home.points += 3;
-        away.losses += 1;
-      } else if (match.home_score < match.away_score) {
-        away.wins += 1;
-        away.points += 3;
-        home.losses += 1;
-      } else {
-        home.draws += 1;
-        away.draws += 1;
-        home.points += 1;
-        away.points += 1;
-      }
+      applyMatchResult(homeRow, awayRow, match.home_score, match.away_score);
     });
 
-    return Object.values(table)
-      .map((team) => ({
-        ...team,
-        goalDifference: team.goalsFor - team.goalsAgainst,
-      }))
-      .sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
-        if (b.goalDifference !== a.goalDifference) {
-          return b.goalDifference - a.goalDifference;
-        }
-        if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-        return a.teamName.localeCompare(b.teamName);
-      });
-  }, [teams, competitionTeams, filteredMatches, selectedCompetitionId]);
+    return sortRanking(rows);
+  }
+
+  function buildTeamsRanking(competitionId: string): RankingRow[] {
+    const competitionMatches = matches.filter(
+      (match) => match.competition_id === competitionId
+    );
+
+    const teamIds = Array.from(
+      new Set(
+        competitionMatches.flatMap((match) =>
+          [match.home_team_id, match.away_team_id].filter(Boolean)
+        )
+      )
+    ) as string[];
+
+    const rows: RankingRow[] = teamIds.map((teamId) => {
+      const team = teams.find((item) => item.id === teamId);
+
+      return {
+        id: teamId,
+        name: team?.name ?? "Équipe inconnue",
+        subtitle: team?.manager ? `Manager : ${team.manager}` : "Team",
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        goalDifference: 0,
+        points: 0,
+      };
+    });
+
+    const completedMatches = competitionMatches.filter(
+      (match) =>
+        match.status === "completed" &&
+        match.home_score !== null &&
+        match.away_score !== null &&
+        match.home_team_id !== null &&
+        match.away_team_id !== null
+    );
+
+    completedMatches.forEach((match) => {
+      const homeRow = rows.find((row) => row.id === match.home_team_id);
+      const awayRow = rows.find((row) => row.id === match.away_team_id);
+
+      if (!homeRow || !awayRow) return;
+      if (match.home_score === null || match.away_score === null) return;
+
+      applyMatchResult(homeRow, awayRow, match.home_score, match.away_score);
+    });
+
+    return sortRanking(rows);
+  }
+
+  function applyMatchResult(
+    homeRow: RankingRow,
+    awayRow: RankingRow,
+    homeScore: number,
+    awayScore: number
+  ) {
+    homeRow.played += 1;
+    awayRow.played += 1;
+
+    homeRow.goalsFor += homeScore;
+    homeRow.goalsAgainst += awayScore;
+
+    awayRow.goalsFor += awayScore;
+    awayRow.goalsAgainst += homeScore;
+
+    if (homeScore > awayScore) {
+      homeRow.wins += 1;
+      homeRow.points += 3;
+
+      awayRow.losses += 1;
+    } else if (homeScore < awayScore) {
+      awayRow.wins += 1;
+      awayRow.points += 3;
+
+      homeRow.losses += 1;
+    } else {
+      homeRow.draws += 1;
+      awayRow.draws += 1;
+
+      homeRow.points += 1;
+      awayRow.points += 1;
+    }
+
+    homeRow.goalDifference = homeRow.goalsFor - homeRow.goalsAgainst;
+    awayRow.goalDifference = awayRow.goalsFor - awayRow.goalsAgainst;
+  }
+
+  function sortRanking(rows: RankingRow[]) {
+    return [...rows].sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.goalDifference !== a.goalDifference) {
+        return b.goalDifference - a.goalDifference;
+      }
+      if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  function getCompetitionLabel(competition: Competition) {
+    return competition.season
+      ? `${competition.name} · ${competition.season}`
+      : competition.name;
+  }
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
       <section className="mx-auto max-w-6xl px-6 py-12">
         <div className="mb-10">
           <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-            Classement officiel
+            Classement
           </p>
 
           <h1 className="text-4xl font-black md:text-5xl">Classement</h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Choisis une compétition pour afficher son classement automatiquement
-            calculé à partir des matchs terminés.
+            Classement dynamique selon la compétition sélectionnée : teams ou
+            joueurs EA FC.
           </p>
         </div>
 
@@ -249,13 +368,7 @@ export default function ClassementPage() {
           </div>
         )}
 
-        {!loading && !errorMessage && competitions.length === 0 && (
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-[#D8C7A0]">
-            Aucune compétition disponible pour le moment.
-          </div>
-        )}
-
-        {!loading && !errorMessage && competitions.length > 0 && (
+        {!loading && !errorMessage && (
           <>
             <div className="mb-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
               <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
@@ -271,8 +384,10 @@ export default function ClassementPage() {
               >
                 {competitions.map((competition) => (
                   <option key={competition.id} value={competition.id}>
-                    {competition.name}
-                    {competition.season ? ` · ${competition.season}` : ""}
+                    {getCompetitionLabel(competition)} ·{" "}
+                    {competition.participant_type === "players"
+                      ? "Joueurs EA FC"
+                      : "Teams"}
                   </option>
                 ))}
               </select>
@@ -280,109 +395,133 @@ export default function ClassementPage() {
               {selectedCompetition && (
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-                    <p className="text-sm text-[#8F7B5C]">Compétition</p>
-                    <p className="font-black text-[#F7E9C5]">
-                      {selectedCompetition.name}
+                    <p className="text-sm text-[#8F7B5C]">Format</p>
+                    <p className="text-xl font-black text-[#F2D27A]">
+                      {selectedCompetition.participant_type === "players"
+                        ? "Joueurs EA FC"
+                        : "Teams / clubs"}
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-                    <p className="text-sm text-[#8F7B5C]">Type</p>
-                    <p className="font-black text-[#F7E9C5]">
-                      {selectedCompetition.type}
+                    <p className="text-sm text-[#8F7B5C]">Participants</p>
+                    <p className="text-xl font-black text-[#F2D27A]">
+                      {ranking.length}
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-                    <p className="text-sm text-[#8F7B5C]">Matchs terminés</p>
-                    <p className="font-black text-[#F2D27A]">
-                      {filteredMatches.length}
+                    <p className="text-sm text-[#8F7B5C]">Matchs joués</p>
+                    <p className="text-xl font-black text-[#F2D27A]">
+                      {
+                        matches.filter(
+                          (match) =>
+                            match.competition_id === selectedCompetition.id &&
+                            match.status === "completed"
+                        ).length
+                      }
                     </p>
                   </div>
                 </div>
               )}
             </div>
 
-            {standings.length === 0 && (
+            {competitions.length === 0 && (
               <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-[#D8C7A0]">
-                Aucune équipe ou aucun match terminé pour cette compétition.
+                Aucune compétition créée pour le moment.
               </div>
             )}
 
-            {standings.length > 0 && (
-              <div className="overflow-x-auto rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 shadow-lg shadow-black/30">
-                <table className="w-full min-w-[820px] text-sm">
-                  <thead className="bg-[#A61E22]/25 text-[#F2D27A]">
-                    <tr>
-                      <th className="px-4 py-4 text-left">#</th>
-                      <th className="px-4 py-4 text-left">Équipe</th>
-                      <th className="px-4 py-4 text-center">J</th>
-                      <th className="px-4 py-4 text-center">G</th>
-                      <th className="px-4 py-4 text-center">N</th>
-                      <th className="px-4 py-4 text-center">P</th>
-                      <th className="px-4 py-4 text-center">BP</th>
-                      <th className="px-4 py-4 text-center">BC</th>
-                      <th className="px-4 py-4 text-center">Diff</th>
-                      <th className="px-4 py-4 text-center">Pts</th>
-                    </tr>
-                  </thead>
+            {competitions.length > 0 && ranking.length === 0 && (
+              <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-[#D8C7A0]">
+                Aucun participant trouvé pour cette compétition.
+              </div>
+            )}
 
-                  <tbody>
-                    {standings.map((team, index) => (
-                      <tr
-                        key={team.teamId}
-                        className="border-t border-[#D9A441]/10 transition hover:bg-[#A61E22]/10"
-                      >
-                        <td className="px-4 py-4 font-bold text-[#D8C7A0]">
+            {ranking.length > 0 && (
+              <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 shadow-lg shadow-black/30">
+                <div className="hidden grid-cols-[70px_1.5fr_repeat(8,80px)] border-b border-[#D9A441]/15 bg-[#0B0610]/70 px-5 py-4 text-xs font-semibold uppercase tracking-wide text-[#8F7B5C] lg:grid">
+                  <div>#</div>
+                  <div>Participant</div>
+                  <div className="text-center">MJ</div>
+                  <div className="text-center">G</div>
+                  <div className="text-center">N</div>
+                  <div className="text-center">P</div>
+                  <div className="text-center">BP</div>
+                  <div className="text-center">BC</div>
+                  <div className="text-center">Diff</div>
+                  <div className="text-center">Pts</div>
+                </div>
+
+                <div className="divide-y divide-[#D9A441]/10">
+                  {ranking.map((row, index) => (
+                    <div
+                      key={row.id}
+                      className="grid gap-4 px-5 py-5 lg:grid-cols-[70px_1.5fr_repeat(8,80px)] lg:items-center"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#D9A441]/25 bg-[#0B0610] text-lg font-black text-[#F2D27A]">
                           {index + 1}
-                        </td>
+                        </span>
+                      </div>
 
-                        <td className="px-4 py-4 font-bold text-[#F7E9C5]">
-                          {team.teamName}
-                        </td>
+                      <div>
+                        <h2 className="text-lg font-black text-[#F7E9C5]">
+                          {row.name}
+                        </h2>
+                        <p className="mt-1 text-sm text-[#D8C7A0]">
+                          {row.subtitle}
+                        </p>
+                      </div>
 
-                        <td className="px-4 py-4 text-center text-[#D8C7A0]">
-                          {team.played}
-                        </td>
-
-                        <td className="px-4 py-4 text-center text-[#D8C7A0]">
-                          {team.wins}
-                        </td>
-
-                        <td className="px-4 py-4 text-center text-[#D8C7A0]">
-                          {team.draws}
-                        </td>
-
-                        <td className="px-4 py-4 text-center text-[#D8C7A0]">
-                          {team.losses}
-                        </td>
-
-                        <td className="px-4 py-4 text-center text-[#D8C7A0]">
-                          {team.goalsFor}
-                        </td>
-
-                        <td className="px-4 py-4 text-center text-[#D8C7A0]">
-                          {team.goalsAgainst}
-                        </td>
-
-                        <td className="px-4 py-4 text-center text-[#D8C7A0]">
-                          {team.goalDifference > 0
-                            ? `+${team.goalDifference}`
-                            : team.goalDifference}
-                        </td>
-
-                        <td className="px-4 py-4 text-center font-black text-[#F2D27A]">
-                          {team.points}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                      <StatCell label="MJ" value={row.played} />
+                      <StatCell label="G" value={row.wins} />
+                      <StatCell label="N" value={row.draws} />
+                      <StatCell label="P" value={row.losses} />
+                      <StatCell label="BP" value={row.goalsFor} />
+                      <StatCell label="BC" value={row.goalsAgainst} />
+                      <StatCell
+                        label="Diff"
+                        value={
+                          row.goalDifference > 0
+                            ? `+${row.goalDifference}`
+                            : row.goalDifference
+                        }
+                      />
+                      <StatCell label="Pts" value={row.points} strong />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </>
         )}
       </section>
     </main>
+  );
+}
+
+function StatCell({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: number | string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-[#D9A441]/10 bg-[#0B0610]/50 px-3 py-2 lg:block lg:border-0 lg:bg-transparent lg:p-0 lg:text-center">
+      <span className="text-xs text-[#8F7B5C] lg:hidden">{label}</span>
+      <span
+        className={
+          strong
+            ? "text-lg font-black text-[#F2D27A]"
+            : "font-semibold text-[#F7E9C5]"
+        }
+      >
+        {value}
+      </span>
+    </div>
   );
 }
