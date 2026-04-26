@@ -21,8 +21,10 @@ type Team = {
 type Match = {
   id: string;
   competition_id: string;
-  home_team_id: string;
-  away_team_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_competition_player_id: string | null;
+  away_competition_player_id: string | null;
   match_date: string | null;
   status: string;
   home_score: number | null;
@@ -254,6 +256,8 @@ export default function AdminPage() {
           <MatchForm
             competitions={competitions}
             teams={teams}
+            players={players}
+            competitionPlayers={competitionPlayers}
             onMatchCreated={refreshData}
           />
         )}
@@ -1774,39 +1778,126 @@ function PlayersForm({
 function MatchForm({
   competitions,
   teams,
+  players,
+  competitionPlayers,
   onMatchCreated,
 }: {
   competitions: Competition[];
   teams: Team[];
+  players: Player[];
+  competitionPlayers: CompetitionPlayer[];
   onMatchCreated: () => Promise<void>;
 }) {
   const [competitionId, setCompetitionId] = useState("");
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
+  const [homeCompetitionPlayerId, setHomeCompetitionPlayerId] = useState("");
+  const [awayCompetitionPlayerId, setAwayCompetitionPlayerId] = useState("");
   const [matchDate, setMatchDate] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const selectedCompetition = competitions.find(
+    (competition) => competition.id === competitionId
+  );
+
+  const isPlayersCompetition =
+    selectedCompetition?.participant_type === "players";
+
+  const registeredPlayers = competitionPlayers.filter(
+    (item) => item.competition_id === competitionId
+  );
+
+  function resetParticipants() {
+    setHomeTeamId("");
+    setAwayTeamId("");
+    setHomeCompetitionPlayerId("");
+    setAwayCompetitionPlayerId("");
+  }
+
+  function getPlayerName(playerId: string) {
+    return players.find((player) => player.id === playerId)?.name ?? "Joueur inconnu";
+  }
+
+  function getRegisteredPlayerLabel(registration: CompetitionPlayer) {
+    return `${getPlayerName(registration.player_id)} · ${
+      registration.ea_team_name
+    }`;
+  }
+
   async function handleCreateMatch(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!competitionId || !homeTeamId || !awayTeamId) {
-      setMessage("Merci de choisir une compétition et deux équipes.");
+    if (!competitionId) {
+      setMessage("Merci de choisir une compétition.");
       return;
     }
 
-    if (homeTeamId === awayTeamId) {
-      setMessage("Une équipe ne peut pas jouer contre elle-même.");
+    if (!selectedCompetition) {
+      setMessage("Compétition introuvable.");
       return;
     }
 
     setLoading(true);
     setMessage("");
 
+    if (isPlayersCompetition) {
+      if (!homeCompetitionPlayerId || !awayCompetitionPlayerId) {
+        setLoading(false);
+        setMessage("Merci de choisir deux joueurs.");
+        return;
+      }
+
+      if (homeCompetitionPlayerId === awayCompetitionPlayerId) {
+        setLoading(false);
+        setMessage("Un joueur ne peut pas jouer contre lui-même.");
+        return;
+      }
+
+      const { error } = await supabase.from("matches").insert({
+        competition_id: competitionId,
+        home_team_id: null,
+        away_team_id: null,
+        home_competition_player_id: homeCompetitionPlayerId,
+        away_competition_player_id: awayCompetitionPlayerId,
+        match_date: matchDate || null,
+        status: "scheduled",
+      });
+
+      setLoading(false);
+
+      if (error) {
+        setMessage(`Erreur : ${error.message}`);
+        return;
+      }
+
+      setCompetitionId("");
+      resetParticipants();
+      setMatchDate("");
+      setMessage("Match joueur créé avec succès ✅");
+
+      await onMatchCreated();
+      return;
+    }
+
+    if (!homeTeamId || !awayTeamId) {
+      setLoading(false);
+      setMessage("Merci de choisir deux équipes.");
+      return;
+    }
+
+    if (homeTeamId === awayTeamId) {
+      setLoading(false);
+      setMessage("Une équipe ne peut pas jouer contre elle-même.");
+      return;
+    }
+
     const { error } = await supabase.from("matches").insert({
       competition_id: competitionId,
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
+      home_competition_player_id: null,
+      away_competition_player_id: null,
       match_date: matchDate || null,
       status: "scheduled",
     });
@@ -1819,10 +1910,9 @@ function MatchForm({
     }
 
     setCompetitionId("");
-    setHomeTeamId("");
-    setAwayTeamId("");
+    resetParticipants();
     setMatchDate("");
-    setMessage("Match créé avec succès ✅");
+    setMessage("Match équipe créé avec succès ✅");
 
     await onMatchCreated();
   }
@@ -1830,7 +1920,7 @@ function MatchForm({
   return (
     <FormCard
       title="Créer un match"
-      description="Programme une rencontre entre deux équipes."
+      description="Programme une rencontre selon le format de la compétition."
     >
       <form onSubmit={handleCreateMatch} className="grid gap-5">
         <MessageBox message={message} />
@@ -1839,52 +1929,120 @@ function MatchForm({
           <FieldLabel>Compétition</FieldLabel>
           <Select
             value={competitionId}
-            onChange={(event) => setCompetitionId(event.target.value)}
+            onChange={(event) => {
+              setCompetitionId(event.target.value);
+              resetParticipants();
+            }}
           >
             <option value="">Choisir une compétition</option>
 
             {competitions.map((competition) => (
               <option key={competition.id} value={competition.id}>
                 {competition.name}
-                {competition.season ? ` · ${competition.season}` : ""}
+                {competition.season ? ` · ${competition.season}` : ""} ·{" "}
+                {competition.participant_type === "players"
+                  ? "Joueurs EA FC"
+                  : "Teams"}
               </option>
             ))}
           </Select>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <div>
-            <FieldLabel>Équipe domicile</FieldLabel>
-            <Select
-              value={homeTeamId}
-              onChange={(event) => setHomeTeamId(event.target.value)}
-            >
-              <option value="">Choisir une équipe</option>
-
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </Select>
+        {selectedCompetition && (
+          <div className="rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+            Format sélectionné :{" "}
+            <span className="font-semibold text-[#F2D27A]">
+              {isPlayersCompetition
+                ? "Joueurs avec équipes EA FC"
+                : "Teams / clubs"}
+            </span>
           </div>
+        )}
 
-          <div>
-            <FieldLabel>Équipe extérieur</FieldLabel>
-            <Select
-              value={awayTeamId}
-              onChange={(event) => setAwayTeamId(event.target.value)}
-            >
-              <option value="">Choisir une équipe</option>
+        {selectedCompetition && !isPlayersCompetition && (
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <FieldLabel>Équipe domicile</FieldLabel>
+              <Select
+                value={homeTeamId}
+                onChange={(event) => setHomeTeamId(event.target.value)}
+              >
+                <option value="">Choisir une équipe</option>
 
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </Select>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <FieldLabel>Équipe extérieur</FieldLabel>
+              <Select
+                value={awayTeamId}
+                onChange={(event) => setAwayTeamId(event.target.value)}
+              >
+                <option value="">Choisir une équipe</option>
+
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
-        </div>
+        )}
+
+        {selectedCompetition && isPlayersCompetition && (
+          <>
+            {registeredPlayers.length < 2 && (
+              <div className="rounded-xl border border-red-400/30 bg-[#0B0610]/70 p-4 text-sm text-red-300">
+                Il faut au moins 2 joueurs inscrits à cette compétition pour
+                créer un match.
+              </div>
+            )}
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <FieldLabel>Joueur domicile</FieldLabel>
+                <Select
+                  value={homeCompetitionPlayerId}
+                  onChange={(event) =>
+                    setHomeCompetitionPlayerId(event.target.value)
+                  }
+                >
+                  <option value="">Choisir un joueur</option>
+
+                  {registeredPlayers.map((registration) => (
+                    <option key={registration.id} value={registration.id}>
+                      {getRegisteredPlayerLabel(registration)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              <div>
+                <FieldLabel>Joueur extérieur</FieldLabel>
+                <Select
+                  value={awayCompetitionPlayerId}
+                  onChange={(event) =>
+                    setAwayCompetitionPlayerId(event.target.value)
+                  }
+                >
+                  <option value="">Choisir un joueur</option>
+
+                  {registeredPlayers.map((registration) => (
+                    <option key={registration.id} value={registration.id}>
+                      {getRegisteredPlayerLabel(registration)}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </>
+        )}
 
         <div>
           <FieldLabel>Date du match</FieldLabel>
