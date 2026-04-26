@@ -37,12 +37,31 @@ type EaTeam = {
   name: string;
 };
 
+type Player = {
+  id: string;
+  name: string;
+  ea_name: string | null;
+  platform: string | null;
+};
+
+type CompetitionPlayer = {
+  id: string;
+  competition_id: string;
+  player_id: string;
+  ea_team_id: string | null;
+  ea_team_name: string;
+};
+
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("competition");
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [eaTeams, setEaTeams] = useState<EaTeam[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [competitionPlayers, setCompetitionPlayers] = useState<
+    CompetitionPlayer[]
+  >([]);
   const [debugMessage, setDebugMessage] = useState("");
 
   async function loadCompetitions() {
@@ -103,12 +122,42 @@ export default function AdminPage() {
     setEaTeams(data ?? []);
   }
 
+  async function loadPlayers() {
+    const { data, error } = await supabase
+      .from("players")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setDebugMessage(`Erreur joueurs : ${error.message}`);
+      return;
+    }
+
+    setPlayers(data ?? []);
+  }
+
+  async function loadCompetitionPlayers() {
+    const { data, error } = await supabase
+      .from("competition_players")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setDebugMessage(`Erreur inscriptions joueurs : ${error.message}`);
+      return;
+    }
+
+    setCompetitionPlayers(data ?? []);
+  }
+
   async function refreshData() {
     setDebugMessage("");
     await loadCompetitions();
     await loadTeams();
     await loadMatches();
     await loadEaTeams();
+    await loadPlayers();
+    await loadCompetitionPlayers();
   }
 
   useEffect(() => {
@@ -130,7 +179,8 @@ export default function AdminPage() {
           <h1 className="text-4xl font-black md:text-5xl">Admin</h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Gérez les compétitions, équipes, matchs, scores et équipes EA FC.
+            Gérez les compétitions, équipes, matchs, scores, équipes EA FC et
+            joueurs.
           </p>
 
           <div className="mt-6 rounded-xl border border-[#D9A441]/20 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
@@ -138,13 +188,14 @@ export default function AdminPage() {
             <p>Équipes chargées : {teams.length}</p>
             <p>Matchs chargés : {matches.length}</p>
             <p>Équipes EA FC chargées : {eaTeams.length}</p>
+            <p>Joueurs chargés : {players.length}</p>
             {debugMessage && (
               <p className="mt-2 text-red-300">{debugMessage}</p>
             )}
           </div>
         </div>
 
-        <div className="mb-8 grid gap-3 md:grid-cols-5">
+        <div className="mb-8 grid gap-3 md:grid-cols-6">
           <TabButton
             label="Compétition"
             value="competition"
@@ -179,6 +230,13 @@ export default function AdminPage() {
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />
+
+          <TabButton
+            label="Joueurs"
+            value="players"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
         </div>
 
         {activeTab === "competition" && (
@@ -210,6 +268,16 @@ export default function AdminPage() {
 
         {activeTab === "ea-teams" && (
           <EaTeamsForm eaTeams={eaTeams} onEaTeamsChanged={refreshData} />
+        )}
+
+        {activeTab === "players" && (
+          <PlayersForm
+            players={players}
+            competitions={competitions}
+            eaTeams={eaTeams}
+            competitionPlayers={competitionPlayers}
+            onPlayersChanged={refreshData}
+          />
         )}
       </section>
     </main>
@@ -1220,6 +1288,481 @@ function EaTeamsForm({
               </div>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------- JOUEURS -------------------------------- */
+
+function PlayersForm({
+  players,
+  competitions,
+  eaTeams,
+  competitionPlayers,
+  onPlayersChanged,
+}: {
+  players: Player[];
+  competitions: Competition[];
+  eaTeams: EaTeam[];
+  competitionPlayers: CompetitionPlayer[];
+  onPlayersChanged: () => Promise<void>;
+}) {
+  const [editingPlayerId, setEditingPlayerId] = useState("");
+  const [name, setName] = useState("");
+  const [eaName, setEaName] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [competitionId, setCompetitionId] = useState("");
+  const [country, setCountry] = useState("");
+  const [league, setLeague] = useState("");
+  const [eaTeamId, setEaTeamId] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const playerCompetitions = competitions.filter(
+    (competition) => competition.participant_type === "players"
+  );
+
+  const countries = Array.from(
+    new Set(eaTeams.map((team) => team.country))
+  ).sort();
+
+  const leagues = Array.from(
+    new Set(
+      eaTeams
+        .filter((team) => team.country === country)
+        .map((team) => team.league)
+    )
+  ).sort();
+
+  const filteredEaTeams = eaTeams
+    .filter((team) => team.country === country && team.league === league)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  function resetForm() {
+    setEditingPlayerId("");
+    setName("");
+    setEaName("");
+    setPlatform("");
+    setCompetitionId("");
+    setCountry("");
+    setLeague("");
+    setEaTeamId("");
+    setMessage("");
+  }
+
+  function getCompetitionName(id: string) {
+    const competition = competitions.find((item) => item.id === id);
+
+    if (!competition) return "Compétition inconnue";
+
+    return competition.season
+      ? `${competition.name} · ${competition.season}`
+      : competition.name;
+  }
+
+  function getPlayerRegistration(playerId: string) {
+    return competitionPlayers.find((item) => item.player_id === playerId);
+  }
+
+  async function selectPlayer(player: Player) {
+    setEditingPlayerId(player.id);
+    setName(player.name);
+    setEaName(player.ea_name ?? "");
+    setPlatform(player.platform ?? "");
+    setMessage(`Modification de : ${player.name}`);
+
+    const registration = getPlayerRegistration(player.id);
+
+    if (!registration) {
+      setCompetitionId("");
+      setCountry("");
+      setLeague("");
+      setEaTeamId("");
+      return;
+    }
+
+    setCompetitionId(registration.competition_id);
+    setEaTeamId(registration.ea_team_id ?? "");
+
+    const eaTeam = eaTeams.find((team) => team.id === registration.ea_team_id);
+
+    if (eaTeam) {
+      setCountry(eaTeam.country);
+      setLeague(eaTeam.league);
+    }
+  }
+
+  async function handleSavePlayer(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!name) {
+      setMessage("Merci de renseigner le nom du joueur.");
+      return;
+    }
+
+    if (competitionId && !eaTeamId) {
+      setMessage("Merci de choisir une équipe EA FC pour cette compétition.");
+      return;
+    }
+
+    const selectedEaTeam = eaTeams.find((team) => team.id === eaTeamId);
+
+    setLoading(true);
+    setMessage("");
+
+    if (editingPlayerId) {
+      const { error: updateError } = await supabase
+        .from("players")
+        .update({
+          name,
+          ea_name: eaName || null,
+          platform: platform || null,
+        })
+        .eq("id", editingPlayerId);
+
+      if (updateError) {
+        setLoading(false);
+        setMessage(`Erreur modification joueur : ${updateError.message}`);
+        return;
+      }
+
+      const { error: deleteRegistrationError } = await supabase
+        .from("competition_players")
+        .delete()
+        .eq("player_id", editingPlayerId);
+
+      if (deleteRegistrationError) {
+        setLoading(false);
+        setMessage(
+          `Joueur modifié, mais erreur inscription : ${deleteRegistrationError.message}`
+        );
+        return;
+      }
+
+      if (competitionId && selectedEaTeam) {
+        const { error: registrationError } = await supabase
+          .from("competition_players")
+          .insert({
+            competition_id: competitionId,
+            player_id: editingPlayerId,
+            ea_team_id: selectedEaTeam.id,
+            ea_team_name: selectedEaTeam.name,
+          });
+
+        if (registrationError) {
+          setLoading(false);
+          setMessage(`Erreur inscription : ${registrationError.message}`);
+          return;
+        }
+      }
+
+      setLoading(false);
+      resetForm();
+      setMessage("Joueur modifié avec succès ✅");
+      await onPlayersChanged();
+      return;
+    }
+
+    const { data: createdPlayer, error: playerError } = await supabase
+      .from("players")
+      .insert({
+        name,
+        ea_name: eaName || null,
+        platform: platform || null,
+      })
+      .select()
+      .single();
+
+    if (playerError) {
+      setLoading(false);
+      setMessage(`Erreur création joueur : ${playerError.message}`);
+      return;
+    }
+
+    if (competitionId && selectedEaTeam && createdPlayer) {
+      const { error: registrationError } = await supabase
+        .from("competition_players")
+        .insert({
+          competition_id: competitionId,
+          player_id: createdPlayer.id,
+          ea_team_id: selectedEaTeam.id,
+          ea_team_name: selectedEaTeam.name,
+        });
+
+      if (registrationError) {
+        setLoading(false);
+        setMessage(
+          `Joueur créé, mais erreur inscription : ${registrationError.message}`
+        );
+        return;
+      }
+    }
+
+    setLoading(false);
+    resetForm();
+    setMessage("Joueur ajouté avec succès ✅");
+    await onPlayersChanged();
+  }
+
+  async function handleDeletePlayer(player: Player) {
+    const confirmDelete = window.confirm(
+      `Supprimer le joueur "${player.name}" ?`
+    );
+
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    setMessage("");
+
+    const { error: registrationError } = await supabase
+      .from("competition_players")
+      .delete()
+      .eq("player_id", player.id);
+
+    if (registrationError) {
+      setLoading(false);
+      setMessage(
+        `Erreur suppression inscription : ${registrationError.message}`
+      );
+      return;
+    }
+
+    const { error: playerError } = await supabase
+      .from("players")
+      .delete()
+      .eq("id", player.id);
+
+    setLoading(false);
+
+    if (playerError) {
+      setMessage(`Erreur suppression joueur : ${playerError.message}`);
+      return;
+    }
+
+    if (editingPlayerId === player.id) {
+      resetForm();
+    }
+
+    setMessage("Joueur supprimé avec succès ✅");
+    await onPlayersChanged();
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1.1fr_1.2fr]">
+      <FormCard
+        title={editingPlayerId ? "Modifier un joueur" : "Ajouter un joueur"}
+        description="Crée un joueur et associe-le à une compétition avec son équipe EA FC."
+      >
+        <form onSubmit={handleSavePlayer} className="grid gap-5">
+          <MessageBox message={message} />
+
+          <div>
+            <FieldLabel>Nom du joueur</FieldLabel>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Ex : Greg"
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Pseudo EA</FieldLabel>
+            <Input
+              value={eaName}
+              onChange={(event) => setEaName(event.target.value)}
+              placeholder="Ex : Greg_GSF"
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Plateforme</FieldLabel>
+            <Select
+              value={platform}
+              onChange={(event) => setPlatform(event.target.value)}
+            >
+              <option value="">Choisir une plateforme</option>
+              <option value="PS5">PS5</option>
+              <option value="Xbox Series">Xbox Series</option>
+              <option value="PC">PC</option>
+              <option value="Switch">Switch</option>
+            </Select>
+          </div>
+
+          <div>
+            <FieldLabel>Compétition joueurs</FieldLabel>
+            <Select
+              value={competitionId}
+              onChange={(event) => setCompetitionId(event.target.value)}
+            >
+              <option value="">Aucune compétition</option>
+
+              {playerCompetitions.map((competition) => (
+                <option key={competition.id} value={competition.id}>
+                  {competition.name}
+                  {competition.season ? ` · ${competition.season}` : ""}
+                </option>
+              ))}
+            </Select>
+
+            {playerCompetitions.length === 0 && (
+              <p className="mt-2 text-sm text-[#8F7B5C]">
+                Crée d’abord une compétition au format “Joueurs avec équipes EA
+                FC”.
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-3">
+            <div>
+              <FieldLabel>Pays</FieldLabel>
+              <Select
+                value={country}
+                onChange={(event) => {
+                  setCountry(event.target.value);
+                  setLeague("");
+                  setEaTeamId("");
+                }}
+              >
+                <option value="">Choisir</option>
+
+                {countries.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <FieldLabel>Championnat</FieldLabel>
+              <Select
+                value={league}
+                onChange={(event) => {
+                  setLeague(event.target.value);
+                  setEaTeamId("");
+                }}
+                disabled={!country}
+              >
+                <option value="">Choisir</option>
+
+                {leagues.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <FieldLabel>Équipe EA FC</FieldLabel>
+              <Select
+                value={eaTeamId}
+                onChange={(event) => setEaTeamId(event.target.value)}
+                disabled={!league}
+              >
+                <option value="">Choisir</option>
+
+                {filteredEaTeams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <SubmitButton disabled={loading}>
+              {loading
+                ? "Enregistrement..."
+                : editingPlayerId
+                  ? "Modifier le joueur"
+                  : "Ajouter le joueur"}
+            </SubmitButton>
+
+            {editingPlayerId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+              >
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
+      </FormCard>
+
+      <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <h2 className="text-2xl font-black text-[#F7E9C5]">
+          Joueurs existants
+        </h2>
+
+        <p className="mt-2 text-[#D8C7A0]">
+          Sélectionne un joueur pour le modifier ou le supprimer.
+        </p>
+
+        <div className="mt-6 space-y-3">
+          {players.length === 0 && (
+            <p className="rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+              Aucun joueur créé pour le moment.
+            </p>
+          )}
+
+          {players.map((player) => {
+            const registration = getPlayerRegistration(player.id);
+
+            return (
+              <div
+                key={player.id}
+                className={`rounded-xl border p-4 transition ${
+                  editingPlayerId === player.id
+                    ? "border-[#D9A441]/60 bg-[#A61E22]/20"
+                    : "border-[#D9A441]/15 bg-[#0B0610]/70"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-black text-[#F7E9C5]">
+                      {player.name}
+                    </h3>
+
+                    <p className="mt-1 text-sm text-[#D8C7A0]">
+                      EA : {player.ea_name || "À définir"} ·{" "}
+                      {player.platform || "Plateforme non définie"}
+                    </p>
+
+                    {registration && (
+                      <p className="mt-2 text-xs text-[#F2D27A]">
+                        {getCompetitionName(registration.competition_id)} ·{" "}
+                        {registration.ea_team_name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => selectPlayer(player)}
+                      className="rounded-lg border border-[#D9A441]/30 bg-[#160A12] px-3 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+                    >
+                      Modifier
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePlayer(player)}
+                      className="rounded-lg bg-[#A61E22]/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#8E171C]"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
