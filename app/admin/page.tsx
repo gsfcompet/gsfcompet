@@ -148,7 +148,10 @@ export default function AdminPage() {
         </div>
 
         {activeTab === "competition" && (
-          <CompetitionForm onCompetitionCreated={refreshData} />
+          <CompetitionForm
+            competitions={competitions}
+            onCompetitionChanged={refreshData}
+          />
         )}
 
         {activeTab === "team" && (
@@ -274,17 +277,39 @@ function MessageBox({ message }: { message: string }) {
 }
 
 function CompetitionForm({
-  onCompetitionCreated,
+  competitions,
+  onCompetitionChanged,
 }: {
-  onCompetitionCreated: () => Promise<void>;
+  competitions: Competition[];
+  onCompetitionChanged: () => Promise<void>;
 }) {
+  const [editingCompetitionId, setEditingCompetitionId] = useState("");
   const [name, setName] = useState("");
   const [type, setType] = useState("");
   const [season, setSeason] = useState("");
+  const [status, setStatus] = useState("active");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleCreateCompetition(
+  function resetForm() {
+    setEditingCompetitionId("");
+    setName("");
+    setType("");
+    setSeason("");
+    setStatus("active");
+    setMessage("");
+  }
+
+  function selectCompetition(competition: Competition) {
+    setEditingCompetitionId(competition.id);
+    setName(competition.name);
+    setType(competition.type);
+    setSeason(competition.season ?? "");
+    setStatus(competition.status);
+    setMessage(`Modification de : ${competition.name}`);
+  }
+
+  async function handleSaveCompetition(
     event: React.FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
@@ -297,73 +322,235 @@ function CompetitionForm({
     setLoading(true);
     setMessage("");
 
+    if (editingCompetitionId) {
+      const { error } = await supabase
+        .from("competitions")
+        .update({
+          name,
+          type,
+          season: season || null,
+          status,
+        })
+        .eq("id", editingCompetitionId);
+
+      setLoading(false);
+
+      if (error) {
+        setMessage(`Erreur modification : ${error.message}`);
+        return;
+      }
+
+      resetForm();
+      setMessage("Compétition modifiée avec succès ✅");
+      await onCompetitionChanged();
+      return;
+    }
+
     const { error } = await supabase.from("competitions").insert({
       name,
       type,
-      season,
-      status: "active",
+      season: season || null,
+      status,
     });
 
     setLoading(false);
 
     if (error) {
-      setMessage(`Erreur : ${error.message}`);
+      setMessage(`Erreur création : ${error.message}`);
       return;
     }
 
-    setName("");
-    setType("");
-    setSeason("");
+    resetForm();
     setMessage("Compétition créée avec succès ✅");
+    await onCompetitionChanged();
+  }
 
-    await onCompetitionCreated();
+  async function handleDeleteCompetition(competition: Competition) {
+    const confirmDelete = window.confirm(
+      `Supprimer la compétition "${competition.name}" ? Cette action peut aussi supprimer les matchs liés.`
+    );
+
+    if (!confirmDelete) return;
+
+    setLoading(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("competitions")
+      .delete()
+      .eq("id", competition.id);
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(`Erreur suppression : ${error.message}`);
+      return;
+    }
+
+    if (editingCompetitionId === competition.id) {
+      resetForm();
+    }
+
+    setMessage("Compétition supprimée avec succès ✅");
+    await onCompetitionChanged();
+  }
+
+  function getStatusLabel(value: string) {
+    if (value === "active") return "En cours";
+    if (value === "planned") return "Planifiée";
+    if (value === "completed") return "Terminée";
+    if (value === "draft") return "Brouillon";
+    return value;
   }
 
   return (
-    <FormCard
-      title="Créer une compétition"
-      description="Ajoute un championnat, une coupe ou un tournoi EA FC 26."
-    >
-      <form onSubmit={handleCreateCompetition} className="grid gap-5">
-        <MessageBox message={message} />
+    <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <FormCard
+        title={
+          editingCompetitionId
+            ? "Modifier une compétition"
+            : "Créer une compétition"
+        }
+        description={
+          editingCompetitionId
+            ? "Modifie les informations d’une compétition existante."
+            : "Ajoute un championnat, une coupe ou un tournoi EA FC 26."
+        }
+      >
+        <form onSubmit={handleSaveCompetition} className="grid gap-5">
+          <MessageBox message={message} />
 
-        <div>
-          <FieldLabel>Nom de la compétition</FieldLabel>
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Ex : Guardian's League"
-          />
+          <div>
+            <FieldLabel>Nom de la compétition</FieldLabel>
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Ex : Guardian's League"
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Type</FieldLabel>
+            <Select
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+            >
+              <option value="">Choisir un type</option>
+              <option value="Championnat">Championnat</option>
+              <option value="Coupe">Coupe</option>
+              <option value="Tournoi rapide">Tournoi rapide</option>
+              <option value="Super Cup">Super Cup</option>
+            </Select>
+          </div>
+
+          <div>
+            <FieldLabel>Saison</FieldLabel>
+            <Input
+              value={season}
+              onChange={(event) => setSeason(event.target.value)}
+              placeholder="Ex : Saison 1"
+            />
+          </div>
+
+          <div>
+            <FieldLabel>Statut</FieldLabel>
+            <Select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="active">En cours</option>
+              <option value="planned">Planifiée</option>
+              <option value="completed">Terminée</option>
+              <option value="draft">Brouillon</option>
+            </Select>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <SubmitButton disabled={loading}>
+              {loading
+                ? "Enregistrement..."
+                : editingCompetitionId
+                  ? "Modifier la compétition"
+                  : "Créer la compétition"}
+            </SubmitButton>
+
+            {editingCompetitionId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+              >
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
+      </FormCard>
+
+      <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <h2 className="text-2xl font-black text-[#F7E9C5]">
+          Compétitions existantes
+        </h2>
+
+        <p className="mt-2 text-[#D8C7A0]">
+          Sélectionne une compétition pour la modifier ou la supprimer.
+        </p>
+
+        <div className="mt-6 space-y-3">
+          {competitions.length === 0 && (
+            <p className="rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+              Aucune compétition créée pour le moment.
+            </p>
+          )}
+
+          {competitions.map((competition) => (
+            <div
+              key={competition.id}
+              className={`rounded-xl border p-4 transition ${
+                editingCompetitionId === competition.id
+                  ? "border-[#D9A441]/60 bg-[#A61E22]/20"
+                  : "border-[#D9A441]/15 bg-[#0B0610]/70"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-black text-[#F7E9C5]">
+                    {competition.name}
+                  </h3>
+
+                  <p className="mt-1 text-sm text-[#D8C7A0]">
+                    {competition.type} ·{" "}
+                    {competition.season || "Saison non définie"}
+                  </p>
+
+                  <p className="mt-1 text-xs text-[#F2D27A]">
+                    {getStatusLabel(competition.status)}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => selectCompetition(competition)}
+                    className="rounded-lg border border-[#D9A441]/30 bg-[#160A12] px-3 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#1E1016]"
+                  >
+                    Modifier
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCompetition(competition)}
+                    className="rounded-lg bg-[#A61E22]/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#8E171C]"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-
-        <div>
-          <FieldLabel>Type</FieldLabel>
-          <Select
-            value={type}
-            onChange={(event) => setType(event.target.value)}
-          >
-            <option value="">Choisir un type</option>
-            <option value="Championnat">Championnat</option>
-            <option value="Coupe">Coupe</option>
-            <option value="Tournoi rapide">Tournoi rapide</option>
-            <option value="Super Cup">Super Cup</option>
-          </Select>
-        </div>
-
-        <div>
-          <FieldLabel>Saison</FieldLabel>
-          <Input
-            value={season}
-            onChange={(event) => setSeason(event.target.value)}
-            placeholder="Ex : Saison 1"
-          />
-        </div>
-
-        <SubmitButton disabled={loading}>
-          {loading ? "Création en cours..." : "Créer la compétition"}
-        </SubmitButton>
-      </form>
-    </FormCard>
+      </div>
+    </div>
   );
 }
 
