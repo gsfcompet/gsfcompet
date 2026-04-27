@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 type Competition = {
   id: string;
@@ -11,16 +11,19 @@ type Competition = {
   season: string | null;
   status: string;
   participant_type: "teams" | "players";
+  created_at: string;
 };
 
 export default function CompetitionsPage() {
+  const supabase = createClient();
+
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [message, setMessage] = useState("");
 
   async function loadCompetitions() {
     setLoading(true);
-    setErrorMessage("");
+    setMessage("");
 
     const { data, error } = await supabase
       .from("competitions")
@@ -28,12 +31,12 @@ export default function CompetitionsPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      setErrorMessage(`Erreur chargement compétitions : ${error.message}`);
+      setMessage(`Erreur chargement compétitions : ${error.message}`);
       setLoading(false);
       return;
     }
 
-    setCompetitions(data ?? []);
+    setCompetitions((data ?? []) as Competition[]);
     setLoading(false);
   }
 
@@ -41,17 +44,54 @@ export default function CompetitionsPage() {
     loadCompetitions();
   }, []);
 
+  function getTypeLabel(type: string) {
+    if (type === "league") return "Championnat";
+    if (type === "cup") return "Coupe";
+    if (type === "tournament") return "Tournoi";
+
+    return type;
+  }
+
+  function getParticipantTypeLabel(participantType: "teams" | "players") {
+    if (participantType === "players") return "Joueurs EA FC";
+    return "Équipes / clubs";
+  }
+
   function getStatusLabel(status: string) {
-    if (status === "active") return "En cours";
-    if (status === "planned") return "Planifiée";
-    if (status === "completed") return "Terminée";
     if (status === "draft") return "Brouillon";
+    if (status === "active") return "En cours";
+    if (status === "completed") return "Terminée";
+    if (status === "archived") return "Archivée";
+
     return status;
   }
 
-  function getParticipantTypeLabel(type: string) {
-    if (type === "players") return "Joueurs EA FC";
-    return "Teams / clubs";
+  function getStatusClass(status: string) {
+    if (status === "active") {
+      return "border-green-400/30 text-green-300";
+    }
+
+    if (status === "completed") {
+      return "border-blue-400/30 text-blue-300";
+    }
+
+    if (status === "archived") {
+      return "border-gray-400/30 text-gray-300";
+    }
+
+    return "border-[#D9A441]/30 text-[#F2D27A]";
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
+          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="text-[#D8C7A0]">Chargement des compétitions...</p>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -63,86 +103,89 @@ export default function CompetitionsPage() {
           </p>
 
           <h1 className="text-4xl font-black md:text-5xl">
-            Les compétitions GSF
+            Compétitions Guardian&apos;s Family
           </h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Retrouve les championnats, coupes et tournois de la Guardian&apos;s
-            Family.
+            Consulte les compétitions disponibles, inscris-toi, suis les matchs
+            et regarde le classement.
           </p>
+
+          {message && (
+            <div className="mt-6 rounded-xl border border-red-400/30 bg-[#160A12] p-4 text-sm text-red-300">
+              {message}
+            </div>
+          )}
         </div>
 
-        {loading && (
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-[#D8C7A0]">
-            Chargement des compétitions...
-          </div>
-        )}
+        {competitions.length === 0 ? (
+          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+            <h2 className="text-2xl font-black text-[#F7E9C5]">
+              Aucune compétition
+            </h2>
 
-        {!loading && errorMessage && (
-          <div className="rounded-2xl border border-red-400/30 bg-[#160A12]/90 p-6 text-red-300">
-            {errorMessage}
+            <p className="mt-3 text-[#D8C7A0]">
+              Aucune compétition n’est disponible pour le moment.
+            </p>
           </div>
-        )}
-
-        {!loading && !errorMessage && competitions.length === 0 && (
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-[#D8C7A0]">
-            Aucune compétition créée pour le moment.
-          </div>
-        )}
-
-        {!loading && !errorMessage && competitions.length > 0 && (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
             {competitions.map((competition) => (
               <article
                 key={competition.id}
-                className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30"
+                className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/40"
               >
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-[#D9A441]/25 bg-[#0B0610] px-3 py-1 text-xs font-semibold text-[#F2D27A]">
-                    {competition.type}
-                  </span>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-black text-[#F7E9C5]">
+                      {competition.name}
+                    </h2>
 
-                  <span className="rounded-full border border-[#D9A441]/25 bg-[#0B0610] px-3 py-1 text-xs font-semibold text-[#D8C7A0]">
+                    <p className="mt-2 text-sm text-[#D8C7A0]">
+                      {getTypeLabel(competition.type)}
+                      {competition.season ? ` · ${competition.season}` : ""}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
+                      competition.status
+                    )}`}
+                  >
                     {getStatusLabel(competition.status)}
                   </span>
                 </div>
 
-                <h2 className="text-2xl font-black text-[#F7E9C5]">
-                  {competition.name}
-                </h2>
-
-                <p className="mt-2 text-sm text-[#D8C7A0]">
-                  {competition.season || "Saison non définie"}
-                </p>
-
-                <div className="mt-5 rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-                  <p className="text-xs text-[#8F7B5C]">Format</p>
-                  <p className="mt-1 font-semibold text-[#F2D27A]">
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-[#D9A441]/30 bg-[#0B0610]/60 px-3 py-1 text-xs font-semibold text-[#F2D27A]">
                     {getParticipantTypeLabel(competition.participant_type)}
-                  </p>
+                  </span>
+
+                  <span className="rounded-full border border-[#D9A441]/30 bg-[#0B0610]/60 px-3 py-1 text-xs font-semibold text-[#F2D27A]">
+                    Saison : {competition.season || "Non définie"}
+                  </span>
                 </div>
 
                 <div className="mt-6 flex flex-wrap gap-3">
-                  {competition.participant_type === "players" && (
-                    <Link
-                      href={`/competitions/${competition.id}/inscription`}
-                      className="inline-flex rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
-                    >
-                      S&apos;inscrire
-                    </Link>
-                  )}
-
-                  {competition.participant_type === "teams" && (
-                    <span className="inline-flex rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 px-5 py-2.5 text-sm font-semibold text-[#D8C7A0]">
-                      Inter-team
-                    </span>
-                  )}
+                  <Link
+                    href={`/competitions/${competition.id}/matchs`}
+                    className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                  >
+                    Matchs
+                  </Link>
 
                   <Link
-                    href="/matchs"
-                    className="inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                    href={`/competitions/${competition.id}/classement`}
+                    className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
                   >
-                    Voir les matchs
+                    Classement
+                  </Link>
+
+                  <Link
+                    href={`/competitions/${competition.id}/inscription`}
+                    className="rounded-xl bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+                  >
+                    Inscription
                   </Link>
                 </div>
               </article>
