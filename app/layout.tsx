@@ -30,8 +30,7 @@ export default function RootLayout({
             <Link href="/" className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#D9A441]/40 bg-[#160A12] shadow-lg shadow-black/30">
                 <img
-                  src="/logo-gf
-                  .png"
+                  src="/logo-gf.png"
                   alt="Guardian's Family"
                   className="h-full w-full object-cover"
                 />
