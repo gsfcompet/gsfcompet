@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import FutMemberCard from "@/components/FutMemberCard";
 
 type Profile = {
   id: string;
@@ -158,25 +159,87 @@ export default function MemberPage() {
   }, [myRegistrations]);
 
   const myMatches = useMemo(() => {
-    return matches.filter(
-      (match) =>
-        match.home_competition_player_id !== null &&
-        match.away_competition_player_id !== null &&
-        (myRegistrationIds.includes(match.home_competition_player_id) ||
-          myRegistrationIds.includes(match.away_competition_player_id))
-    );
+    return matches.filter((match) => {
+      const homeRegistrationId = match.home_competition_player_id;
+      const awayRegistrationId = match.away_competition_player_id;
+
+      const isHome =
+        homeRegistrationId !== null &&
+        myRegistrationIds.includes(homeRegistrationId);
+
+      const isAway =
+        awayRegistrationId !== null &&
+        myRegistrationIds.includes(awayRegistrationId);
+
+      return isHome || isAway;
+    });
   }, [matches, myRegistrationIds]);
 
-  const upcomingMatches = myMatches.filter(
-    (match) => match.status !== "completed"
-  );
+  const upcomingMatches = useMemo(() => {
+    return myMatches.filter((match) => match.status !== "completed");
+  }, [myMatches]);
 
-  const completedMatches = myMatches.filter(
-    (match) =>
-      match.status === "completed" &&
-      match.home_score !== null &&
-      match.away_score !== null
-  );
+  const completedMatches = useMemo(() => {
+    return myMatches.filter(
+      (match) =>
+        match.status === "completed" &&
+        match.home_score !== null &&
+        match.away_score !== null
+    );
+  }, [myMatches]);
+
+  const memberStats = useMemo(() => {
+    let matchesPlayed = 0;
+    let wins = 0;
+    let draws = 0;
+    let losses = 0;
+    let goalsFor = 0;
+    let goalsAgainst = 0;
+    let goalAverage = 0;
+    let points = 0;
+
+    for (const match of completedMatches) {
+      const isHome =
+        match.home_competition_player_id !== null &&
+        myRegistrationIds.includes(match.home_competition_player_id);
+
+      const isAway =
+        match.away_competition_player_id !== null &&
+        myRegistrationIds.includes(match.away_competition_player_id);
+
+      if (!isHome && !isAway) continue;
+      if (match.home_score === null || match.away_score === null) continue;
+
+      const myGoals = isHome ? match.home_score : match.away_score;
+      const opponentGoals = isHome ? match.away_score : match.home_score;
+
+      matchesPlayed += 1;
+      goalsFor += myGoals;
+      goalsAgainst += opponentGoals;
+      goalAverage += myGoals - opponentGoals;
+
+      if (myGoals > opponentGoals) {
+        wins += 1;
+        points += 3;
+      } else if (myGoals === opponentGoals) {
+        draws += 1;
+        points += 1;
+      } else {
+        losses += 1;
+      }
+    }
+
+    return {
+      matchesPlayed,
+      wins,
+      draws,
+      losses,
+      goalsFor,
+      goalsAgainst,
+      goalAverage,
+      points,
+    };
+  }, [completedMatches, myRegistrationIds]);
 
   function getCompetition(competitionId: string) {
     return competitions.find((competition) => competition.id === competitionId);
@@ -231,7 +294,6 @@ export default function MemberPage() {
 
   function getResultLabel(match: Match) {
     if (
-      !player ||
       !match.home_competition_player_id ||
       !match.away_competition_player_id ||
       match.home_score === null ||
@@ -241,6 +303,7 @@ export default function MemberPage() {
     }
 
     const isHome = myRegistrationIds.includes(match.home_competition_player_id);
+
     const myScore = isHome ? match.home_score : match.away_score;
     const opponentScore = isHome ? match.away_score : match.home_score;
 
@@ -254,7 +317,7 @@ export default function MemberPage() {
 
     if (result === "Victoire") return "text-green-300";
     if (result === "Défaite") return "text-red-300";
-    if (result === "Match nul") return "text-[#F2D27A]";
+    if (result === "Match nul") return "text-orange-300";
 
     return "text-[#D8C7A0]";
   }
@@ -263,7 +326,7 @@ export default function MemberPage() {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center">
+          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
             <p className="text-[#D8C7A0]">Chargement du panel membre...</p>
           </div>
         </section>
@@ -307,6 +370,8 @@ export default function MemberPage() {
     );
   }
 
+  const displayName = player?.name || profile.username || profile.email;
+
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
       <section className="mx-auto max-w-6xl px-6 py-12">
@@ -316,7 +381,7 @@ export default function MemberPage() {
           </p>
 
           <h1 className="text-4xl font-black md:text-5xl">
-            Bienvenue {profile.username || profile.email}
+            Bienvenue {displayName}
           </h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
@@ -332,13 +397,35 @@ export default function MemberPage() {
         </div>
 
         <div className="mb-8 grid gap-4 md:grid-cols-4">
-          <StatCard label="Rôle" value={profile.role === "admin" ? "Admin" : "Membre"} />
+          <StatCard
+            label="Rôle"
+            value={profile.role === "admin" ? "Admin" : "Membre"}
+          />
           <StatCard label="Inscriptions" value={myRegistrations.length} />
           <StatCard label="Matchs à venir" value={upcomingMatches.length} />
-          <StatCard label="Résultats" value={completedMatches.length} />
+          <StatCard label="Points" value={memberStats.points} />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <FutMemberCard
+          displayName={displayName}
+          eaName={player?.ea_name}
+          email={profile.email}
+          platform={player?.platform}
+          role={profile.role}
+          registrationsCount={myRegistrations.length}
+          upcomingMatchesCount={upcomingMatches.length}
+          completedMatchesCount={completedMatches.length}
+          matchesPlayed={memberStats.matchesPlayed}
+          wins={memberStats.wins}
+          draws={memberStats.draws}
+          losses={memberStats.losses}
+          goalsFor={memberStats.goalsFor}
+          goalsAgainst={memberStats.goalsAgainst}
+          goalAverage={memberStats.goalAverage}
+          points={memberStats.points}
+        />
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-6">
             <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
               <h2 className="text-2xl font-black text-[#F7E9C5]">
@@ -375,12 +462,21 @@ export default function MemberPage() {
                 </div>
               )}
 
-              <Link
-                href="/competitions"
-                className="mt-6 inline-flex rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
-              >
-                Voir les compétitions
-              </Link>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/membre/profil"
+                  className="inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  Modifier mon profil
+                </Link>
+
+                <Link
+                  href="/competitions"
+                  className="inline-flex rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+                >
+                  Voir les compétitions
+                </Link>
+              </div>
             </section>
 
             <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
@@ -412,7 +508,7 @@ export default function MemberPage() {
                       href={`/competitions/${registration.competition_id}/inscription`}
                       className="mt-4 inline-flex rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
                     >
-                      Modifier
+                      Modifier l’inscription
                     </Link>
                   </div>
                 ))}
@@ -436,7 +532,6 @@ export default function MemberPage() {
                 {upcomingMatches.map((match) => (
                   <MatchCard
                     key={match.id}
-                    match={match}
                     competitionLabel={getCompetitionLabel(match.competition_id)}
                     homeLabel={getParticipantLabel(
                       match.home_competition_player_id
@@ -474,10 +569,15 @@ export default function MemberPage() {
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold text-[#F7E9C5]">
-                          {getParticipantLabel(match.home_competition_player_id)}
+                          {getParticipantLabel(
+                            match.home_competition_player_id
+                          )}
                         </p>
+
                         <p className="font-semibold text-[#F7E9C5]">
-                          {getParticipantLabel(match.away_competition_player_id)}
+                          {getParticipantLabel(
+                            match.away_competition_player_id
+                          )}
                         </p>
                       </div>
 
@@ -486,7 +586,11 @@ export default function MemberPage() {
                           {match.home_score} - {match.away_score}
                         </p>
 
-                        <p className={`mt-1 text-xs font-semibold ${getResultClass(match)}`}>
+                        <p
+                          className={`mt-1 text-xs font-semibold ${getResultClass(
+                            match
+                          )}`}
+                        >
                           {getResultLabel(match)}
                         </p>
                       </div>
@@ -516,13 +620,11 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 function MatchCard({
-  match,
   competitionLabel,
   homeLabel,
   awayLabel,
   dateLabel,
 }: {
-  match: Match;
   competitionLabel: string;
   homeLabel: string;
   awayLabel: string;
