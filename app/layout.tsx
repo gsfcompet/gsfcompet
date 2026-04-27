@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import "./globals.css";
+import AuthStatus from "@/components/AuthStatus";
 
 export const metadata: Metadata = {
   title: "GSF Compet",
@@ -59,6 +60,7 @@ export default function RootLayout({
                   {item.label}
                 </Link>
               ))}
+                <AuthStatus />
             </div>
           </nav>
         </header>

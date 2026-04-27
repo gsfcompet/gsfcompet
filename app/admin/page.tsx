@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 
 type Competition = {
   id: string;
@@ -65,6 +66,10 @@ export default function AdminPage() {
     CompetitionPlayer[]
   >([]);
   const [debugMessage, setDebugMessage] = useState("");
+
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
 
   async function loadCompetitions() {
     const { data, error } = await supabase
@@ -162,12 +167,95 @@ export default function AdminPage() {
     await loadCompetitionPlayers();
   }
 
+  async function checkAdminAccess() {
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    const authSupabase = createClient();
+
+    const {
+      data: { user },
+      error: userError,
+    } = await authSupabase.auth.getUser();
+
+    if (userError || !user) {
+      setIsAdmin(false);
+      setAuthMessage("Tu dois être connecté pour accéder au panel admin.");
+      setAuthLoading(false);
+      return;
+    }
+
+    const { data: profile, error: profileError } = await authSupabase
+  .from("profiles")
+  .select("role")
+  .eq("id", user.id)
+  .single();
+
+    if (profileError || !profile) {
+      setIsAdmin(false);
+      setAuthMessage("Profil introuvable. Contacte un administrateur.");
+      setAuthLoading(false);
+      return;
+    }
+
+    if (profile.role !== "admin") {
+      setIsAdmin(false);
+      setAuthMessage("Accès refusé. Ton compte n’a pas le rôle admin.");
+      setAuthLoading(false);
+      return;
+    }
+
+    setIsAdmin(true);
+    setAuthLoading(false);
+    await refreshData();
+  }
+
   useEffect(() => {
-    refreshData();
+    checkAdminAccess();
   }, []);
 
-  function getTeamName(teamId: string) {
+  function getTeamName(teamId: string | null) {
+    if (!teamId) return "Équipe inconnue";
     return teams.find((team) => team.id === teamId)?.name ?? "Équipe inconnue";
+  }
+
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
+          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="text-[#D8C7A0]">
+              Vérification de l’accès admin...
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
+          <div className="w-full rounded-2xl border border-red-400/30 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="mb-3 inline-flex rounded-full border border-red-400/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-red-300">
+              Accès refusé
+            </p>
+
+            <h1 className="text-3xl font-black">Panel admin protégé</h1>
+
+            <p className="mt-3 text-[#D8C7A0]">{authMessage}</p>
+
+            <a
+              href="/login"
+              className="mt-6 inline-flex rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+            >
+              Se connecter
+            </a>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -337,7 +425,7 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+      className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-60"
     />
   );
 }
@@ -488,7 +576,7 @@ function CompetitionForm({
 
   async function handleDeleteCompetition(competition: Competition) {
     const confirmDelete = window.confirm(
-      `Supprimer la compétition "${competition.name}" ? Cette action peut aussi supprimer les matchs liés.`
+      `Supprimer la compétition "${competition.name}" ? Cette action peut aussi supprimer les matchs et inscriptions liés.`
     );
 
     if (!confirmDelete) return;
@@ -1818,7 +1906,9 @@ function MatchForm({
   }
 
   function getPlayerName(playerId: string) {
-    return players.find((player) => player.id === playerId)?.name ?? "Joueur inconnu";
+    return (
+      players.find((player) => player.id === playerId)?.name ?? "Joueur inconnu"
+    );
   }
 
   function getRegisteredPlayerLabel(registration: CompetitionPlayer) {
@@ -2091,7 +2181,9 @@ function ScoreForm({
   }
 
   function getPlayerName(playerId: string) {
-    return players.find((player) => player.id === playerId)?.name ?? "Joueur inconnu";
+    return (
+      players.find((player) => player.id === playerId)?.name ?? "Joueur inconnu"
+    );
   }
 
   function getCompetitionPlayerLabel(registrationId: string | null) {
