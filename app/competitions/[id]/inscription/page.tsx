@@ -261,7 +261,7 @@ export default function CompetitionInscriptionPage() {
     setSaving(true);
     setMessage("");
 
-    let currentPlayer = player;
+    let currentPlayer: Player | null = player;
 
     if (currentPlayer) {
       const { data, error } = await supabase
@@ -281,8 +281,8 @@ export default function CompetitionInscriptionPage() {
         return;
       }
 
-      currentPlayer = data;
-      setPlayer(data);
+      currentPlayer = data as Player;
+      setPlayer(data as Player);
     } else {
       const { data, error } = await supabase
         .from("players")
@@ -301,12 +301,18 @@ export default function CompetitionInscriptionPage() {
         return;
       }
 
-      currentPlayer = data;
-      setPlayer(data);
+      currentPlayer = data as Player;
+      setPlayer(data as Player);
+    }
+
+    if (!currentPlayer) {
+      setSaving(false);
+      setMessage("Erreur : joueur introuvable après enregistrement.");
+      return;
     }
 
     const existingRegistration = registrations.find(
-      (registration) => registration.player_id === currentPlayer?.id
+      (registration) => registration.player_id === currentPlayer.id
     );
 
     if (existingRegistration) {
