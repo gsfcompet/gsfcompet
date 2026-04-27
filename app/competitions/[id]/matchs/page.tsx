@@ -21,6 +21,7 @@ type Competition = {
 
 type Player = {
   id: string;
+  user_id: string | null;
   name: string;
   ea_name: string | null;
   platform: string | null;
@@ -51,6 +52,12 @@ type Match = {
   home_score: number | null;
   away_score: number | null;
   mvp: string | null;
+
+  submitted_home_score: number | null;
+  submitted_away_score: number | null;
+  score_submitted_by: string | null;
+  score_submitted_at: string | null;
+  score_status: "none" | "pending" | "validated" | "rejected" | string | null;
 };
 
 type ScoreForm = {
@@ -65,6 +72,8 @@ export default function CompetitionMatchesPage() {
   const supabase = createClient();
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
+
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [competitionPlayers, setCompetitionPlayers] = useState<
@@ -73,13 +82,28 @@ export default function CompetitionMatchesPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
-  const [scoreForms, setScoreForms] = useState<Record<string, ScoreForm>>({});
+  const [adminScoreForms, setAdminScoreForms] = useState<
+    Record<string, ScoreForm>
+  >({});
+  const [memberScoreForms, setMemberScoreForms] = useState<
+    Record<string, ScoreForm>
+  >({});
+
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+  const [submittingMatchId, setSubmittingMatchId] = useState<string | null>(
+    null
+  );
+  const [reviewingMatchId, setReviewingMatchId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   const isAdmin = profile?.role === "admin";
+
+  async function getAccessToken() {
+    const sessionResult = await supabase.auth.getSession();
+    return sessionResult.data.session?.access_token ?? null;
+  }
 
   async function loadData() {
     if (!competitionId) return;
@@ -91,6 +115,9 @@ export default function CompetitionMatchesPage() {
       data: { user },
     } = await supabase.auth.getUser();
 
+    let loadedProfile: Profile | null = null;
+    let loadedCurrentPlayer: Player | null = null;
+
     if (user) {
       const profileResult = await supabase
         .from("profiles")
@@ -99,7 +126,17 @@ export default function CompetitionMatchesPage() {
         .maybeSingle();
 
       if (!profileResult.error && profileResult.data) {
-        setProfile(profileResult.data as Profile);
+        loadedProfile = profileResult.data as Profile;
+      }
+
+      const currentPlayerResult = await supabase
+        .from("players")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!currentPlayerResult.error && currentPlayerResult.data) {
+        loadedCurrentPlayer = currentPlayerResult.data as Player;
       }
     }
 
@@ -198,21 +235,37 @@ export default function CompetitionMatchesPage() {
       }
     }
 
-    const nextScoreForms: Record<string, ScoreForm> = {};
+    const nextAdminScoreForms: Record<string, ScoreForm> = {};
+    const nextMemberScoreForms: Record<string, ScoreForm> = {};
 
     for (const match of loadedMatches) {
-      nextScoreForms[match.id] = {
+      nextAdminScoreForms[match.id] = {
         home: match.home_score !== null ? String(match.home_score) : "",
         away: match.away_score !== null ? String(match.away_score) : "",
       };
+
+      nextMemberScoreForms[match.id] = {
+        home:
+          match.submitted_home_score !== null
+            ? String(match.submitted_home_score)
+            : "",
+        away:
+          match.submitted_away_score !== null
+            ? String(match.submitted_away_score)
+            : "",
+      };
     }
+
+    setProfile(loadedProfile);
+    setCurrentPlayer(loadedCurrentPlayer);
 
     setCompetition(competitionResult.data as Competition);
     setMatches(loadedMatches);
     setCompetitionPlayers(loadedCompetitionPlayers);
     setPlayers(loadedPlayers);
     setTeams(loadedTeams);
-    setScoreForms(nextScoreForms);
+    setAdminScoreForms(nextAdminScoreForms);
+    setMemberScoreForms(nextMemberScoreForms);
     setLoading(false);
   }
 
@@ -277,6 +330,22 @@ export default function CompetitionMatchesPage() {
     return "À définir";
   }
 
+  function isCurrentUserParticipant(match: Match) {
+    if (!currentPlayer) return false;
+
+    const homeRegistration = getCompetitionPlayer(
+      match.home_competition_player_id
+    );
+    const awayRegistration = getCompetitionPlayer(
+      match.away_competition_player_id
+    );
+
+    return (
+      homeRegistration?.player_id === currentPlayer.id ||
+      awayRegistration?.player_id === currentPlayer.id
+    );
+  }
+
   function formatDate(value: string | null) {
     if (!value) return "À planifier";
 
@@ -285,6 +354,20 @@ export default function CompetitionMatchesPage() {
     return new Intl.DateTimeFormat("fr-FR", {
       day: "2-digit",
       month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  }
+
+  function formatSubmittedAt(value: string | null) {
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    return new Intl.DateTimeFormat("fr-FR", {
+      day: "2-digit",
+      month: "2-digit",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
@@ -312,10 +395,39 @@ export default function CompetitionMatchesPage() {
     return "border-[#D9A441]/30 text-[#F2D27A]";
   }
 
-  function updateScoreForm(matchId: string, field: "home" | "away", value: string) {
+  function getScoreStatusLabel(status: Match["score_status"]) {
+    if (status === "pending") return "En attente de validation";
+    if (status === "validated") return "Validé";
+    if (status === "rejected") return "Refusé";
+
+    return "Aucun score proposé";
+  }
+
+  function updateAdminScoreForm(
+    matchId: string,
+    field: "home" | "away",
+    value: string
+  ) {
     const cleanValue = value.replace(/[^\d]/g, "");
 
-    setScoreForms((current) => ({
+    setAdminScoreForms((current) => ({
+      ...current,
+      [matchId]: {
+        home: current[matchId]?.home ?? "",
+        away: current[matchId]?.away ?? "",
+        [field]: cleanValue,
+      },
+    }));
+  }
+
+  function updateMemberScoreForm(
+    matchId: string,
+    field: "home" | "away",
+    value: string
+  ) {
+    const cleanValue = value.replace(/[^\d]/g, "");
+
+    setMemberScoreForms((current) => ({
       ...current,
       [matchId]: {
         home: current[matchId]?.home ?? "",
@@ -331,7 +443,7 @@ export default function CompetitionMatchesPage() {
       return;
     }
 
-    const form = scoreForms[match.id];
+    const form = adminScoreForms[match.id];
 
     if (!form || form.home === "" || form.away === "") {
       setMessage("Merci de renseigner les deux scores.");
@@ -360,6 +472,11 @@ export default function CompetitionMatchesPage() {
         home_score: homeScore,
         away_score: awayScore,
         status: "completed",
+        submitted_home_score: null,
+        submitted_away_score: null,
+        score_submitted_by: null,
+        score_submitted_at: null,
+        score_status: "validated",
       })
       .eq("id", match.id);
 
@@ -394,6 +511,11 @@ export default function CompetitionMatchesPage() {
         home_score: null,
         away_score: null,
         status: "planned",
+        submitted_home_score: null,
+        submitted_away_score: null,
+        score_submitted_by: null,
+        score_submitted_at: null,
+        score_status: "none",
       })
       .eq("id", match.id);
 
@@ -407,6 +529,122 @@ export default function CompetitionMatchesPage() {
 
     setSavingMatchId(null);
     setMessage("Score réinitialisé ✅");
+
+    await loadData();
+  }
+
+  async function submitMemberScore(match: Match) {
+    if (!currentPlayer) {
+      setMessage("Tu dois avoir une fiche joueur pour proposer un score.");
+      return;
+    }
+
+    if (!isCurrentUserParticipant(match)) {
+      setMessage("Tu ne participes pas à ce match.");
+      return;
+    }
+
+    if (match.status === "completed") {
+      setMessage("Ce match est déjà terminé.");
+      return;
+    }
+
+    const form = memberScoreForms[match.id];
+
+    if (!form || form.home === "" || form.away === "") {
+      setMessage("Merci de renseigner les deux scores.");
+      return;
+    }
+
+    const homeScore = Number(form.home);
+    const awayScore = Number(form.away);
+
+    if (
+      !Number.isInteger(homeScore) ||
+      !Number.isInteger(awayScore) ||
+      homeScore < 0 ||
+      awayScore < 0
+    ) {
+      setMessage("Les scores doivent être des nombres entiers positifs.");
+      return;
+    }
+
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    setSubmittingMatchId(match.id);
+    setMessage("");
+
+    const response = await fetch(`/api/matches/${match.id}/submit-score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        homeScore,
+        awayScore,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setSubmittingMatchId(null);
+      setMessage(result.error || "Erreur proposition score.");
+      return;
+    }
+
+    setSubmittingMatchId(null);
+    setMessage(result.message || "Score proposé ✅");
+
+    await loadData();
+  }
+
+  async function reviewSubmittedScore(
+    match: Match,
+    action: "validate" | "reject"
+  ) {
+    if (!isAdmin) {
+      setMessage("Action réservée aux admins.");
+      return;
+    }
+
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    setReviewingMatchId(match.id);
+    setMessage("");
+
+    const response = await fetch(`/api/matches/${match.id}/review-score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setReviewingMatchId(null);
+      setMessage(result.error || "Erreur validation score.");
+      return;
+    }
+
+    setReviewingMatchId(null);
+    setMessage(result.message || "Score traité ✅");
 
     await loadData();
   }
@@ -468,8 +706,8 @@ export default function CompetitionMatchesPage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Consulte les rencontres, les scores et les résultats de cette
-            compétition.
+            Consulte les rencontres, propose un score si tu participes au match,
+            et suis les résultats validés.
           </p>
 
           {message && (
@@ -480,7 +718,8 @@ export default function CompetitionMatchesPage() {
 
           {isAdmin && (
             <div className="mt-4 rounded-xl border border-green-400/20 bg-green-950/20 p-4 text-sm text-green-300">
-              Mode admin actif : tu peux saisir ou modifier les scores.
+              Mode admin actif : tu peux saisir directement les scores ou
+              valider les scores proposés par les membres.
             </div>
           )}
 
@@ -531,14 +770,42 @@ export default function CompetitionMatchesPage() {
                   dateLabel={formatDate(match.match_date)}
                   statusLabel={getStatusLabel(match.status)}
                   statusClass={getStatusClass(match.status)}
+                  scoreStatusLabel={getScoreStatusLabel(match.score_status)}
+                  submittedAtLabel={formatSubmittedAt(
+                    match.score_submitted_at
+                  )}
                   isAdmin={isAdmin}
-                  scoreForm={scoreForms[match.id] ?? { home: "", away: "" }}
+                  canSubmitScore={
+                    match.status !== "completed" &&
+                    isCurrentUserParticipant(match)
+                  }
+                  canSeeSubmittedScore={
+                    isAdmin || isCurrentUserParticipant(match)
+                  }
+                  adminScoreForm={
+                    adminScoreForms[match.id] ?? { home: "", away: "" }
+                  }
+                  memberScoreForm={
+                    memberScoreForms[match.id] ?? { home: "", away: "" }
+                  }
                   saving={savingMatchId === match.id}
-                  onScoreChange={(field, value) =>
-                    updateScoreForm(match.id, field, value)
+                  submitting={submittingMatchId === match.id}
+                  reviewing={reviewingMatchId === match.id}
+                  onAdminScoreChange={(field, value) =>
+                    updateAdminScoreForm(match.id, field, value)
+                  }
+                  onMemberScoreChange={(field, value) =>
+                    updateMemberScoreForm(match.id, field, value)
                   }
                   onSaveScore={() => saveScore(match)}
                   onResetScore={() => resetScore(match)}
+                  onSubmitMemberScore={() => submitMemberScore(match)}
+                  onValidateSubmittedScore={() =>
+                    reviewSubmittedScore(match, "validate")
+                  }
+                  onRejectSubmittedScore={() =>
+                    reviewSubmittedScore(match, "reject")
+                  }
                 />
               ))}
             </div>
@@ -567,14 +834,39 @@ export default function CompetitionMatchesPage() {
                   dateLabel={formatDate(match.match_date)}
                   statusLabel={getStatusLabel(match.status)}
                   statusClass={getStatusClass(match.status)}
+                  scoreStatusLabel={getScoreStatusLabel(match.score_status)}
+                  submittedAtLabel={formatSubmittedAt(
+                    match.score_submitted_at
+                  )}
                   isAdmin={isAdmin}
-                  scoreForm={scoreForms[match.id] ?? { home: "", away: "" }}
+                  canSubmitScore={false}
+                  canSeeSubmittedScore={
+                    isAdmin || isCurrentUserParticipant(match)
+                  }
+                  adminScoreForm={
+                    adminScoreForms[match.id] ?? { home: "", away: "" }
+                  }
+                  memberScoreForm={
+                    memberScoreForms[match.id] ?? { home: "", away: "" }
+                  }
                   saving={savingMatchId === match.id}
-                  onScoreChange={(field, value) =>
-                    updateScoreForm(match.id, field, value)
+                  submitting={submittingMatchId === match.id}
+                  reviewing={reviewingMatchId === match.id}
+                  onAdminScoreChange={(field, value) =>
+                    updateAdminScoreForm(match.id, field, value)
+                  }
+                  onMemberScoreChange={(field, value) =>
+                    updateMemberScoreForm(match.id, field, value)
                   }
                   onSaveScore={() => saveScore(match)}
                   onResetScore={() => resetScore(match)}
+                  onSubmitMemberScore={() => submitMemberScore(match)}
+                  onValidateSubmittedScore={() =>
+                    reviewSubmittedScore(match, "validate")
+                  }
+                  onRejectSubmittedScore={() =>
+                    reviewSubmittedScore(match, "reject")
+                  }
                 />
               ))}
             </div>
@@ -609,12 +901,23 @@ function MatchCard({
   dateLabel,
   statusLabel,
   statusClass,
+  scoreStatusLabel,
+  submittedAtLabel,
   isAdmin,
-  scoreForm,
+  canSubmitScore,
+  canSeeSubmittedScore,
+  adminScoreForm,
+  memberScoreForm,
   saving,
-  onScoreChange,
+  submitting,
+  reviewing,
+  onAdminScoreChange,
+  onMemberScoreChange,
   onSaveScore,
   onResetScore,
+  onSubmitMemberScore,
+  onValidateSubmittedScore,
+  onRejectSubmittedScore,
 }: {
   match: Match;
   homeLabel: string;
@@ -622,14 +925,30 @@ function MatchCard({
   dateLabel: string;
   statusLabel: string;
   statusClass: string;
+  scoreStatusLabel: string;
+  submittedAtLabel: string;
   isAdmin: boolean;
-  scoreForm: ScoreForm;
+  canSubmitScore: boolean;
+  canSeeSubmittedScore: boolean;
+  adminScoreForm: ScoreForm;
+  memberScoreForm: ScoreForm;
   saving: boolean;
-  onScoreChange: (field: "home" | "away", value: string) => void;
+  submitting: boolean;
+  reviewing: boolean;
+  onAdminScoreChange: (field: "home" | "away", value: string) => void;
+  onMemberScoreChange: (field: "home" | "away", value: string) => void;
   onSaveScore: () => void;
   onResetScore: () => void;
+  onSubmitMemberScore: () => void;
+  onValidateSubmittedScore: () => void;
+  onRejectSubmittedScore: () => void;
 }) {
   const hasScore = match.home_score !== null && match.away_score !== null;
+
+  const hasSubmittedScore =
+    match.submitted_home_score !== null && match.submitted_away_score !== null;
+
+  const isPending = match.score_status === "pending";
 
   return (
     <article className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
@@ -663,6 +982,93 @@ function MatchCard({
         </p>
       </div>
 
+      {canSeeSubmittedScore && hasSubmittedScore && (
+        <div className="mt-5 rounded-xl border border-orange-400/20 bg-orange-950/20 p-4">
+          <p className="text-sm font-semibold text-orange-300">
+            Score proposé : {match.submitted_home_score} -{" "}
+            {match.submitted_away_score}
+          </p>
+
+          <p className="mt-1 text-xs text-[#D8C7A0]">
+            Statut : {scoreStatusLabel}
+            {submittedAtLabel ? ` · proposé le ${submittedAtLabel}` : ""}
+          </p>
+
+          {isAdmin && isPending && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                disabled={reviewing}
+                onClick={onValidateSubmittedScore}
+                className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {reviewing ? "..." : "Valider"}
+              </button>
+
+              <button
+                type="button"
+                disabled={reviewing}
+                onClick={onRejectSubmittedScore}
+                className="rounded-lg border border-red-400/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Refuser
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {canSubmitScore && (
+        <div className="mt-5 rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
+          <p className="mb-3 text-sm font-semibold text-[#F2D27A]">
+            Proposer le score
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                Score domicile
+              </label>
+
+              <input
+                value={memberScoreForm.home}
+                onChange={(event) =>
+                  onMemberScoreChange("home", event.target.value)
+                }
+                inputMode="numeric"
+                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                Score extérieur
+              </label>
+
+              <input
+                value={memberScoreForm.away}
+                onChange={(event) =>
+                  onMemberScoreChange("away", event.target.value)
+                }
+                inputMode="numeric"
+                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                placeholder="0"
+              />
+            </div>
+
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={onSubmitMemberScore}
+              className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? "..." : isPending ? "Modifier" : "Proposer"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {isAdmin && (
         <div className="mt-5 rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
           <p className="mb-3 text-sm font-semibold text-[#F2D27A]">
@@ -676,8 +1082,10 @@ function MatchCard({
               </label>
 
               <input
-                value={scoreForm.home}
-                onChange={(event) => onScoreChange("home", event.target.value)}
+                value={adminScoreForm.home}
+                onChange={(event) =>
+                  onAdminScoreChange("home", event.target.value)
+                }
                 inputMode="numeric"
                 className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
                 placeholder="0"
@@ -690,8 +1098,10 @@ function MatchCard({
               </label>
 
               <input
-                value={scoreForm.away}
-                onChange={(event) => onScoreChange("away", event.target.value)}
+                value={adminScoreForm.away}
+                onChange={(event) =>
+                  onAdminScoreChange("away", event.target.value)
+                }
                 inputMode="numeric"
                 className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
                 placeholder="0"
