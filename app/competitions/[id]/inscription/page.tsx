@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -61,6 +62,9 @@ export default function CompetitionInscriptionPage() {
   const [playerName, setPlayerName] = useState("");
   const [eaName, setEaName] = useState("");
   const [platform, setPlatform] = useState("");
+
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedLeague, setSelectedLeague] = useState("");
   const [selectedEaTeamId, setSelectedEaTeamId] = useState("");
 
   const [loading, setLoading] = useState(true);
@@ -175,9 +179,17 @@ export default function CompetitionInscriptionPage() {
     setPlatform(loadedPlayer?.platform || "");
 
     if (loadedRegistration?.ea_team_id) {
+      const registeredTeam = loadedEaTeams.find(
+        (team) => team.id === loadedRegistration.ea_team_id
+      );
+
       setSelectedEaTeamId(loadedRegistration.ea_team_id);
+      setSelectedCountry(registeredTeam?.country || "");
+      setSelectedLeague(registeredTeam?.league || "");
     } else {
       setSelectedEaTeamId("");
+      setSelectedCountry("");
+      setSelectedLeague("");
     }
 
     setLoading(false);
@@ -187,13 +199,43 @@ export default function CompetitionInscriptionPage() {
     loadData();
   }, [competitionId]);
 
+  const countries = useMemo(() => {
+    return Array.from(new Set(eaTeams.map((team) => team.country))).sort();
+  }, [eaTeams]);
+
+  const leagues = useMemo(() => {
+    if (!selectedCountry) return [];
+
+    return Array.from(
+      new Set(
+        eaTeams
+          .filter((team) => team.country === selectedCountry)
+          .map((team) => team.league)
+      )
+    ).sort();
+  }, [eaTeams, selectedCountry]);
+
+  const filteredEaTeams = useMemo(() => {
+    return eaTeams.filter((team) => {
+      const countryMatch = selectedCountry
+        ? team.country === selectedCountry
+        : true;
+
+      const leagueMatch = selectedLeague
+        ? team.league === selectedLeague
+        : true;
+
+      return countryMatch && leagueMatch;
+    });
+  }, [eaTeams, selectedCountry, selectedLeague]);
+
   const selectedEaTeam = useMemo(() => {
     if (!selectedEaTeamId) return null;
 
     return eaTeams.find((team) => team.id === selectedEaTeamId) ?? null;
   }, [eaTeams, selectedEaTeamId]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!profile) {
@@ -215,6 +257,16 @@ export default function CompetitionInscriptionPage() {
 
     if (!playerName.trim()) {
       setMessage("Merci de renseigner ton nom joueur.");
+      return;
+    }
+
+    if (!selectedCountry) {
+      setMessage("Merci de choisir un pays.");
+      return;
+    }
+
+    if (!selectedLeague) {
+      setMessage("Merci de choisir un championnat.");
       return;
     }
 
@@ -246,7 +298,9 @@ export default function CompetitionInscriptionPage() {
 
       if (updatePlayerResult.error) {
         setSaving(false);
-        setMessage(`Erreur mise à jour joueur : ${updatePlayerResult.error.message}`);
+        setMessage(
+          `Erreur mise à jour joueur : ${updatePlayerResult.error.message}`
+        );
         return;
       }
 
@@ -266,7 +320,9 @@ export default function CompetitionInscriptionPage() {
 
       if (insertPlayerResult.error) {
         setSaving(false);
-        setMessage(`Erreur création joueur : ${insertPlayerResult.error.message}`);
+        setMessage(
+          `Erreur création joueur : ${insertPlayerResult.error.message}`
+        );
         return;
       }
 
@@ -490,8 +546,8 @@ export default function CompetitionInscriptionPage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Choisis ton équipe EA FC et valide ton inscription. Les matchs de la
-            compétition seront générés automatiquement.
+            Choisis ton pays, ton championnat puis ton équipe EA FC. Les matchs
+            de la compétition seront générés automatiquement.
           </p>
 
           {message && (
@@ -570,19 +626,76 @@ export default function CompetitionInscriptionPage() {
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Équipe EA FC
+                  Pays
+                </label>
+
+                <select
+                  value={selectedCountry}
+                  onChange={(event) => {
+                    setSelectedCountry(event.target.value);
+                    setSelectedLeague("");
+                    setSelectedEaTeamId("");
+                  }}
+                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                >
+                  <option value="">Choisir un pays</option>
+
+                  {countries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  Championnat
+                </label>
+
+                <select
+                  value={selectedLeague}
+                  disabled={!selectedCountry}
+                  onChange={(event) => {
+                    setSelectedLeague(event.target.value);
+                    setSelectedEaTeamId("");
+                  }}
+                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">
+                    {selectedCountry
+                      ? "Choisir un championnat"
+                      : "Choisis d’abord un pays"}
+                  </option>
+
+                  {leagues.map((league) => (
+                    <option key={league} value={league}>
+                      {league}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  Équipe
                 </label>
 
                 <select
                   value={selectedEaTeamId}
+                  disabled={!selectedCountry || !selectedLeague}
                   onChange={(event) => setSelectedEaTeamId(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="">Choisir une équipe</option>
+                  <option value="">
+                    {selectedCountry && selectedLeague
+                      ? "Choisir une équipe"
+                      : "Choisis d’abord un pays et un championnat"}
+                  </option>
 
-                  {eaTeams.map((team) => (
+                  {filteredEaTeams.map((team) => (
                     <option key={team.id} value={team.id}>
-                      {team.country} · {team.league} · {team.name}
+                      {team.name}
                     </option>
                   ))}
                 </select>
@@ -676,11 +789,23 @@ export default function CompetitionInscriptionPage() {
                 </p>
 
                 <p>
+                  Pays :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {selectedCountry || "Non choisi"}
+                  </span>
+                </p>
+
+                <p>
+                  Championnat :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {selectedLeague || "Non choisi"}
+                  </span>
+                </p>
+
+                <p>
                   Équipe EA FC :{" "}
                   <span className="font-semibold text-[#F2D27A]">
-                    {selectedEaTeam
-                      ? `${selectedEaTeam.name} · ${selectedEaTeam.country}`
-                      : "Non choisie"}
+                    {selectedEaTeam ? selectedEaTeam.name : "Non choisie"}
                   </span>
                 </p>
 
