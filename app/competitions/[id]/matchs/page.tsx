@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+type Profile = {
+  id: string;
+  role: "member" | "admin";
+};
+
 type Competition = {
   id: string;
   name: string;
@@ -48,12 +53,18 @@ type Match = {
   mvp: string | null;
 };
 
+type ScoreForm = {
+  home: string;
+  away: string;
+};
+
 export default function CompetitionMatchesPage() {
   const params = useParams<{ id: string }>();
   const competitionId = params.id;
 
   const supabase = createClient();
 
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [competitionPlayers, setCompetitionPlayers] = useState<
@@ -62,8 +73,13 @@ export default function CompetitionMatchesPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
+  const [scoreForms, setScoreForms] = useState<Record<string, ScoreForm>>({});
+  const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const isAdmin = profile?.role === "admin";
 
   async function loadData() {
     if (!competitionId) return;
@@ -71,28 +87,39 @@ export default function CompetitionMatchesPage() {
     setLoading(true);
     setMessage("");
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const profileResult = await supabase
+        .from("profiles")
+        .select("id, role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profileResult.error && profileResult.data) {
+        setProfile(profileResult.data as Profile);
+      }
+    }
+
     const competitionResult = await supabase
       .from("competitions")
       .select("*")
       .eq("id", competitionId)
-      .single();
+      .maybeSingle();
 
-    if (competitionResult.error || !competitionResult.data) {
-  console.error("Competition debug:", {
-    competitionId,
-    error: competitionResult.error,
-    data: competitionResult.data,
-  });
+    if (competitionResult.error) {
+      setMessage(`Erreur compétition : ${competitionResult.error.message}`);
+      setLoading(false);
+      return;
+    }
 
-  setMessage(
-    `Compétition introuvable. ID reçu : ${competitionId}. Erreur Supabase : ${
-      competitionResult.error?.message || "aucune donnée retournée"
-    }`
-  );
-
-  setLoading(false);
-  return;
-}
+    if (!competitionResult.data) {
+      setMessage(`Compétition introuvable. ID reçu : ${competitionId}`);
+      setLoading(false);
+      return;
+    }
 
     const matchesResult = await supabase
       .from("matches")
@@ -171,11 +198,21 @@ export default function CompetitionMatchesPage() {
       }
     }
 
+    const nextScoreForms: Record<string, ScoreForm> = {};
+
+    for (const match of loadedMatches) {
+      nextScoreForms[match.id] = {
+        home: match.home_score !== null ? String(match.home_score) : "",
+        away: match.away_score !== null ? String(match.away_score) : "",
+      };
+    }
+
     setCompetition(competitionResult.data as Competition);
     setMatches(loadedMatches);
     setCompetitionPlayers(loadedCompetitionPlayers);
     setPlayers(loadedPlayers);
     setTeams(loadedTeams);
+    setScoreForms(nextScoreForms);
     setLoading(false);
   }
 
@@ -275,6 +312,105 @@ export default function CompetitionMatchesPage() {
     return "border-[#D9A441]/30 text-[#F2D27A]";
   }
 
+  function updateScoreForm(matchId: string, field: "home" | "away", value: string) {
+    const cleanValue = value.replace(/[^\d]/g, "");
+
+    setScoreForms((current) => ({
+      ...current,
+      [matchId]: {
+        home: current[matchId]?.home ?? "",
+        away: current[matchId]?.away ?? "",
+        [field]: cleanValue,
+      },
+    }));
+  }
+
+  async function saveScore(match: Match) {
+    if (!isAdmin) {
+      setMessage("Action réservée aux admins.");
+      return;
+    }
+
+    const form = scoreForms[match.id];
+
+    if (!form || form.home === "" || form.away === "") {
+      setMessage("Merci de renseigner les deux scores.");
+      return;
+    }
+
+    const homeScore = Number(form.home);
+    const awayScore = Number(form.away);
+
+    if (
+      !Number.isInteger(homeScore) ||
+      !Number.isInteger(awayScore) ||
+      homeScore < 0 ||
+      awayScore < 0
+    ) {
+      setMessage("Les scores doivent être des nombres entiers positifs.");
+      return;
+    }
+
+    setSavingMatchId(match.id);
+    setMessage("");
+
+    const updateResult = await supabase
+      .from("matches")
+      .update({
+        home_score: homeScore,
+        away_score: awayScore,
+        status: "completed",
+      })
+      .eq("id", match.id);
+
+    if (updateResult.error) {
+      setSavingMatchId(null);
+      setMessage(`Erreur enregistrement score : ${updateResult.error.message}`);
+      return;
+    }
+
+    setSavingMatchId(null);
+    setMessage("Score enregistré ✅");
+
+    await loadData();
+  }
+
+  async function resetScore(match: Match) {
+    if (!isAdmin) {
+      setMessage("Action réservée aux admins.");
+      return;
+    }
+
+    const confirmed = window.confirm("Réinitialiser le score de ce match ?");
+
+    if (!confirmed) return;
+
+    setSavingMatchId(match.id);
+    setMessage("");
+
+    const updateResult = await supabase
+      .from("matches")
+      .update({
+        home_score: null,
+        away_score: null,
+        status: "planned",
+      })
+      .eq("id", match.id);
+
+    if (updateResult.error) {
+      setSavingMatchId(null);
+      setMessage(
+        `Erreur réinitialisation score : ${updateResult.error.message}`
+      );
+      return;
+    }
+
+    setSavingMatchId(null);
+    setMessage("Score réinitialisé ✅");
+
+    await loadData();
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -337,8 +473,14 @@ export default function CompetitionMatchesPage() {
           </p>
 
           {message && (
-            <div className="mt-6 rounded-xl border border-red-400/30 bg-[#160A12] p-4 text-sm text-red-300">
+            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
               {message}
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="mt-4 rounded-xl border border-green-400/20 bg-green-950/20 p-4 text-sm text-green-300">
+              Mode admin actif : tu peux saisir ou modifier les scores.
             </div>
           )}
 
@@ -389,6 +531,14 @@ export default function CompetitionMatchesPage() {
                   dateLabel={formatDate(match.match_date)}
                   statusLabel={getStatusLabel(match.status)}
                   statusClass={getStatusClass(match.status)}
+                  isAdmin={isAdmin}
+                  scoreForm={scoreForms[match.id] ?? { home: "", away: "" }}
+                  saving={savingMatchId === match.id}
+                  onScoreChange={(field, value) =>
+                    updateScoreForm(match.id, field, value)
+                  }
+                  onSaveScore={() => saveScore(match)}
+                  onResetScore={() => resetScore(match)}
                 />
               ))}
             </div>
@@ -417,6 +567,14 @@ export default function CompetitionMatchesPage() {
                   dateLabel={formatDate(match.match_date)}
                   statusLabel={getStatusLabel(match.status)}
                   statusClass={getStatusClass(match.status)}
+                  isAdmin={isAdmin}
+                  scoreForm={scoreForms[match.id] ?? { home: "", away: "" }}
+                  saving={savingMatchId === match.id}
+                  onScoreChange={(field, value) =>
+                    updateScoreForm(match.id, field, value)
+                  }
+                  onSaveScore={() => saveScore(match)}
+                  onResetScore={() => resetScore(match)}
                 />
               ))}
             </div>
@@ -451,6 +609,12 @@ function MatchCard({
   dateLabel,
   statusLabel,
   statusClass,
+  isAdmin,
+  scoreForm,
+  saving,
+  onScoreChange,
+  onSaveScore,
+  onResetScore,
 }: {
   match: Match;
   homeLabel: string;
@@ -458,6 +622,12 @@ function MatchCard({
   dateLabel: string;
   statusLabel: string;
   statusClass: string;
+  isAdmin: boolean;
+  scoreForm: ScoreForm;
+  saving: boolean;
+  onScoreChange: (field: "home" | "away", value: string) => void;
+  onSaveScore: () => void;
+  onResetScore: () => void;
 }) {
   const hasScore = match.home_score !== null && match.away_score !== null;
 
@@ -492,6 +662,62 @@ function MatchCard({
           {awayLabel}
         </p>
       </div>
+
+      {isAdmin && (
+        <div className="mt-5 rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
+          <p className="mb-3 text-sm font-semibold text-[#F2D27A]">
+            Saisie score admin
+          </p>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                Score domicile
+              </label>
+
+              <input
+                value={scoreForm.home}
+                onChange={(event) => onScoreChange("home", event.target.value)}
+                inputMode="numeric"
+                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                Score extérieur
+              </label>
+
+              <input
+                value={scoreForm.away}
+                onChange={(event) => onScoreChange("away", event.target.value)}
+                inputMode="numeric"
+                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                placeholder="0"
+              />
+            </div>
+
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onSaveScore}
+              className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? "..." : "Enregistrer"}
+            </button>
+
+            <button
+              type="button"
+              disabled={saving || !hasScore}
+              onClick={onResetScore}
+              className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      )}
     </article>
   );
 }
