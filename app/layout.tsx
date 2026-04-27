@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import "./globals.css";
 import AuthStatus from "@/components/AuthStatus";
 
 export const metadata: Metadata = {
   title: "GSF Compet",
-  description: "Compétitions EA FC 26 de la Guardian's Family",
+  description: "Site officiel Guardian's Family pour gérer les compétitions EA FC.",
 };
 
 const navItems = [
@@ -25,47 +24,47 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <header className="fixed left-0 top-0 z-50 w-full border-b border-[#D9A441]/20 bg-[#0B0610]/95 backdrop-blur">
-          <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <body className="bg-[#0B0610] text-[#F7E9C5]">
+        <header className="sticky top-0 z-50 border-b border-[#D9A441]/20 bg-[#0B0610]/95 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3 sm:px-6">
             <Link href="/" className="flex items-center gap-3">
-              <div className="relative h-11 w-11 overflow-hidden rounded-full border border-[#D9A441]/45 bg-[#140A12] shadow-[0_0_18px_rgba(217,164,65,0.25)]">
-                <Image
+              <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-[#D9A441]/40 bg-[#160A12] shadow-lg shadow-black/30">
+                <img
                   src="/logo-gf.png"
                   alt="Guardian's Family"
-                  fill
-                  className="object-cover"
-                  priority
+                  className="h-full w-full object-cover"
                 />
               </div>
 
-              <div className="flex flex-col leading-tight">
-                <span className="text-[16px] font-black tracking-tight text-[#F7E9C5] md:text-[18px]">
+              <div className="leading-tight">
+                <p className="text-base font-black text-[#F7E9C5] sm:text-lg">
                   Guardian&apos;s Family
-                </span>
-
-                <span className="text-[12px] text-[#E8D7AA] md:text-[13px]">
+                </p>
+                <p className="text-xs text-[#D8C7A0] sm:text-sm">
                   GSF Compet
-                </span>
+                </p>
               </div>
             </Link>
 
-            <div className="hidden items-center gap-5 md:flex">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-sm font-medium text-[#D8C7A0] transition hover:text-[#F2D27A]"
-                >
-                  {item.label}
-                </Link>
-              ))}
-                <AuthStatus />
+            <div className="flex items-center gap-5">
+              <nav className="hidden items-center gap-5 md:flex">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="text-sm font-medium text-[#D8C7A0] transition hover:text-[#F2D27A]"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+
+              <AuthStatus />
             </div>
-          </nav>
+          </div>
         </header>
 
-        <div className="pt-24">{children}</div>
+        {children}
       </body>
     </html>
   );

@@ -29,15 +29,23 @@ export default function AuthStatus() {
       return;
     }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("username, email, role")
       .eq("id", user.id)
       .single();
 
-    if (data) {
-      setProfile(data);
+    if (data && !error) {
+      setProfile(data as Profile);
+      setLoading(false);
+      return;
     }
+
+    setProfile({
+      username: user.user_metadata?.username || null,
+      email: user.email || "Compte connecté",
+      role: "member",
+    });
 
     setLoading(false);
   }
@@ -50,14 +58,20 @@ export default function AuthStatus() {
 
   useEffect(() => {
     loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadUser();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (loading) {
-    return (
-      <div className="text-xs text-[#8F7B5C]">
-        Vérification...
-      </div>
-    );
+    return <div className="text-xs text-[#8F7B5C]">Vérification...</div>;
   }
 
   if (!profile) {
