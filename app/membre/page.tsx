@@ -37,6 +37,13 @@ type CompetitionPlayer = {
   ea_team_name: string;
 };
 
+type EaTeam = {
+  id: string;
+  country: string;
+  league: string;
+  name: string;
+};
+
 type Match = {
   id: string;
   competition_id: string;
@@ -58,6 +65,7 @@ export default function MemberPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [registrations, setRegistrations] = useState<CompetitionPlayer[]>([]);
+  const [eaTeams, setEaTeams] = useState<EaTeam[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -104,6 +112,13 @@ export default function MemberPage() {
       .from("competition_players")
       .select("*");
 
+    const eaTeamsResult = await supabase
+      .from("ea_teams")
+      .select("*")
+      .order("country", { ascending: true })
+      .order("league", { ascending: true })
+      .order("name", { ascending: true });
+
     const matchesResult = await supabase
       .from("matches")
       .select("*")
@@ -128,6 +143,12 @@ export default function MemberPage() {
       return;
     }
 
+    if (eaTeamsResult.error) {
+      setMessage(`Erreur équipes EA FC : ${eaTeamsResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
     if (matchesResult.error) {
       setMessage(`Erreur matchs : ${matchesResult.error.message}`);
       setLoading(false);
@@ -138,6 +159,7 @@ export default function MemberPage() {
     setPlayer(playerResult.data as Player | null);
     setCompetitions((competitionsResult.data ?? []) as Competition[]);
     setRegistrations((registrationsResult.data ?? []) as CompetitionPlayer[]);
+    setEaTeams((eaTeamsResult.data ?? []) as EaTeam[]);
     setMatches((matchesResult.data ?? []) as Match[]);
     setLoading(false);
   }
@@ -189,14 +211,14 @@ export default function MemberPage() {
   }, [myMatches]);
 
   const memberStats = useMemo(() => {
-    let matchesPlayed = 0;
-    let wins = 0;
-    let draws = 0;
-    let losses = 0;
-    let goalsFor = 0;
-    let goalsAgainst = 0;
-    let goalAverage = 0;
-    let points = 0;
+    let mj = 0;
+    let v = 0;
+    let n = 0;
+    let p = 0;
+    let bp = 0;
+    let bc = 0;
+    let ga = 0;
+    let pts = 0;
 
     for (const match of completedMatches) {
       const isHome =
@@ -213,33 +235,39 @@ export default function MemberPage() {
       const myGoals = isHome ? match.home_score : match.away_score;
       const opponentGoals = isHome ? match.away_score : match.home_score;
 
-      matchesPlayed += 1;
-      goalsFor += myGoals;
-      goalsAgainst += opponentGoals;
-      goalAverage += myGoals - opponentGoals;
+      mj += 1;
+      bp += myGoals;
+      bc += opponentGoals;
+      ga += myGoals - opponentGoals;
 
       if (myGoals > opponentGoals) {
-        wins += 1;
-        points += 3;
+        v += 1;
+        pts += 3;
       } else if (myGoals === opponentGoals) {
-        draws += 1;
-        points += 1;
+        n += 1;
+        pts += 1;
       } else {
-        losses += 1;
+        p += 1;
       }
     }
 
     return {
-      matchesPlayed,
-      wins,
-      draws,
-      losses,
-      goalsFor,
-      goalsAgainst,
-      goalAverage,
-      points,
+      mj,
+      v,
+      n,
+      p,
+      bp,
+      bc,
+      ga,
+      pts,
     };
   }, [completedMatches, myRegistrationIds]);
+
+  const mainRegistration = myRegistrations[0] ?? null;
+
+  const mainEaTeam = mainRegistration?.ea_team_id
+    ? eaTeams.find((team) => team.id === mainRegistration.ea_team_id)
+    : null;
 
   function getCompetition(competitionId: string) {
     return competitions.find((competition) => competition.id === competitionId);
@@ -322,6 +350,17 @@ export default function MemberPage() {
     return "text-[#D8C7A0]";
   }
 
+  function getCardNote() {
+    if (profile?.role === "admin") return 99;
+
+    const base = 80 + memberStats.pts;
+
+    if (base > 99) return 99;
+    if (base < 80) return 80;
+
+    return base;
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -371,6 +410,9 @@ export default function MemberPage() {
   }
 
   const displayName = player?.name || profile.username || profile.email;
+  const cardTeamName = mainRegistration?.ea_team_name || "Sans équipe";
+  const cardCountry = mainEaTeam?.country || "Angleterre";
+  const cardPlatform = player?.platform || "PC";
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -403,27 +445,80 @@ export default function MemberPage() {
           />
           <StatCard label="Inscriptions" value={myRegistrations.length} />
           <StatCard label="Matchs à venir" value={upcomingMatches.length} />
-          <StatCard label="Points" value={memberStats.points} />
+          <StatCard label="Points" value={memberStats.pts} />
         </div>
 
-        <FutMemberCard
-          displayName={displayName}
-          eaName={player?.ea_name}
-          email={profile.email}
-          platform={player?.platform}
-          role={profile.role}
-          registrationsCount={myRegistrations.length}
-          upcomingMatchesCount={upcomingMatches.length}
-          completedMatchesCount={completedMatches.length}
-          matchesPlayed={memberStats.matchesPlayed}
-          wins={memberStats.wins}
-          draws={memberStats.draws}
-          losses={memberStats.losses}
-          goalsFor={memberStats.goalsFor}
-          goalsAgainst={memberStats.goalsAgainst}
-          goalAverage={memberStats.goalAverage}
-          points={memberStats.points}
-        />
+        <section className="rounded-3xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
+            <div className="flex justify-center">
+              <div className="w-full max-w-[430px]">
+                <FutMemberCard
+                  pseudo={displayName}
+                  role={profile.role}
+                  note={getCardNote()}
+                  plateforme={cardPlatform}
+                  pays={cardCountry}
+                  equipeEAFC={cardTeamName}
+                  avatarUrl={null}
+                  mj={memberStats.mj}
+                  v={memberStats.v}
+                  n={memberStats.n}
+                  p={memberStats.p}
+                  bp={memberStats.bp}
+                  bc={memberStats.bc}
+                  ga={memberStats.ga}
+                  pts={memberStats.pts}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col justify-center">
+              <p className="mb-3 inline-flex w-fit rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+                Carte membre
+              </p>
+
+              <h2 className="text-3xl font-black text-[#F7E9C5]">
+                Profil Guardian&apos;s Family
+              </h2>
+
+              <p className="mt-3 max-w-2xl text-[#D8C7A0]">
+                Ta carte regroupe ton identité membre, ton équipe EA FC
+                principale et tes statistiques issues des matchs terminés.
+              </p>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <InfoBox label="Pseudo membre" value={displayName} />
+                <InfoBox
+                  label="Pseudo EA"
+                  value={player?.ea_name || "Non défini"}
+                />
+                <InfoBox label="Plateforme" value={cardPlatform} />
+                <InfoBox label="Pays" value={cardCountry} />
+                <InfoBox label="Équipe EA FC" value={cardTeamName} />
+                <InfoBox
+                  label="Rôle"
+                  value={profile.role === "admin" ? "Admin" : "Membre"}
+                />
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/membre/profil"
+                  className="inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                >
+                  Modifier mon profil
+                </Link>
+
+                <Link
+                  href="/competitions"
+                  className="inline-flex rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+                >
+                  Voir les compétitions
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-6">
@@ -615,6 +710,19 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-5 shadow-lg shadow-black/30">
       <p className="text-sm text-[#8F7B5C]">{label}</p>
       <p className="mt-2 text-2xl font-black text-[#F2D27A]">{value}</p>
+    </div>
+  );
+}
+
+function InfoBox({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-[#8F7B5C]">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-sm font-semibold text-[#F2D27A]">
+        {value}
+      </p>
     </div>
   );
 }

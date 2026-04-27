@@ -1,266 +1,312 @@
+"use client";
+
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 type FutMemberCardProps = {
-  displayName: string;
-  eaName?: string | null;
-  email: string;
-  platform?: string | null;
-  role: "member" | "admin";
-  registrationsCount: number;
-  upcomingMatchesCount: number;
-  completedMatchesCount: number;
+  pseudo: string;
+  role?: string;
+  note?: number;
+  plateforme?: string;
+  pays?: string;
+  equipeEAFC?: string;
+  avatarUrl?: string | null;
 
-  matchesPlayed: number;
-  wins: number;
-  draws: number;
-  losses: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalAverage: number;
-  points: number;
+  mj?: number;
+  v?: number;
+  n?: number;
+  p?: number;
+  bp?: number;
+  bc?: number;
+  ga?: number;
+  pts?: number;
 };
 
-export default function FutMemberCard({
-  displayName,
-  eaName,
-  email,
-  platform,
-  role,
-  registrationsCount,
-  upcomingMatchesCount,
-  completedMatchesCount,
-  matchesPlayed,
-  wins,
-  draws,
-  losses,
-  goalsFor,
-  goalsAgainst,
-  goalAverage,
-  points,
-}: FutMemberCardProps) {
-  const displayInitial = displayName?.charAt(0)?.toUpperCase() || "G";
-  const cardRating = role === "admin" ? 99 : Math.min(99, 80 + points);
+type StatPosition = {
+  key: string;
+  value: string | number;
+  left: string;
+  top: string;
+  color: string;
+};
 
-  return (
-    <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#160A12]/95 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-      <div className="grid gap-8 lg:grid-cols-[340px_1fr]">
-        {/* Carte membre */}
-        <div className="mx-auto w-full max-w-[340px]">
-          <div className="relative overflow-hidden rounded-[30px] border border-[#D9A441]/50 bg-[radial-gradient(circle_at_top,_rgba(220,80,50,0.35),_rgba(30,8,18,0.98)_55%)] p-5 shadow-[0_0_45px_rgba(166,30,34,0.22)]">
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(217,164,65,0.12),transparent_35%,transparent_65%,rgba(217,164,65,0.08))]" />
-            <div className="pointer-events-none absolute -left-20 top-10 h-52 w-52 rounded-full bg-[#A61E22]/25 blur-3xl" />
-            <div className="pointer-events-none absolute -right-20 bottom-10 h-52 w-52 rounded-full bg-[#D9A441]/20 blur-3xl" />
+function getCountryCode(country?: string) {
+  if (!country) return "GB";
 
-            <div className="relative z-10">
-              {/* Haut de carte */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-5xl font-black leading-none text-[#F2D27A]">
-                    {cardRating}
-                  </p>
+  const value = country.toLowerCase();
 
-                  <p className="mt-1 text-sm font-bold uppercase tracking-[0.25em] text-[#F2D27A]">
-                    {role === "admin" ? "ADM" : "MBR"}
-                  </p>
+  if (value.includes("france")) return "FR";
+  if (value.includes("angleterre")) return "GB";
+  if (value.includes("england")) return "GB";
+  if (value.includes("royaume")) return "GB";
+  if (value.includes("espagne")) return "ES";
+  if (value.includes("spain")) return "ES";
+  if (value.includes("italie")) return "IT";
+  if (value.includes("italy")) return "IT";
+  if (value.includes("allemagne")) return "DE";
+  if (value.includes("germany")) return "DE";
+  if (value.includes("portugal")) return "PT";
+  if (value.includes("pays-bas")) return "NL";
+  if (value.includes("belgique")) return "BE";
+  if (value.includes("maroc")) return "MA";
+  if (value.includes("algérie") || value.includes("algerie")) return "DZ";
+  if (value.includes("tunisie")) return "TN";
 
-                  <div className="mt-4">
-                    <div className="flex h-6 w-10 overflow-hidden rounded-sm border border-white/30 shadow">
-                      <div className="h-full flex-1 bg-[#0055A4]" />
-                      <div className="h-full flex-1 bg-white" />
-                      <div className="h-full flex-1 bg-[#EF4135]" />
-                    </div>
-
-                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[#F7E9C5]">
-                      FR
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-3">
-                  <div className="rounded-full border border-[#D9A441]/40 bg-[#0B0610]/70 px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#F2D27A]">
-                    {role === "admin" ? "Admin" : "Membre"}
-                  </div>
-
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#D9A441]/50 bg-[#0B0610]/80 p-1">
-                    <img
-                      src="/logo.png"
-                      alt="Guardian's Family"
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Identité */}
-              <div className="mt-8 text-center">
-                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border-4 border-[#D9A441]/40 bg-[#2B0F16] shadow-inner shadow-black/40">
-                  <span className="text-5xl font-black text-[#F7E9C5]">
-                    {displayInitial}
-                  </span>
-                </div>
-
-                <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.35em] text-[#D9A441]">
-                  Guardian&apos;s Family
-                </p>
-
-                <h2 className="mt-2 text-3xl font-black uppercase tracking-wide text-[#F7E9C5]">
-                  {displayName}
-                </h2>
-
-                <p className="mt-1 text-sm font-semibold text-[#D9A441]">
-                  {eaName || "Pseudo EA FC non renseigné"}
-                </p>
-
-                <p className="mt-1 text-xs uppercase tracking-[0.25em] text-[#A98E63]">
-                  {platform || "Plateforme non définie"}
-                </p>
-              </div>
-
-              {/* Stats sportives */}
-              <div className="mt-8 grid grid-cols-4 gap-x-3 gap-y-5 border-t border-[#D9A441]/20 pt-5">
-                <Stat label="MJ" value={matchesPlayed} />
-                <Stat label="V" value={wins} tone="green" />
-                <Stat label="N" value={draws} tone="orange" />
-                <Stat label="D" value={losses} tone="red" />
-
-                <Stat label="BP" value={goalsFor} tone="green" />
-                <Stat label="BC" value={goalsAgainst} tone="red" />
-                <Stat
-                  label="GA"
-                  value={goalAverage > 0 ? `+${goalAverage}` : goalAverage}
-                />
-                <Stat label="Pts" value={points} />
-              </div>
-
-              <div className="mt-6 border-t border-[#D9A441]/20 pt-4 text-center">
-                <p className="text-[11px] uppercase tracking-[0.25em] text-[#D9A441]">
-                  Loyalty • Respect • Unity
-                </p>
-
-                <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.25em] text-[#A61E22]">
-                  Since day one
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Infos à droite */}
-        <div className="grid gap-5 md:grid-cols-2">
-          <InfoCard title="Informations du membre">
-            <InfoRow label="Nom affiché" value={displayName} />
-            <InfoRow label="Email" value={email} />
-            <InfoRow label="Pseudo EA FC" value={eaName || "Non renseigné"} />
-            <InfoRow label="Plateforme" value={platform || "Non définie"} />
-            <InfoRow
-              label="Rôle"
-              value={role === "admin" ? "Admin" : "Membre"}
-            />
-          </InfoCard>
-
-          <InfoCard title="Résumé">
-            <InfoRow label="Inscriptions" value={registrationsCount} />
-            <InfoRow label="Matchs à venir" value={upcomingMatchesCount} />
-            <InfoRow label="Résultats" value={completedMatchesCount} />
-            <InfoRow label="Points" value={points} tone="gold" />
-          </InfoCard>
-
-          <InfoCard title="Bilan sportif">
-            <InfoRow label="Matchs joués" value={matchesPlayed} />
-            <InfoRow label="Victoires" value={wins} tone="green" />
-            <InfoRow label="Nuls" value={draws} tone="orange" />
-            <InfoRow label="Défaites" value={losses} tone="red" />
-          </InfoCard>
-
-          <InfoCard title="Buts & différence">
-            <InfoRow label="Buts pour" value={goalsFor} tone="green" />
-            <InfoRow label="Buts contre" value={goalsAgainst} tone="red" />
-            <InfoRow
-              label="Goal average"
-              value={goalAverage > 0 ? `+${goalAverage}` : goalAverage}
-            />
-
-            <div className="mt-4 rounded-xl border border-[#D9A441]/10 bg-[#160A12]/70 px-4 py-3 text-sm text-[#D8C7A0]">
-              Les statistiques sont calculées uniquement à partir des matchs
-              terminés.
-            </div>
-          </InfoCard>
-        </div>
-      </div>
-    </section>
-  );
+  return "GB";
 }
 
-function Stat({
-  label,
-  value,
-  tone = "gold",
-}: {
-  label: string;
-  value: string | number;
-  tone?: "gold" | "green" | "orange" | "red";
-}) {
-  const toneClass =
-    tone === "green"
-      ? "text-green-300"
-      : tone === "orange"
-        ? "text-orange-300"
-        : tone === "red"
-          ? "text-red-300"
-          : "text-[#F2D27A]";
+function getRoleLabel(role?: string) {
+  if (!role) return "MEMBRE";
+
+  return role.toLowerCase() === "admin" ? "ADMIN" : "MEMBRE";
+}
+
+function formatGA(value: number) {
+  if (value > 0) return `+${value}`;
+  return `${value}`;
+}
+
+export default function FutMemberCard({
+  pseudo,
+  role = "Membre",
+  note = 99,
+  plateforme = "PC",
+  pays = "France",
+  equipeEAFC = "Sans équipe",
+  avatarUrl = null,
+  mj = 0,
+  v = 0,
+  n = 0,
+  p = 0,
+  bp = 0,
+  bc = 0,
+  ga = 0,
+  pts = 0,
+}: FutMemberCardProps) {
+  const countryCode = getCountryCode(pays);
+  const roleLabel = getRoleLabel(role);
+
+  const statPositions: StatPosition[] = [
+    {
+      key: "mj",
+      value: mj,
+      left: "18.4%",
+      top: "69.65%",
+      color: "#F7D56D",
+    },
+    {
+      key: "v",
+      value: v,
+      left: "39.15%",
+      top: "69.65%",
+      color: "#22c55e",
+    },
+    {
+      key: "n",
+      value: n,
+      left: "60.35%",
+      top: "69.65%",
+      color: "#f59e0b",
+    },
+    {
+      key: "p",
+      value: p,
+      left: "81.25%",
+      top: "69.65%",
+      color: "#fb7185",
+    },
+    {
+      key: "bp",
+      value: bp,
+      left: "18.4%",
+      top: "79.45%",
+      color: "#22c55e",
+    },
+    {
+      key: "bc",
+      value: bc,
+      left: "39.15%",
+      top: "79.45%",
+      color: "#fb7185",
+    },
+    {
+      key: "ga",
+      value: formatGA(ga),
+      left: "60.35%",
+      top: "79.45%",
+      color: "#F7D56D",
+    },
+    {
+      key: "pts",
+      value: pts,
+      left: "81.25%",
+      top: "79.45%",
+      color: "#F7D56D",
+    },
+  ];
 
   return (
-    <div className="text-center">
-      <p className={`text-[10px] font-bold uppercase tracking-[0.24em] ${toneClass}`}>
-        {label}
-      </p>
+    <div className="relative mx-auto w-full max-w-[430px]">
+      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-[30px]">
+        <Image
+          src="/Carte_UT_GSF_v2.png"
+          alt="Carte membre Guardian's Family"
+          fill
+          priority
+          className="object-contain"
+          sizes="(max-width: 768px) 90vw, 430px"
+        />
 
-      <p className={`mt-1 text-2xl font-black ${toneClass}`}>{value}</p>
+        <div className="absolute inset-0 z-10">
+          {/* NOTE */}
+          <Box left="8.9%" top="4.9%" width="18.8%" height="10.2%">
+            <span className="text-[clamp(2.15rem,6vw,3.5rem)] font-black leading-none text-[#F7D56D] drop-shadow-[0_0_10px_rgba(247,213,109,0.35)]">
+              {note}
+            </span>
+          </Box>
+
+          {/* ROLE */}
+          <Box left="8.7%" top="16.1%" width="19.3%" height="3.35%">
+            <span className="text-[clamp(0.5rem,1.18vw,0.68rem)] font-black uppercase tracking-[0.24em] text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
+              {roleLabel}
+            </span>
+          </Box>
+
+          {/* PETIT CARRÉ GAUCHE */}
+          <Box left="9%" top="20%" width="9.8%" height="5.8%">
+            <span className="text-[clamp(0.78rem,1.55vw,0.95rem)] font-black text-[#F7D56D]">
+              {countryCode}
+            </span>
+          </Box>
+
+          {/* BARRE HAUT DROITE */}
+          <Box left="73.1%" top="4.55%" width="19.6%" height="3.15%">
+            <span className="text-[clamp(0.58rem,1.2vw,0.74rem)] font-black tracking-[0.16em] text-[#F7D56D]">
+              {countryCode}
+            </span>
+          </Box>
+
+          {/* CERCLE HAUT DROITE */}
+          <Box left="72.15%" top="7.5%" width="21.4%" height="11.8%">
+            <span className="text-[clamp(1.25rem,2.9vw,1.7rem)] font-black uppercase text-[#F7D56D]">
+              {plateforme.toUpperCase()}
+            </span>
+          </Box>
+
+          {/* AVATAR CENTRAL */}
+          <div
+            className="absolute z-20 flex aspect-square items-center justify-center overflow-hidden rounded-full"
+            style={{
+              left: "50%",
+              top: "29.9%",
+              width: "32.2%",
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={pseudo}
+                fill
+                className="object-cover"
+                sizes="180px"
+              />
+            ) : (
+              <span className="text-[clamp(2.4rem,6.6vw,3.8rem)] font-black uppercase text-[#F7D56D] drop-shadow-[0_0_14px_rgba(247,213,109,0.25)]">
+                {pseudo.charAt(0)}
+              </span>
+            )}
+          </div>
+
+          {/* PSEUDO */}
+          <Box left="22.2%" top="43.65%" width="55.8%" height="5.2%">
+            <span className="max-w-full truncate text-center text-[clamp(0.95rem,2.45vw,1.38rem)] font-black uppercase tracking-[0.08em] text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
+              {pseudo}
+            </span>
+          </Box>
+
+          {/* PAYS */}
+          <Box left="28.9%" top="51.55%" width="42.2%" height="3.05%">
+            <span className="max-w-full truncate text-center text-[clamp(0.64rem,1.35vw,0.8rem)] font-bold text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
+              {pays}
+            </span>
+          </Box>
+
+          {/* ÉQUIPE EA FC */}
+          <Box left="33.8%" top="56.55%" width="32.4%" height="2.95%">
+            <span className="max-w-full truncate text-center text-[clamp(0.58rem,1.18vw,0.72rem)] font-semibold text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
+              {equipeEAFC}
+            </span>
+          </Box>
+
+          {/* STATS réglées individuellement */}
+          {statPositions.map((stat) => (
+            <StatValue
+              key={stat.key}
+              value={stat.value}
+              left={stat.left}
+              top={stat.top}
+              color={stat.color}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-function InfoCard({
-  title,
+function Box({
+  left,
+  top,
+  width,
+  height,
   children,
 }: {
-  title: string;
+  left: string;
+  top: string;
+  width: string;
+  height: string;
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-5">
-      <h3 className="text-lg font-black text-[#F7E9C5]">{title}</h3>
-
-      <div className="mt-4 space-y-3">{children}</div>
+    <div
+      className="absolute z-20 flex items-center justify-center overflow-hidden px-2 text-center"
+      style={{ left, top, width, height }}
+    >
+      {children}
     </div>
   );
 }
 
-function InfoRow({
-  label,
+function StatValue({
   value,
-  tone = "default",
+  left,
+  top,
+  color,
 }: {
-  label: string;
   value: string | number;
-  tone?: "default" | "gold" | "green" | "orange" | "red";
+  left: string;
+  top: string;
+  color: string;
 }) {
-  const valueClass =
-    tone === "green"
-      ? "text-green-300"
-      : tone === "orange"
-        ? "text-orange-300"
-        : tone === "red"
-          ? "text-red-300"
-          : tone === "gold"
-            ? "text-[#F2D27A]"
-            : "text-[#F2D27A]";
-
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#D9A441]/10 bg-[#160A12]/70 px-4 py-3">
-      <span className="text-sm text-[#A98E63]">{label}</span>
-
-      <span className={`text-right text-sm font-semibold ${valueClass}`}>
+    <div
+      className="absolute z-20 flex items-center justify-center text-center"
+      style={{
+        left,
+        top,
+        width: "8.8%",
+        height: "4.4%",
+        transform: "translate(-50%, -50%)",
+      }}
+    >
+      <span
+        className="text-center text-[clamp(0.78rem,1.75vw,0.98rem)] font-extrabold leading-none"
+        style={{
+          color,
+          textShadow: "0 0 10px rgba(0,0,0,0.88)",
+        }}
+      >
         {value}
       </span>
     </div>
