@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import AvatarUploader from "@/components/AvatarUploader";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = {
@@ -10,6 +11,8 @@ type Profile = {
   email: string;
   username: string | null;
   role: "member" | "admin";
+  avatar_url: string | null;
+  avatar_path: string | null;
 };
 
 type Player = {
@@ -33,6 +36,7 @@ export default function MemberProfilePage() {
   const [platform, setPlatform] = useState("");
 
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -104,69 +108,80 @@ export default function MemberProfilePage() {
     }
 
     if (!username.trim()) {
-      setMessage("Merci de renseigner ton pseudo.");
+      setMessage("Merci de renseigner ton pseudo membre.");
       return;
     }
 
     setSaving(true);
     setMessage("");
 
-    const { error: profileError } = await supabase
+    const cleanUsername = username.trim();
+    const cleanPlayerName = playerName.trim() || cleanUsername;
+    const cleanEaName = eaName.trim() || null;
+    const cleanPlatform = platform || null;
+
+    const profileResult = await supabase
       .from("profiles")
       .update({
-        username: username.trim(),
+        username: cleanUsername,
       })
       .eq("id", profile.id);
 
-    if (profileError) {
+    if (profileResult.error) {
       setSaving(false);
-      setMessage(`Erreur profil : ${profileError.message}`);
+      setMessage(`Erreur profil : ${profileResult.error.message}`);
       return;
     }
 
     await supabase.auth.updateUser({
       data: {
-        username: username.trim(),
+        username: cleanUsername,
       },
     });
 
     if (player) {
-      const { error: playerError } = await supabase
+      const playerResult = await supabase
         .from("players")
         .update({
-          name: playerName.trim() || username.trim(),
-          ea_name: eaName.trim() || null,
-          platform: platform || null,
+          name: cleanPlayerName,
+          ea_name: cleanEaName,
+          platform: cleanPlatform,
         })
         .eq("id", player.id);
 
-      if (playerError) {
+      if (playerResult.error) {
         setSaving(false);
-        setMessage(`Erreur fiche joueur : ${playerError.message}`);
+        setMessage(`Erreur fiche joueur : ${playerResult.error.message}`);
         return;
       }
-    } else if (playerName.trim() || eaName.trim() || platform) {
-      const { error: createPlayerError } = await supabase.from("players").insert({
+    } else {
+      const playerResult = await supabase.from("players").insert({
         user_id: profile.id,
-        name: playerName.trim() || username.trim(),
-        ea_name: eaName.trim() || null,
-        platform: platform || null,
+        name: cleanPlayerName,
+        ea_name: cleanEaName,
+        platform: cleanPlatform,
       });
 
-      if (createPlayerError) {
+      if (playerResult.error) {
         setSaving(false);
-        setMessage(`Erreur création fiche joueur : ${createPlayerError.message}`);
+        setMessage(`Erreur création fiche joueur : ${playerResult.error.message}`);
         return;
       }
     }
 
     setSaving(false);
     setMessage("Profil modifié avec succès ✅");
+
     await loadProfile();
     router.refresh();
   }
 
   async function handleDeleteAccount() {
+    if (!profile) {
+      setMessage("Tu dois être connecté.");
+      return;
+    }
+
     if (deleteConfirmation !== "SUPPRIMER") {
       setMessage('Pour supprimer ton compte, écris exactement "SUPPRIMER".');
       return;
@@ -194,6 +209,7 @@ export default function MemberProfilePage() {
     }
 
     await supabase.auth.signOut();
+
     window.location.href = "/";
   }
 
@@ -249,7 +265,8 @@ export default function MemberProfilePage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Mets à jour tes informations membre et ta fiche joueur.
+            Mets à jour tes informations membre, ta fiche joueur et ton avatar
+            de carte UT.
           </p>
         </div>
 
@@ -270,6 +287,7 @@ export default function MemberProfilePage() {
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
                   Email
                 </label>
+
                 <input
                   value={profile.email}
                   disabled
@@ -281,6 +299,7 @@ export default function MemberProfilePage() {
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
                   Pseudo membre
                 </label>
+
                 <input
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
@@ -293,6 +312,7 @@ export default function MemberProfilePage() {
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
                   Nom joueur
                 </label>
+
                 <input
                   value={playerName}
                   onChange={(event) => setPlayerName(event.target.value)}
@@ -305,6 +325,7 @@ export default function MemberProfilePage() {
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
                   Pseudo EA FC
                 </label>
+
                 <input
                   value={eaName}
                   onChange={(event) => setEaName(event.target.value)}
@@ -317,6 +338,7 @@ export default function MemberProfilePage() {
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
                   Plateforme
                 </label>
+
                 <select
                   value={platform}
                   onChange={(event) => setPlatform(event.target.value)}
@@ -341,10 +363,21 @@ export default function MemberProfilePage() {
           </section>
 
           <div className="space-y-6">
+            <AvatarUploader
+              userId={profile.id}
+              currentAvatarUrl={profile.avatar_url}
+              currentAvatarPath={profile.avatar_path}
+              onUploaded={(avatarUrl, avatarPath) => {
+                setProfile({
+                  ...profile,
+                  avatar_url: avatarUrl,
+                  avatar_path: avatarPath,
+                });
+              }}
+            />
+
             <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Compte
-              </h2>
+              <h2 className="text-2xl font-black text-[#F7E9C5]">Compte</h2>
 
               <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
                 <p>
@@ -358,6 +391,13 @@ export default function MemberProfilePage() {
                   Fiche joueur :{" "}
                   <span className="font-semibold text-[#F2D27A]">
                     {player ? "Créée" : "Non créée"}
+                  </span>
+                </p>
+
+                <p>
+                  Avatar :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {profile.avatar_url ? "Ajouté" : "Non ajouté"}
                   </span>
                 </p>
               </div>
@@ -399,7 +439,9 @@ export default function MemberProfilePage() {
                 onClick={handleDeleteAccount}
                 className="mt-5 rounded-xl bg-red-700 px-6 py-3 font-semibold text-white shadow-lg shadow-red-900/20 transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {deleting ? "Suppression..." : "Supprimer définitivement mon compte"}
+                {deleting
+                  ? "Suppression..."
+                  : "Supprimer définitivement mon compte"}
               </button>
             </section>
           </div>

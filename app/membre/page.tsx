@@ -10,6 +10,8 @@ type Profile = {
   email: string;
   username: string | null;
   role: "member" | "admin";
+  avatar_url: string | null;
+  avatar_path: string | null;
 };
 
 type Player = {
@@ -411,7 +413,7 @@ export default function MemberPage() {
 
   const displayName = player?.name || profile.username || profile.email;
   const cardTeamName = mainRegistration?.ea_team_name || "Sans équipe";
-  const cardCountry = mainEaTeam?.country || "Angleterre";
+  const cardCountry = mainEaTeam?.country || "France";
   const cardPlatform = player?.platform || "PC";
 
   return (
@@ -459,7 +461,7 @@ export default function MemberPage() {
                   plateforme={cardPlatform}
                   pays={cardCountry}
                   equipeEAFC={cardTeamName}
-                  avatarUrl={null}
+                  avatarUrl={profile.avatar_url}
                   mj={memberStats.mj}
                   v={memberStats.v}
                   n={memberStats.n}
@@ -483,7 +485,8 @@ export default function MemberPage() {
 
               <p className="mt-3 max-w-2xl text-[#D8C7A0]">
                 Ta carte regroupe ton identité membre, ton équipe EA FC
-                principale et tes statistiques issues des matchs terminés.
+                principale, ton avatar et tes statistiques issues des matchs
+                terminés.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -498,6 +501,10 @@ export default function MemberPage() {
                 <InfoBox
                   label="Rôle"
                   value={profile.role === "admin" ? "Admin" : "Membre"}
+                />
+                <InfoBox
+                  label="Avatar"
+                  value={profile.avatar_url ? "Ajouté" : "Non ajouté"}
                 />
               </div>
 

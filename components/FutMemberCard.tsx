@@ -197,19 +197,17 @@ export default function FutMemberCard({
           <div
             className="absolute z-20 flex aspect-square items-center justify-center overflow-hidden rounded-full"
             style={{
-              left: "50%",
-              top: "29.9%",
-              width: "32.2%",
+              left: "50.5%",
+              top: "29.4%",
+              width: "32.5%",
               transform: "translate(-50%, -50%)",
-            }}
+          }}
           >
             {avatarUrl ? (
-              <Image
+              <img
                 src={avatarUrl}
                 alt={pseudo}
-                fill
-                className="object-cover"
-                sizes="180px"
+                className="h-full w-full object-cover"
               />
             ) : (
               <span className="text-[clamp(2.4rem,6.6vw,3.8rem)] font-black uppercase text-[#F7D56D] drop-shadow-[0_0_14px_rgba(247,213,109,0.25)]">
