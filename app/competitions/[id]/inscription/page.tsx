@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,14 @@ type Profile = {
   email: string;
   username: string | null;
   role: "member" | "admin";
+};
+
+type Player = {
+  id: string;
+  user_id: string | null;
+  name: string;
+  ea_name: string | null;
+  platform: string | null;
 };
 
 type Competition = {
@@ -28,14 +36,6 @@ type EaTeam = {
   name: string;
 };
 
-type Player = {
-  id: string;
-  user_id: string | null;
-  name: string;
-  ea_name: string | null;
-  platform: string | null;
-};
-
 type CompetitionPlayer = {
   id: string;
   competition_id: string;
@@ -45,42 +45,27 @@ type CompetitionPlayer = {
 };
 
 export default function CompetitionInscriptionPage() {
-  const params = useParams();
-  const competitionId = typeof params.id === "string" ? params.id : "";
+  const params = useParams<{ id: string }>();
+  const competitionId = params.id;
+
   const supabase = createClient();
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [competition, setCompetition] = useState<Competition | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
+  const [competition, setCompetition] = useState<Competition | null>(null);
   const [eaTeams, setEaTeams] = useState<EaTeam[]>([]);
-  const [registrations, setRegistrations] = useState<CompetitionPlayer[]>([]);
+  const [registration, setRegistration] = useState<CompetitionPlayer | null>(
+    null
+  );
 
   const [playerName, setPlayerName] = useState("");
   const [eaName, setEaName] = useState("");
   const [platform, setPlatform] = useState("");
-  const [country, setCountry] = useState("");
-  const [league, setLeague] = useState("");
-  const [eaTeamId, setEaTeamId] = useState("");
+  const [selectedEaTeamId, setSelectedEaTeamId] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-
-  const countries = Array.from(
-    new Set(eaTeams.map((team) => team.country))
-  ).sort();
-
-  const leagues = Array.from(
-    new Set(
-      eaTeams
-        .filter((team) => team.country === country)
-        .map((team) => team.league)
-    )
-  ).sort();
-
-  const filteredEaTeams = eaTeams
-    .filter((team) => team.country === country && team.league === league)
-    .sort((a, b) => a.name.localeCompare(b.name));
 
   async function loadData() {
     if (!competitionId) return;
@@ -105,17 +90,41 @@ export default function CompetitionInscriptionPage() {
       .eq("id", user.id)
       .single();
 
+    if (profileResult.error || !profileResult.data) {
+      setMessage("Profil introuvable. Reconnecte-toi ou contacte un admin.");
+      setLoading(false);
+      return;
+    }
+
     const competitionResult = await supabase
       .from("competitions")
       .select("*")
       .eq("id", competitionId)
-      .single();
+      .maybeSingle();
+
+    if (competitionResult.error) {
+      setMessage(`Erreur compétition : ${competitionResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    if (!competitionResult.data) {
+      setMessage("Compétition introuvable.");
+      setLoading(false);
+      return;
+    }
 
     const playerResult = await supabase
       .from("players")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    if (playerResult.error) {
+      setMessage(`Erreur joueur : ${playerResult.error.message}`);
+      setLoading(false);
+      return;
+    }
 
     const eaTeamsResult = await supabase
       .from("ea_teams")
@@ -124,31 +133,8 @@ export default function CompetitionInscriptionPage() {
       .order("league", { ascending: true })
       .order("name", { ascending: true });
 
-    const registrationsResult = await supabase
-      .from("competition_players")
-      .select("*")
-      .eq("competition_id", competitionId);
-
-    if (profileResult.error || !profileResult.data) {
-      setMessage("Profil introuvable. Reconnecte-toi ou contacte un admin.");
-      setLoading(false);
-      return;
-    }
-
-    if (competitionResult.error || !competitionResult.data) {
-      setMessage("Compétition introuvable.");
-      setLoading(false);
-      return;
-    }
-
     if (eaTeamsResult.error) {
       setMessage(`Erreur équipes EA FC : ${eaTeamsResult.error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    if (registrationsResult.error) {
-      setMessage(`Erreur inscriptions : ${registrationsResult.error.message}`);
       setLoading(false);
       return;
     }
@@ -156,38 +142,42 @@ export default function CompetitionInscriptionPage() {
     const loadedProfile = profileResult.data as Profile;
     const loadedCompetition = competitionResult.data as Competition;
     const loadedPlayer = playerResult.data as Player | null;
-    const loadedEaTeams = eaTeamsResult.data ?? [];
-    const loadedRegistrations = registrationsResult.data ?? [];
+    const loadedEaTeams = (eaTeamsResult.data ?? []) as EaTeam[];
+
+    let loadedRegistration: CompetitionPlayer | null = null;
+
+    if (loadedPlayer) {
+      const registrationResult = await supabase
+        .from("competition_players")
+        .select("*")
+        .eq("competition_id", competitionId)
+        .eq("player_id", loadedPlayer.id)
+        .maybeSingle();
+
+      if (registrationResult.error) {
+        setMessage(`Erreur inscription : ${registrationResult.error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      loadedRegistration =
+        (registrationResult.data as CompetitionPlayer | null) ?? null;
+    }
 
     setProfile(loadedProfile);
     setCompetition(loadedCompetition);
     setPlayer(loadedPlayer);
     setEaTeams(loadedEaTeams);
-    setRegistrations(loadedRegistrations);
+    setRegistration(loadedRegistration);
 
-    if (loadedPlayer) {
-      setPlayerName(loadedPlayer.name);
-      setEaName(loadedPlayer.ea_name ?? "");
-      setPlatform(loadedPlayer.platform ?? "");
+    setPlayerName(loadedPlayer?.name || loadedProfile.username || "");
+    setEaName(loadedPlayer?.ea_name || "");
+    setPlatform(loadedPlayer?.platform || "");
 
-      const existingRegistration = loadedRegistrations.find(
-        (registration) => registration.player_id === loadedPlayer.id
-      );
-
-      if (existingRegistration?.ea_team_id) {
-        setEaTeamId(existingRegistration.ea_team_id);
-
-        const selectedTeam = loadedEaTeams.find(
-          (team) => team.id === existingRegistration.ea_team_id
-        );
-
-        if (selectedTeam) {
-          setCountry(selectedTeam.country);
-          setLeague(selectedTeam.league);
-        }
-      }
+    if (loadedRegistration?.ea_team_id) {
+      setSelectedEaTeamId(loadedRegistration.ea_team_id);
     } else {
-      setPlayerName(loadedProfile.username || "");
+      setSelectedEaTeamId("");
     }
 
     setLoading(false);
@@ -197,33 +187,13 @@ export default function CompetitionInscriptionPage() {
     loadData();
   }, [competitionId]);
 
-  function getCompetitionLabel() {
-    if (!competition) return "Compétition";
+  const selectedEaTeam = useMemo(() => {
+    if (!selectedEaTeamId) return null;
 
-    return competition.season
-      ? `${competition.name} · ${competition.season}`
-      : competition.name;
-  }
+    return eaTeams.find((team) => team.id === selectedEaTeamId) ?? null;
+  }, [eaTeams, selectedEaTeamId]);
 
-  function getCurrentRegistration() {
-    if (!player) return null;
-
-    return registrations.find(
-      (registration) => registration.player_id === player.id
-    );
-  }
-
-  function isEaTeamAlreadyTaken() {
-    if (!eaTeamId) return false;
-
-    return registrations.some(
-      (registration) =>
-        registration.ea_team_id === eaTeamId &&
-        registration.player_id !== player?.id
-    );
-  }
-
-  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!profile) {
@@ -237,136 +207,201 @@ export default function CompetitionInscriptionPage() {
     }
 
     if (competition.participant_type !== "players") {
-      setMessage("Cette compétition n’accepte pas les inscriptions joueurs.");
+      setMessage(
+        "Cette page est prévue pour les compétitions avec inscription joueur."
+      );
       return;
     }
 
-    if (!playerName || !platform || !eaTeamId) {
-      setMessage("Merci de remplir tous les champs obligatoires.");
+    if (!playerName.trim()) {
+      setMessage("Merci de renseigner ton nom joueur.");
       return;
     }
-
-    const selectedEaTeam = eaTeams.find((team) => team.id === eaTeamId);
 
     if (!selectedEaTeam) {
-      setMessage("Équipe EA FC introuvable.");
-      return;
-    }
-
-    if (isEaTeamAlreadyTaken()) {
-      setMessage("Cette équipe EA FC est déjà prise dans cette compétition.");
+      setMessage("Merci de choisir ton équipe EA FC.");
       return;
     }
 
     setSaving(true);
     setMessage("");
 
-    let currentPlayer: Player | null = player;
+    const cleanPlayerName = playerName.trim();
+    const cleanEaName = eaName.trim() || null;
+    const cleanPlatform = platform || null;
+
+    let currentPlayer = player;
 
     if (currentPlayer) {
-      const { data, error } = await supabase
+      const updatePlayerResult = await supabase
         .from("players")
         .update({
-          name: playerName,
-          ea_name: eaName || null,
-          platform,
+          name: cleanPlayerName,
+          ea_name: cleanEaName,
+          platform: cleanPlatform,
         })
         .eq("id", currentPlayer.id)
-        .select()
+        .select("*")
         .single();
 
-      if (error) {
+      if (updatePlayerResult.error) {
         setSaving(false);
-        setMessage(`Erreur joueur : ${error.message}`);
+        setMessage(`Erreur mise à jour joueur : ${updatePlayerResult.error.message}`);
         return;
       }
 
-      currentPlayer = data as Player;
-      setPlayer(data as Player);
+      currentPlayer = updatePlayerResult.data as Player;
+      setPlayer(currentPlayer);
     } else {
-      const { data, error } = await supabase
+      const insertPlayerResult = await supabase
         .from("players")
         .insert({
           user_id: profile.id,
-          name: playerName,
-          ea_name: eaName || null,
-          platform,
+          name: cleanPlayerName,
+          ea_name: cleanEaName,
+          platform: cleanPlatform,
         })
-        .select()
+        .select("*")
         .single();
 
-      if (error) {
+      if (insertPlayerResult.error) {
         setSaving(false);
-        setMessage(`Erreur création joueur : ${error.message}`);
+        setMessage(`Erreur création joueur : ${insertPlayerResult.error.message}`);
         return;
       }
 
-      currentPlayer = data as Player;
-      setPlayer(data as Player);
+      currentPlayer = insertPlayerResult.data as Player;
+      setPlayer(currentPlayer);
     }
 
     if (!currentPlayer) {
       setSaving(false);
-      setMessage("Erreur : joueur introuvable après enregistrement.");
+      setMessage("Impossible de récupérer la fiche joueur.");
       return;
     }
 
-    const existingRegistration = registrations.find(
-      (registration) => registration.player_id === currentPlayer.id
-    );
-
-    if (existingRegistration) {
-      const { error } = await supabase
+    if (registration) {
+      const updateRegistrationResult = await supabase
         .from("competition_players")
         .update({
           ea_team_id: selectedEaTeam.id,
           ea_team_name: selectedEaTeam.name,
         })
-        .eq("id", existingRegistration.id);
+        .eq("id", registration.id)
+        .select("*")
+        .single();
 
-      if (error) {
+      if (updateRegistrationResult.error) {
         setSaving(false);
-        setMessage(`Erreur mise à jour inscription : ${error.message}`);
-        return;
-      }
-
-      setSaving(false);
-      setMessage("Inscription mise à jour avec succès ✅");
-      await loadData();
-      return;
-    }
-
-    const { error } = await supabase.from("competition_players").insert({
-      competition_id: competition.id,
-      player_id: currentPlayer.id,
-      ea_team_id: selectedEaTeam.id,
-      ea_team_name: selectedEaTeam.name,
-    });
-
-    if (error) {
-      setSaving(false);
-
-      if (error.message.toLowerCase().includes("duplicate")) {
         setMessage(
-          "Inscription impossible : tu es déjà inscrit ou cette équipe est déjà prise."
+          `Erreur modification inscription : ${updateRegistrationResult.error.message}`
         );
         return;
       }
 
-      setMessage(`Erreur inscription : ${error.message}`);
+      setRegistration(updateRegistrationResult.data as CompetitionPlayer);
+    } else {
+      const existingRegistrationResult = await supabase
+        .from("competition_players")
+        .select("*")
+        .eq("competition_id", competition.id)
+        .eq("player_id", currentPlayer.id)
+        .maybeSingle();
+
+      if (existingRegistrationResult.error) {
+        setSaving(false);
+        setMessage(
+          `Erreur vérification inscription : ${existingRegistrationResult.error.message}`
+        );
+        return;
+      }
+
+      if (existingRegistrationResult.data) {
+        const updateExistingResult = await supabase
+          .from("competition_players")
+          .update({
+            ea_team_id: selectedEaTeam.id,
+            ea_team_name: selectedEaTeam.name,
+          })
+          .eq("id", existingRegistrationResult.data.id)
+          .select("*")
+          .single();
+
+        if (updateExistingResult.error) {
+          setSaving(false);
+          setMessage(
+            `Erreur modification inscription : ${updateExistingResult.error.message}`
+          );
+          return;
+        }
+
+        setRegistration(updateExistingResult.data as CompetitionPlayer);
+      } else {
+        const insertRegistrationResult = await supabase
+          .from("competition_players")
+          .insert({
+            competition_id: competition.id,
+            player_id: currentPlayer.id,
+            ea_team_id: selectedEaTeam.id,
+            ea_team_name: selectedEaTeam.name,
+          })
+          .select("*")
+          .single();
+
+        if (insertRegistrationResult.error) {
+          setSaving(false);
+          setMessage(
+            `Erreur inscription compétition : ${insertRegistrationResult.error.message}`
+          );
+          return;
+        }
+
+        setRegistration(insertRegistrationResult.data as CompetitionPlayer);
+      }
+    }
+
+    const generateMatchesResult = await fetch(
+      `/api/competitions/${competition.id}/generate-matches`,
+      {
+        method: "POST",
+      }
+    );
+
+    const generateMatchesData = await generateMatchesResult.json();
+
+    if (!generateMatchesResult.ok) {
+      setSaving(false);
+      setMessage(
+        `Inscription enregistrée, mais erreur génération matchs : ${
+          generateMatchesData.error || "Erreur inconnue"
+        }`
+      );
       return;
     }
 
     setSaving(false);
-    setMessage("Inscription validée avec succès ✅");
+    setMessage(
+      generateMatchesData.created > 0
+        ? `Inscription enregistrée ✅ ${generateMatchesData.created} match(s) créé(s).`
+        : "Inscription enregistrée ✅ Les matchs étaient déjà à jour."
+    );
+
     await loadData();
+  }
+
+  function getCompetitionTypeLabel(type: string) {
+    if (type === "league") return "Championnat";
+    if (type === "cup") return "Coupe";
+    if (type === "tournament") return "Tournoi";
+
+    return type;
   }
 
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center">
+          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
             <p className="text-[#D8C7A0]">Chargement de l’inscription...</p>
           </div>
         </section>
@@ -413,34 +448,15 @@ export default function CompetitionInscriptionPage() {
   if (!competition) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <section className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl border border-red-400/30 bg-[#160A12]/90 p-6 text-red-300">
-            {message || "Compétition introuvable."}
-          </div>
-        </section>
-      </main>
-    );
-  }
+        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
+          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+            <h1 className="text-3xl font-black">Compétition introuvable</h1>
 
-  if (competition.participant_type !== "players") {
-    return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <section className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-            <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-              {getCompetitionLabel()}
-            </p>
-
-            <h1 className="text-3xl font-black">Inscription indisponible</h1>
-
-            <p className="mt-3 text-[#D8C7A0]">
-              Cette compétition est au format teams / clubs. L’inscription
-              joueur EA FC n’est pas disponible pour ce format.
-            </p>
+            {message && <p className="mt-3 text-[#D8C7A0]">{message}</p>}
 
             <Link
               href="/competitions"
-              className="mt-6 inline-flex rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
+              className="mt-6 inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
             >
               Retour aux compétitions
             </Link>
@@ -450,74 +466,87 @@ export default function CompetitionInscriptionPage() {
     );
   }
 
-  const currentRegistration = getCurrentRegistration();
+  const competitionLabel = competition.season
+    ? `${competition.name} · ${competition.season}`
+    : competition.name;
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-6xl px-6 py-12">
+      <section className="mx-auto max-w-5xl px-6 py-12">
         <div className="mb-10">
+          <Link
+            href="/competitions"
+            className="mb-6 inline-flex rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+          >
+            ← Retour aux compétitions
+          </Link>
+
           <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
             Inscription compétition
           </p>
 
           <h1 className="text-4xl font-black md:text-5xl">
-            {getCompetitionLabel()}
+            {competitionLabel}
           </h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Inscris-toi à cette compétition joueurs EA FC et choisis ton équipe.
+            Choisis ton équipe EA FC et valide ton inscription. Les matchs de la
+            compétition seront générés automatiquement.
           </p>
 
-          <div className="mt-6 rounded-xl border border-[#D9A441]/20 bg-[#160A12] p-4 text-sm text-[#D8C7A0]">
-            Connecté avec{" "}
-            <span className="font-semibold text-[#F2D27A]">
-              {profile.username || profile.email}
-            </span>
+          {message && (
+            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
+              {message}
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href={`/competitions/${competition.id}/matchs`}
+              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+            >
+              Matchs
+            </Link>
+
+            <Link
+              href={`/competitions/${competition.id}/classement`}
+              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+            >
+              Classement
+            </Link>
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
             <h2 className="text-2xl font-black text-[#F7E9C5]">
-              {currentRegistration
-                ? "Modifier mon inscription"
-                : "Valider mon inscription"}
+              Mon inscription
             </h2>
 
-            <p className="mt-2 text-[#D8C7A0]">
-              Choisis ton pseudo, ta plateforme et ton équipe EA FC.
-            </p>
-
-            <form onSubmit={handleRegister} className="mt-8 grid gap-5">
-              {message && (
-                <div className="rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-4 py-3 text-sm text-[#F2D27A]">
-                  {message}
-                </div>
-              )}
-
+            <form onSubmit={handleSubmit} className="mt-8 grid gap-5">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Nom du joueur
+                  Nom joueur
                 </label>
 
                 <input
                   value={playerName}
                   onChange={(event) => setPlayerName(event.target.value)}
                   className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
-                  placeholder="Ex : Greg"
+                  placeholder="Ex : CeceII27II"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Pseudo EA
+                  Pseudo EA FC
                 </label>
 
                 <input
                   value={eaName}
                   onChange={(event) => setEaName(event.target.value)}
                   className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
-                  placeholder="Ex : Greg_GSF"
+                  placeholder="Ex : Cece_GSF"
                 />
               </div>
 
@@ -539,131 +568,131 @@ export default function CompetitionInscriptionPage() {
                 </select>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-3">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                    Pays
-                  </label>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  Équipe EA FC
+                </label>
 
-                  <select
-                    value={country}
-                    onChange={(event) => {
-                      setCountry(event.target.value);
-                      setLeague("");
-                      setEaTeamId("");
-                    }}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                  >
-                    <option value="">Choisir</option>
+                <select
+                  value={selectedEaTeamId}
+                  onChange={(event) => setSelectedEaTeamId(event.target.value)}
+                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                >
+                  <option value="">Choisir une équipe</option>
 
-                    {countries.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                    Championnat
-                  </label>
-
-                  <select
-                    value={league}
-                    onChange={(event) => {
-                      setLeague(event.target.value);
-                      setEaTeamId("");
-                    }}
-                    disabled={!country}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">Choisir</option>
-
-                    {leagues.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                    Équipe EA FC
-                  </label>
-
-                  <select
-                    value={eaTeamId}
-                    onChange={(event) => setEaTeamId(event.target.value)}
-                    disabled={!league}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <option value="">Choisir</option>
-
-                    {filteredEaTeams.map((team) => {
-                      const taken = registrations.some(
-                        (registration) =>
-                          registration.ea_team_id === team.id &&
-                          registration.player_id !== player?.id
-                      );
-
-                      return (
-                        <option key={team.id} value={team.id} disabled={taken}>
-                          {team.name}
-                          {taken ? " · déjà prise" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                  {eaTeams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.country} · {team.league} · {team.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
                 type="submit"
-                disabled={saving}
-                className="mt-4 rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={saving || competition.participant_type !== "players"}
+                className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving
                   ? "Enregistrement..."
-                  : currentRegistration
+                  : registration
                     ? "Modifier mon inscription"
                     : "Valider mon inscription"}
               </button>
             </form>
-          </div>
+          </section>
 
-          <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-            <h2 className="text-2xl font-black text-[#F7E9C5]">
-              Mon inscription
-            </h2>
+          <aside className="space-y-6">
+            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+              <h2 className="text-2xl font-black text-[#F7E9C5]">
+                Détails compétition
+              </h2>
 
-            {currentRegistration ? (
-              <div className="mt-6 rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-                <p className="text-sm text-[#8F7B5C]">Équipe EA FC choisie</p>
+              <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
+                <p>
+                  Nom :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {competition.name}
+                  </span>
+                </p>
 
-                <h3 className="mt-1 text-2xl font-black text-[#F2D27A]">
-                  {currentRegistration.ea_team_name}
-                </h3>
+                <p>
+                  Type :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {getCompetitionTypeLabel(competition.type)}
+                  </span>
+                </p>
 
-                <p className="mt-3 text-sm text-[#D8C7A0]">
-                  Tu peux modifier ton équipe tant que l’admin n’a pas
-                  verrouillé la compétition.
+                <p>
+                  Saison :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {competition.season || "Non définie"}
+                  </span>
+                </p>
+
+                <p>
+                  Statut :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {competition.status}
+                  </span>
+                </p>
+
+                <p>
+                  Format :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {competition.participant_type === "players"
+                      ? "Joueurs"
+                      : "Équipes"}
+                  </span>
                 </p>
               </div>
-            ) : (
-              <p className="mt-6 rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-                Tu n’es pas encore inscrit à cette compétition.
-              </p>
-            )}
+            </section>
 
-            <Link
-              href="/competitions"
-              className="mt-6 inline-flex rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
-            >
-              Retour aux compétitions
-            </Link>
-          </div>
+            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+              <h2 className="text-2xl font-black text-[#F7E9C5]">
+                Ton choix
+              </h2>
+
+              <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
+                <p>
+                  Joueur :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {playerName || "Non défini"}
+                  </span>
+                </p>
+
+                <p>
+                  Pseudo EA :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {eaName || "Non défini"}
+                  </span>
+                </p>
+
+                <p>
+                  Plateforme :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {platform || "Non définie"}
+                  </span>
+                </p>
+
+                <p>
+                  Équipe EA FC :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {selectedEaTeam
+                      ? `${selectedEaTeam.name} · ${selectedEaTeam.country}`
+                      : "Non choisie"}
+                  </span>
+                </p>
+
+                <p>
+                  Inscription :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {registration ? "Déjà enregistrée" : "Non enregistrée"}
+                  </span>
+                </p>
+              </div>
+            </section>
+          </aside>
         </div>
       </section>
     </main>
