@@ -285,7 +285,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="mb-8 grid gap-3 md:grid-cols-6">
+        <div className="mb-8 grid gap-3 md:grid-cols-7">
           <TabButton
             label="Compétition"
             value="competition"
@@ -324,6 +324,13 @@ export default function AdminPage() {
           <TabButton
             label="Joueurs"
             value="players"
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+
+          <TabButton
+            label="Inscriptions"
+            value="registrations"
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />
@@ -373,6 +380,15 @@ export default function AdminPage() {
             onPlayersChanged={refreshData}
           />
         )}
+
+        {activeTab === "registrations" && (
+          <RegistrationsForm
+            competitions={competitions}
+            players={players}
+            competitionPlayers={competitionPlayers}
+            onRegistrationsChanged={refreshData}
+          />
+)}
       </section>
     </main>
   );
@@ -2333,5 +2349,205 @@ function ScoreForm({
         </SubmitButton>
       </form>
     </FormCard>
+  );
+}
+
+/* ----------------------------- INSCRIPTIONS ----------------------------- */
+
+function RegistrationsForm({
+  competitions,
+  players,
+  competitionPlayers,
+  onRegistrationsChanged,
+}: {
+  competitions: Competition[];
+  players: Player[];
+  competitionPlayers: CompetitionPlayer[];
+  onRegistrationsChanged: () => Promise<void>;
+}) {
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const playerCompetitions = competitions.filter(
+    (competition) => competition.participant_type === "players"
+  );
+
+  const filteredRegistrations = selectedCompetitionId
+    ? competitionPlayers.filter(
+        (registration) => registration.competition_id === selectedCompetitionId
+      )
+    : competitionPlayers;
+
+  function getCompetitionName(competitionId: string) {
+    const competition = competitions.find((item) => item.id === competitionId);
+
+    if (!competition) return "Compétition inconnue";
+
+    return competition.season
+      ? `${competition.name} · ${competition.season}`
+      : competition.name;
+  }
+
+  function getPlayer(playerId: string) {
+    return players.find((player) => player.id === playerId) ?? null;
+  }
+
+  async function handleDeleteRegistration(registration: CompetitionPlayer) {
+  const player = getPlayer(registration.player_id);
+
+  const linkedMatchesResult = await supabase
+    .from("matches")
+    .select("id")
+    .or(
+      `home_competition_player_id.eq.${registration.id},away_competition_player_id.eq.${registration.id}`
+    );
+
+  if (linkedMatchesResult.error) {
+    setMessage(
+      `Erreur vérification matchs liés : ${linkedMatchesResult.error.message}`
+    );
+    return;
+  }
+
+  const linkedMatches = linkedMatchesResult.data ?? [];
+
+  const confirmDelete = window.confirm(
+    linkedMatches.length > 0
+      ? `Supprimer l’inscription de "${
+          player?.name || "ce joueur"
+        }" à "${getCompetitionName(
+          registration.competition_id
+        )}" ? Attention : ${linkedMatches.length} match(s) lié(s) seront aussi supprimés. Le joueur ne sera pas supprimé.`
+      : `Supprimer l’inscription de "${
+          player?.name || "ce joueur"
+        }" à "${getCompetitionName(
+          registration.competition_id
+        )}" ? Le joueur ne sera pas supprimé.`
+  );
+
+  if (!confirmDelete) return;
+
+  setLoading(true);
+  setMessage("");
+
+  if (linkedMatches.length > 0) {
+    const { error: deleteMatchesError } = await supabase
+      .from("matches")
+      .delete()
+      .or(
+        `home_competition_player_id.eq.${registration.id},away_competition_player_id.eq.${registration.id}`
+      );
+
+    if (deleteMatchesError) {
+      setLoading(false);
+      setMessage(`Erreur suppression matchs liés : ${deleteMatchesError.message}`);
+      return;
+    }
+  }
+
+  const { error } = await supabase
+    .from("competition_players")
+    .delete()
+    .eq("id", registration.id);
+
+  setLoading(false);
+
+  if (error) {
+    setMessage(`Erreur suppression inscription : ${error.message}`);
+    return;
+  }
+
+  setMessage("Inscription supprimée avec succès ✅");
+  await onRegistrationsChanged();
+}
+
+  return (
+    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-2xl font-black text-[#F7E9C5]">
+            Inscriptions joueurs
+          </h2>
+
+          <p className="mt-2 text-[#D8C7A0]">
+            Consulte les joueurs inscrits aux compétitions EA FC et supprime une
+            inscription sans supprimer le joueur.
+          </p>
+        </div>
+
+        <div className="min-w-full md:min-w-[320px]">
+          <FieldLabel>Filtrer par compétition</FieldLabel>
+          <Select
+            value={selectedCompetitionId}
+            onChange={(event) => setSelectedCompetitionId(event.target.value)}
+          >
+            <option value="">Toutes les compétitions joueurs</option>
+
+            {playerCompetitions.map((competition) => (
+              <option key={competition.id} value={competition.id}>
+                {competition.name}
+                {competition.season ? ` · ${competition.season}` : ""}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+
+      {message && (
+        <div className="mt-6">
+          <MessageBox message={message} />
+        </div>
+      )}
+
+      <div className="mt-6 grid gap-4">
+        {filteredRegistrations.length === 0 && (
+          <p className="rounded-xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+            Aucune inscription trouvée.
+          </p>
+        )}
+
+        {filteredRegistrations.map((registration) => {
+          const player = getPlayer(registration.player_id);
+
+          return (
+            <div
+              key={registration.id}
+              className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#8F7B5C]">
+                    {getCompetitionName(registration.competition_id)}
+                  </p>
+
+                  <h3 className="mt-1 text-xl font-black text-[#F7E9C5]">
+                    {player?.name || "Joueur inconnu"}
+                  </h3>
+
+                  <p className="mt-1 text-sm text-[#D8C7A0]">
+                    EA : {player?.ea_name || "À définir"} ·{" "}
+                    {player?.platform || "Plateforme non définie"}
+                  </p>
+
+                  <div className="mt-3 inline-flex rounded-full border border-[#D9A441]/25 bg-[#160A12] px-3 py-1 text-sm font-semibold text-[#F2D27A]">
+                    {registration.ea_team_name}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleDeleteRegistration(registration)}
+                  className="rounded-lg bg-[#A61E22]/90 px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Supprimer l’inscription
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
