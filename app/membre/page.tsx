@@ -7,11 +7,15 @@ import FutMemberCard from "@/components/FutMemberCard";
 
 type Profile = {
   id: string;
-  email: string;
-  username: string | null;
-  role: "member" | "admin";
-  avatar_url: string | null;
-  avatar_path: string | null;
+  email?: string | null;
+  username?: string | null;
+  role?: "member" | "admin" | string | null;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
+  pays?: string | null;
+  country?: string | null;
+  plateforme?: string | null;
+  platform?: string | null;
 };
 
 type Player = {
@@ -39,13 +43,6 @@ type CompetitionPlayer = {
   ea_team_name: string;
 };
 
-type EaTeam = {
-  id: string;
-  country: string;
-  league: string;
-  name: string;
-};
-
 type Match = {
   id: string;
   competition_id: string;
@@ -57,7 +54,50 @@ type Match = {
   status: string;
   home_score: number | null;
   away_score: number | null;
-  mvp: string | null;
+  submitted_home_score: number | null;
+  submitted_away_score: number | null;
+  score_status: string | null;
+  score_submitted_by: string | null;
+  score_submitted_at: string | null;
+};
+
+type MemberStats = {
+  mj: number;
+  v: number;
+  n: number;
+  p: number;
+  bp: number;
+  bc: number;
+  ga: number;
+  pts: number;
+};
+
+type MatchCardData = {
+  match: Match;
+  competition: Competition | null;
+  currentRegistration: CompetitionPlayer | null;
+  opponentRegistration: CompetitionPlayer | null;
+  opponentPlayer: Player | null;
+};
+
+type MemberCompetitionCardData = {
+  registration: CompetitionPlayer;
+  competition: Competition | null;
+  matchesTotal: number;
+  matchesUpcoming: number;
+  matchesCompleted: number;
+  pendingScores: number;
+};
+
+const emptyStats: MemberStats = {
+  mj: 0,
+  v: 0,
+  n: 0,
+  p: 0,
+  bp: 0,
+  bc: 0,
+  ga: 0,
+  pts: 0,
 };
 
 export default function MemberPage() {
@@ -65,14 +105,19 @@ export default function MemberPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
-  const [competitions, setCompetitions] = useState<Competition[]>([]);
+
   const [registrations, setRegistrations] = useState<CompetitionPlayer[]>([]);
-  const [eaTeams, setEaTeams] = useState<EaTeam[]>([]);
+  const [allRegistrations, setAllRegistrations] = useState<CompetitionPlayer[]>(
+    []
+  );
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  async function loadMemberData() {
+  async function loadData() {
     setLoading(true);
     setMessage("");
 
@@ -91,7 +136,7 @@ export default function MemberPage() {
       .from("profiles")
       .select("*")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
     if (profileResult.error || !profileResult.data) {
       setMessage("Profil introuvable. Reconnecte-toi ou contacte un admin.");
@@ -105,39 +150,32 @@ export default function MemberPage() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const competitionsResult = await supabase
-      .from("competitions")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    const registrationsResult = await supabase
-      .from("competition_players")
-      .select("*");
-
-    const eaTeamsResult = await supabase
-      .from("ea_teams")
-      .select("*")
-      .order("country", { ascending: true })
-      .order("league", { ascending: true })
-      .order("name", { ascending: true });
-
-    const matchesResult = await supabase
-      .from("matches")
-      .select("*")
-      .order("match_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false });
-
     if (playerResult.error) {
       setMessage(`Erreur joueur : ${playerResult.error.message}`);
       setLoading(false);
       return;
     }
 
-    if (competitionsResult.error) {
-      setMessage(`Erreur compétitions : ${competitionsResult.error.message}`);
+    const loadedProfile = profileResult.data as Profile;
+    const loadedPlayer = playerResult.data as Player | null;
+
+    setProfile(loadedProfile);
+    setPlayer(loadedPlayer);
+
+    if (!loadedPlayer) {
+      setRegistrations([]);
+      setAllRegistrations([]);
+      setPlayers([]);
+      setCompetitions([]);
+      setMatches([]);
       setLoading(false);
       return;
     }
+
+    const registrationsResult = await supabase
+      .from("competition_players")
+      .select("*")
+      .eq("player_id", loadedPlayer.id);
 
     if (registrationsResult.error) {
       setMessage(`Erreur inscriptions : ${registrationsResult.error.message}`);
@@ -145,11 +183,33 @@ export default function MemberPage() {
       return;
     }
 
-    if (eaTeamsResult.error) {
-      setMessage(`Erreur équipes EA FC : ${eaTeamsResult.error.message}`);
+    const loadedRegistrations =
+      (registrationsResult.data ?? []) as CompetitionPlayer[];
+
+    const registrationIds = loadedRegistrations.map(
+      (registration) => registration.id
+    );
+
+    if (registrationIds.length === 0) {
+      setRegistrations([]);
+      setAllRegistrations([]);
+      setPlayers([loadedPlayer]);
+      setCompetitions([]);
+      setMatches([]);
       setLoading(false);
       return;
     }
+
+    const matchesResult = await supabase
+      .from("matches")
+      .select("*")
+      .or(
+        `home_competition_player_id.in.(${registrationIds.join(
+          ","
+        )}),away_competition_player_id.in.(${registrationIds.join(",")})`
+      )
+      .order("match_date", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
 
     if (matchesResult.error) {
       setMessage(`Erreur matchs : ${matchesResult.error.message}`);
@@ -157,218 +217,324 @@ export default function MemberPage() {
       return;
     }
 
-    setProfile(profileResult.data as Profile);
-    setPlayer(playerResult.data as Player | null);
-    setCompetitions((competitionsResult.data ?? []) as Competition[]);
-    setRegistrations((registrationsResult.data ?? []) as CompetitionPlayer[]);
-    setEaTeams((eaTeamsResult.data ?? []) as EaTeam[]);
-    setMatches((matchesResult.data ?? []) as Match[]);
+    const loadedMatches = (matchesResult.data ?? []) as Match[];
+
+    const competitionIds = Array.from(
+      new Set(
+        [
+          ...loadedRegistrations.map(
+            (registration) => registration.competition_id
+          ),
+          ...loadedMatches.map((match) => match.competition_id),
+        ].filter(Boolean)
+      )
+    );
+
+    let loadedCompetitions: Competition[] = [];
+
+    if (competitionIds.length > 0) {
+      const competitionsResult = await supabase
+        .from("competitions")
+        .select("*")
+        .in("id", competitionIds);
+
+      if (competitionsResult.error) {
+        setMessage(
+          `Erreur compétitions : ${competitionsResult.error.message}`
+        );
+        setLoading(false);
+        return;
+      }
+
+      loadedCompetitions = (competitionsResult.data ?? []) as Competition[];
+    }
+
+    const relatedRegistrationIds = Array.from(
+      new Set(
+        loadedMatches
+          .flatMap((match) => [
+            match.home_competition_player_id,
+            match.away_competition_player_id,
+          ])
+          .filter(Boolean) as string[]
+      )
+    );
+
+    let loadedAllRegistrations: CompetitionPlayer[] = [];
+
+    if (relatedRegistrationIds.length > 0) {
+      const allRegistrationsResult = await supabase
+        .from("competition_players")
+        .select("*")
+        .in("id", relatedRegistrationIds);
+
+      if (allRegistrationsResult.error) {
+        setMessage(
+          `Erreur participants matchs : ${allRegistrationsResult.error.message}`
+        );
+        setLoading(false);
+        return;
+      }
+
+      loadedAllRegistrations =
+        (allRegistrationsResult.data ?? []) as CompetitionPlayer[];
+    }
+
+    const playerIds = Array.from(
+      new Set(
+        loadedAllRegistrations
+          .map((registration) => registration.player_id)
+          .filter(Boolean)
+      )
+    );
+
+    let loadedPlayers: Player[] = [];
+
+    if (playerIds.length > 0) {
+      const playersResult = await supabase
+        .from("players")
+        .select("*")
+        .in("id", playerIds);
+
+      if (playersResult.error) {
+        setMessage(`Erreur joueurs matchs : ${playersResult.error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      loadedPlayers = (playersResult.data ?? []) as Player[];
+    }
+
+    setRegistrations(loadedRegistrations);
+    setAllRegistrations(loadedAllRegistrations);
+    setPlayers(loadedPlayers);
+    setCompetitions(loadedCompetitions);
+    setMatches(loadedMatches);
+
     setLoading(false);
   }
 
   useEffect(() => {
-    loadMemberData();
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const myRegistrations = useMemo(() => {
-    if (!player) return [];
-
-    return registrations.filter(
-      (registration) => registration.player_id === player.id
-    );
-  }, [registrations, player]);
-
-  const myRegistrationIds = useMemo(() => {
-    return myRegistrations.map((registration) => registration.id);
-  }, [myRegistrations]);
-
-  const myMatches = useMemo(() => {
-    return matches.filter((match) => {
-      const homeRegistrationId = match.home_competition_player_id;
-      const awayRegistrationId = match.away_competition_player_id;
-
-      const isHome =
-        homeRegistrationId !== null &&
-        myRegistrationIds.includes(homeRegistrationId);
-
-      const isAway =
-        awayRegistrationId !== null &&
-        myRegistrationIds.includes(awayRegistrationId);
-
-      return isHome || isAway;
-    });
-  }, [matches, myRegistrationIds]);
-
-  const upcomingMatches = useMemo(() => {
-    return myMatches.filter((match) => match.status !== "completed");
-  }, [myMatches]);
-
-  const completedMatches = useMemo(() => {
-    return myMatches.filter(
-      (match) =>
-        match.status === "completed" &&
-        match.home_score !== null &&
-        match.away_score !== null
-    );
-  }, [myMatches]);
-
   const memberStats = useMemo(() => {
-    let mj = 0;
-    let v = 0;
-    let n = 0;
-    let p = 0;
-    let bp = 0;
-    let bc = 0;
-    let ga = 0;
-    let pts = 0;
+    if (!player) return emptyStats;
 
-    for (const match of completedMatches) {
-      const isHome =
-        match.home_competition_player_id !== null &&
-        myRegistrationIds.includes(match.home_competition_player_id);
+    const currentRegistrationIds = registrations.map(
+      (registration) => registration.id
+    );
 
-      const isAway =
-        match.away_competition_player_id !== null &&
-        myRegistrationIds.includes(match.away_competition_player_id);
+    const stats: MemberStats = { ...emptyStats };
 
-      if (!isHome && !isAway) continue;
+    for (const match of matches) {
+      if (match.status !== "completed") continue;
       if (match.home_score === null || match.away_score === null) continue;
 
-      const myGoals = isHome ? match.home_score : match.away_score;
-      const opponentGoals = isHome ? match.away_score : match.home_score;
+      const isHome = currentRegistrationIds.includes(
+        match.home_competition_player_id || ""
+      );
+      const isAway = currentRegistrationIds.includes(
+        match.away_competition_player_id || ""
+      );
 
-      mj += 1;
-      bp += myGoals;
-      bc += opponentGoals;
-      ga += myGoals - opponentGoals;
+      if (!isHome && !isAway) continue;
 
-      if (myGoals > opponentGoals) {
-        v += 1;
-        pts += 3;
-      } else if (myGoals === opponentGoals) {
-        n += 1;
-        pts += 1;
+      const goalsFor = isHome ? match.home_score : match.away_score;
+      const goalsAgainst = isHome ? match.away_score : match.home_score;
+
+      stats.mj += 1;
+      stats.bp += goalsFor;
+      stats.bc += goalsAgainst;
+
+      if (goalsFor > goalsAgainst) {
+        stats.v += 1;
+        stats.pts += 3;
+      } else if (goalsFor === goalsAgainst) {
+        stats.n += 1;
+        stats.pts += 1;
       } else {
-        p += 1;
+        stats.p += 1;
       }
     }
 
-    return {
-      mj,
-      v,
-      n,
-      p,
-      bp,
-      bc,
-      ga,
-      pts,
-    };
-  }, [completedMatches, myRegistrationIds]);
+    stats.ga = stats.bp - stats.bc;
 
-  const mainRegistration = myRegistrations[0] ?? null;
+    return stats;
+  }, [matches, player, registrations]);
 
-  const mainEaTeam = mainRegistration?.ea_team_id
-    ? eaTeams.find((team) => team.id === mainRegistration.ea_team_id)
-    : null;
+  const memberCompetitionCards = useMemo(() => {
+    return registrations.map((registration): MemberCompetitionCardData => {
+      const competition =
+        competitions.find(
+          (currentCompetition) =>
+            currentCompetition.id === registration.competition_id
+        ) ?? null;
 
-  function getCompetition(competitionId: string) {
-    return competitions.find((competition) => competition.id === competitionId);
-  }
+      const competitionMatches = matches.filter((match) => {
+        const sameCompetition = match.competition_id === registration.competition_id;
 
-  function getCompetitionLabel(competitionId: string) {
-    const competition = getCompetition(competitionId);
+        const memberMatch =
+          match.home_competition_player_id === registration.id ||
+          match.away_competition_player_id === registration.id;
 
-    if (!competition) return "Compétition inconnue";
+        return sameCompetition && memberMatch;
+      });
 
-    return competition.season
-      ? `${competition.name} · ${competition.season}`
-      : competition.name;
-  }
+      return {
+        registration,
+        competition,
+        matchesTotal: competitionMatches.length,
+        matchesUpcoming: competitionMatches.filter(
+          (match) => match.status !== "completed"
+        ).length,
+        matchesCompleted: competitionMatches.filter(
+          (match) => match.status === "completed"
+        ).length,
+        pendingScores: competitionMatches.filter(
+          (match) => match.score_status === "pending"
+        ).length,
+      };
+    });
+  }, [competitions, matches, registrations]);
 
-  function getRegistration(registrationId: string | null) {
-    if (!registrationId) return null;
+  const upcomingMatchCards = useMemo(() => {
+    if (!player) return [];
 
-    return (
-      registrations.find((registration) => registration.id === registrationId) ??
-      null
+    const currentRegistrationIds = registrations.map(
+      (registration) => registration.id
     );
-  }
 
-  function getParticipantLabel(registrationId: string | null) {
-    const registration = getRegistration(registrationId);
+    return matches
+      .filter((match) => match.status !== "completed")
+      .map((match): MatchCardData => {
+        const isHome = currentRegistrationIds.includes(
+          match.home_competition_player_id || ""
+        );
 
-    if (!registration) return "Participant inconnu";
+        const currentRegistrationId = isHome
+          ? match.home_competition_player_id
+          : match.away_competition_player_id;
 
-    const isMe = player && registration.player_id === player.id;
+        const opponentRegistrationId = isHome
+          ? match.away_competition_player_id
+          : match.home_competition_player_id;
 
-    if (isMe) {
-      return `${player.name} · ${registration.ea_team_name}`;
-    }
+        const currentRegistration =
+          allRegistrations.find(
+            (registration) => registration.id === currentRegistrationId
+          ) ?? null;
 
-    return `Adversaire · ${registration.ea_team_name}`;
-  }
+        const opponentRegistration =
+          allRegistrations.find(
+            (registration) => registration.id === opponentRegistrationId
+          ) ?? null;
 
-  function formatDate(value: string | null) {
-    if (!value) return "À planifier";
+        const opponentPlayer =
+          players.find(
+            (currentPlayer) =>
+              currentPlayer.id === opponentRegistration?.player_id
+          ) ?? null;
 
-    const date = new Date(value);
+        const competition =
+          competitions.find(
+            (currentCompetition) =>
+              currentCompetition.id === match.competition_id
+          ) ?? null;
 
-    return new Intl.DateTimeFormat("fr-FR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-  }
+        return {
+          match,
+          competition,
+          currentRegistration,
+          opponentRegistration,
+          opponentPlayer,
+        };
+      });
+  }, [allRegistrations, competitions, matches, player, players, registrations]);
 
-  function getResultLabel(match: Match) {
-    if (
-      !match.home_competition_player_id ||
-      !match.away_competition_player_id ||
-      match.home_score === null ||
-      match.away_score === null
-    ) {
-      return "Résultat indisponible";
-    }
+  const completedMatchCards = useMemo(() => {
+    if (!player) return [];
 
-    const isHome = myRegistrationIds.includes(match.home_competition_player_id);
+    const currentRegistrationIds = registrations.map(
+      (registration) => registration.id
+    );
 
-    const myScore = isHome ? match.home_score : match.away_score;
-    const opponentScore = isHome ? match.away_score : match.home_score;
+    return matches
+      .filter((match) => match.status === "completed")
+      .slice(0, 5)
+      .map((match): MatchCardData => {
+        const isHome = currentRegistrationIds.includes(
+          match.home_competition_player_id || ""
+        );
 
-    if (myScore > opponentScore) return "Victoire";
-    if (myScore < opponentScore) return "Défaite";
-    return "Match nul";
-  }
+        const currentRegistrationId = isHome
+          ? match.home_competition_player_id
+          : match.away_competition_player_id;
 
-  function getResultClass(match: Match) {
-    const result = getResultLabel(match);
+        const opponentRegistrationId = isHome
+          ? match.away_competition_player_id
+          : match.home_competition_player_id;
 
-    if (result === "Victoire") return "text-green-300";
-    if (result === "Défaite") return "text-red-300";
-    if (result === "Match nul") return "text-orange-300";
+        const currentRegistration =
+          allRegistrations.find(
+            (registration) => registration.id === currentRegistrationId
+          ) ?? null;
 
-    return "text-[#D8C7A0]";
-  }
+        const opponentRegistration =
+          allRegistrations.find(
+            (registration) => registration.id === opponentRegistrationId
+          ) ?? null;
 
-  function getCardNote() {
-    if (profile?.role === "admin") return 99;
+        const opponentPlayer =
+          players.find(
+            (currentPlayer) =>
+              currentPlayer.id === opponentRegistration?.player_id
+          ) ?? null;
 
-    const base = 80 + memberStats.pts;
+        const competition =
+          competitions.find(
+            (currentCompetition) =>
+              currentCompetition.id === match.competition_id
+          ) ?? null;
 
-    if (base > 99) return 99;
-    if (base < 80) return 80;
+        return {
+          match,
+          competition,
+          currentRegistration,
+          opponentRegistration,
+          opponentPlayer,
+        };
+      });
+  }, [allRegistrations, competitions, matches, player, players, registrations]);
 
-    return base;
-  }
+  const favoriteRegistration = registrations[0] ?? null;
+
+  const pseudo =
+    player?.name ||
+    profile?.username ||
+    profile?.email?.split("@")[0] ||
+    "Membre";
+
+  const plateforme =
+    player?.platform ||
+    profile?.plateforme ||
+    profile?.platform ||
+    "PC";
+
+  const pays = profile?.pays || profile?.country || "France";
+
+  const avatarUrl = profile?.avatar_url || profile?.avatarUrl || null;
+
+  const equipeEAFC =
+    favoriteRegistration?.ea_team_name || "Sans équipe";
 
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
           <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="text-[#D8C7A0]">Chargement du panel membre...</p>
+            <p className="text-[#D8C7A0]">Chargement de l’espace membre...</p>
           </div>
         </section>
       </main>
@@ -381,13 +547,14 @@ export default function MemberPage() {
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
           <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
             <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-              Panel membre
+              Espace membre
             </p>
 
             <h1 className="text-3xl font-black">Connexion requise</h1>
 
             <p className="mt-3 text-[#D8C7A0]">
-              Connecte-toi pour accéder à ton espace membre.
+              Connecte-toi pour accéder à ta carte membre, tes matchs et tes
+              compétitions.
             </p>
 
             <div className="mt-6 flex justify-center gap-3">
@@ -411,298 +578,192 @@ export default function MemberPage() {
     );
   }
 
-  const displayName = player?.name || profile.username || profile.email;
-  const cardTeamName = mainRegistration?.ea_team_name || "Sans équipe";
-  const cardCountry = mainEaTeam?.country || "France";
-  const cardPlatform = player?.platform || "PC";
-
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-6xl px-6 py-12">
+      <section className="mx-auto max-w-7xl px-6 py-12">
         <div className="mb-10">
           <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-            Panel membre
+            Espace membre
           </p>
 
           <h1 className="text-4xl font-black md:text-5xl">
-            Bienvenue {displayName}
+            Bienvenue {pseudo}
           </h1>
 
-          <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Retrouve tes inscriptions, tes équipes EA FC, tes prochains matchs
-            et tes résultats.
+          <p className="mt-3 max-w-3xl text-[#D8C7A0]">
+            Retrouve ta carte membre, tes statistiques et tes matchs à jouer.
           </p>
 
           {message && (
-            <div className="mt-6 rounded-xl border border-red-400/30 bg-[#160A12] p-4 text-sm text-red-300">
+            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
               {message}
             </div>
           )}
         </div>
 
-        <div className="mb-8 grid gap-4 md:grid-cols-4">
-          <StatCard
-            label="Rôle"
-            value={profile.role === "admin" ? "Admin" : "Membre"}
-          />
-          <StatCard label="Inscriptions" value={myRegistrations.length} />
-          <StatCard label="Matchs à venir" value={upcomingMatches.length} />
-          <StatCard label="Points" value={memberStats.pts} />
-        </div>
+        <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
+          <aside className="space-y-6">
+            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+              <FutMemberCard
+                pseudo={pseudo}
+                role={profile.role || "member"}
+                note={99}
+                plateforme={plateforme}
+                pays={pays}
+                equipeEAFC={equipeEAFC}
+                avatarUrl={avatarUrl}
+                mj={memberStats.mj}
+                v={memberStats.v}
+                n={memberStats.n}
+                p={memberStats.p}
+                bp={memberStats.bp}
+                bc={memberStats.bc}
+                ga={memberStats.ga}
+                pts={memberStats.pts}
+              />
 
-        <section className="rounded-3xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-          <div className="grid gap-8 lg:grid-cols-[430px_1fr]">
-            <div className="flex justify-center">
-              <div className="w-full max-w-[430px]">
-                <FutMemberCard
-                  pseudo={displayName}
-                  role={profile.role}
-                  note={getCardNote()}
-                  plateforme={cardPlatform}
-                  pays={cardCountry}
-                  equipeEAFC={cardTeamName}
-                  avatarUrl={profile.avatar_url}
-                  mj={memberStats.mj}
-                  v={memberStats.v}
-                  n={memberStats.n}
-                  p={memberStats.p}
-                  bp={memberStats.bp}
-                  bc={memberStats.bc}
-                  ga={memberStats.ga}
-                  pts={memberStats.pts}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col justify-center">
-              <p className="mb-3 inline-flex w-fit rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-                Carte membre
-              </p>
-
-              <h2 className="text-3xl font-black text-[#F7E9C5]">
-                Profil Guardian&apos;s Family
-              </h2>
-
-              <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-                Ta carte regroupe ton identité membre, ton équipe EA FC
-                principale, ton avatar et tes statistiques issues des matchs
-                terminés.
-              </p>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <InfoBox label="Pseudo membre" value={displayName} />
-                <InfoBox
-                  label="Pseudo EA"
-                  value={player?.ea_name || "Non défini"}
-                />
-                <InfoBox label="Plateforme" value={cardPlatform} />
-                <InfoBox label="Pays" value={cardCountry} />
-                <InfoBox label="Équipe EA FC" value={cardTeamName} />
-                <InfoBox
-                  label="Rôle"
-                  value={profile.role === "admin" ? "Admin" : "Membre"}
-                />
-                <InfoBox
-                  label="Avatar"
-                  value={profile.avatar_url ? "Ajouté" : "Non ajouté"}
-                />
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <Link
                   href="/membre/profil"
-                  className="inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                  className="rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#8E171C]"
                 >
                   Modifier mon profil
                 </Link>
 
                 <Link
                   href="/competitions"
-                  className="inline-flex rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+                  className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
                 >
                   Voir les compétitions
                 </Link>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="space-y-6">
             <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
               <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Ma fiche joueur
+                Mes statistiques
               </h2>
 
-              {player ? (
-                <div className="mt-5 space-y-3 text-[#D8C7A0]">
-                  <p>
-                    Nom joueur :{" "}
-                    <span className="font-semibold text-[#F2D27A]">
-                      {player.name}
-                    </span>
-                  </p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <StatBox label="MJ" value={memberStats.mj} />
+                <StatBox label="PTS" value={memberStats.pts} />
+                <StatBox label="V" value={memberStats.v} />
+                <StatBox label="N" value={memberStats.n} />
+                <StatBox label="P" value={memberStats.p} />
+                <StatBox label="GA" value={memberStats.ga} />
+              </div>
+            </section>
+          </aside>
 
-                  <p>
-                    Pseudo EA :{" "}
-                    <span className="font-semibold text-[#F2D27A]">
-                      {player.ea_name || "Non défini"}
-                    </span>
-                  </p>
+          <div className="space-y-8">
+            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-[#F7E9C5]">
+                    Mes compétitions
+                  </h2>
 
-                  <p>
-                    Plateforme :{" "}
-                    <span className="font-semibold text-[#F2D27A]">
-                      {player.platform || "Non définie"}
-                    </span>
+                  <p className="mt-2 text-sm text-[#D8C7A0]">
+                    Toutes les compétitions auxquelles tu es inscrit.
                   </p>
                 </div>
+
+                <div className="rounded-2xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-5 py-3 text-center">
+                  <p className="text-2xl font-black text-[#F2D27A]">
+                    {memberCompetitionCards.length}
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
+                    inscriptions
+                  </p>
+                </div>
+              </div>
+
+              {!player ? (
+                <EmptyState
+                  title="Aucune fiche joueur"
+                  text="Complète ton profil ou inscris-toi à une compétition pour générer ta fiche joueur."
+                  linkHref="/competitions"
+                  linkText="Voir les compétitions"
+                />
+              ) : memberCompetitionCards.length === 0 ? (
+                <EmptyState
+                  title="Aucune compétition"
+                  text="Tu n’es inscrit à aucune compétition pour le moment."
+                  linkHref="/competitions"
+                  linkText="Voir les compétitions"
+                />
               ) : (
-                <div className="mt-5 rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-                  Tu n’as pas encore de fiche joueur. Inscris-toi à une
-                  compétition pour la créer automatiquement.
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {memberCompetitionCards.map((card) => (
+                    <MemberCompetitionCard
+                      key={card.registration.id}
+                      data={card}
+                    />
+                  ))}
                 </div>
               )}
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/membre/profil"
-                  className="inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-                >
-                  Modifier mon profil
-                </Link>
-
-                <Link
-                  href="/competitions"
-                  className="inline-flex rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
-                >
-                  Voir les compétitions
-                </Link>
-              </div>
             </section>
 
             <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Mes inscriptions
-              </h2>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-[#F7E9C5]">
+                    Mes matchs à jouer
+                  </h2>
 
-              <div className="mt-5 space-y-3">
-                {myRegistrations.length === 0 && (
-                  <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-                    Aucune inscription pour le moment.
+                  <p className="mt-2 text-sm text-[#D8C7A0]">
+                    Tes prochains matchs et les scores à proposer.
                   </p>
-                )}
+                </div>
 
-                {myRegistrations.map((registration) => (
-                  <div
-                    key={registration.id}
-                    className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#8F7B5C]">
-                      {getCompetitionLabel(registration.competition_id)}
-                    </p>
-
-                    <h3 className="mt-2 text-xl font-black text-[#F2D27A]">
-                      {registration.ea_team_name}
-                    </h3>
-
-                    <Link
-                      href={`/competitions/${registration.competition_id}/inscription`}
-                      className="mt-4 inline-flex rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-                    >
-                      Modifier l’inscription
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <div className="space-y-6">
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Mes matchs à venir
-              </h2>
-
-              <div className="mt-5 space-y-3">
-                {upcomingMatches.length === 0 && (
-                  <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-                    Aucun match à venir pour le moment.
+                <div className="rounded-2xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-5 py-3 text-center">
+                  <p className="text-2xl font-black text-[#F2D27A]">
+                    {upcomingMatchCards.length}
                   </p>
-                )}
-
-                {upcomingMatches.map((match) => (
-                  <MatchCard
-                    key={match.id}
-                    competitionLabel={getCompetitionLabel(match.competition_id)}
-                    homeLabel={getParticipantLabel(
-                      match.home_competition_player_id
-                    )}
-                    awayLabel={getParticipantLabel(
-                      match.away_competition_player_id
-                    )}
-                    dateLabel={formatDate(match.match_date)}
-                  />
-                ))}
+                  <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
+                    à jouer
+                  </p>
+                </div>
               </div>
+
+              {!player ? (
+                <EmptyState
+                  title="Aucune fiche joueur"
+                  text="Complète ton profil ou inscris-toi à une compétition pour générer ta fiche joueur."
+                  linkHref="/competitions"
+                  linkText="Voir les compétitions"
+                />
+              ) : upcomingMatchCards.length === 0 ? (
+                <EmptyState
+                  title="Aucun match à jouer"
+                  text="Tu n’as pas encore de match à jouer. Inscris-toi à une compétition ou attends la génération des matchs."
+                  linkHref="/competitions"
+                  linkText="Voir les compétitions"
+                />
+              ) : (
+                <div className="space-y-4">
+                  {upcomingMatchCards.map((card) => (
+                    <MemberMatchCard key={card.match.id} data={card} />
+                  ))}
+                </div>
+              )}
             </section>
 
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Mes résultats
+            <section className="rounded-2xl border border-green-400/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+              <h2 className="text-2xl font-black text-green-300">
+                Derniers résultats
               </h2>
 
-              <div className="mt-5 space-y-3">
-                {completedMatches.length === 0 && (
+              <div className="mt-5 space-y-4">
+                {completedMatchCards.length === 0 ? (
                   <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-                    Aucun résultat pour le moment.
+                    Aucun résultat terminé pour le moment.
                   </p>
+                ) : (
+                  completedMatchCards.map((card) => (
+                    <MemberResultCard key={card.match.id} data={card} />
+                  ))
                 )}
-
-                {completedMatches.map((match) => (
-                  <div
-                    key={match.id}
-                    className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#8F7B5C]">
-                      {getCompetitionLabel(match.competition_id)}
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-[#F7E9C5]">
-                          {getParticipantLabel(
-                            match.home_competition_player_id
-                          )}
-                        </p>
-
-                        <p className="font-semibold text-[#F7E9C5]">
-                          {getParticipantLabel(
-                            match.away_competition_player_id
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl border border-[#D9A441]/25 bg-[#160A12] px-4 py-3 text-center">
-                        <p className="text-2xl font-black text-[#F2D27A]">
-                          {match.home_score} - {match.away_score}
-                        </p>
-
-                        <p
-                          className={`mt-1 text-xs font-semibold ${getResultClass(
-                            match
-                          )}`}
-                        >
-                          {getResultLabel(match)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="mt-3 text-sm text-[#8F7B5C]">
-                      {formatDate(match.match_date)}
-                    </p>
-                  </div>
-                ))}
               </div>
             </section>
           </div>
@@ -712,58 +773,251 @@ export default function MemberPage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatBox({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-5 shadow-lg shadow-black/30">
-      <p className="text-sm text-[#8F7B5C]">{label}</p>
+    <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-center">
+      <p className="text-xs font-semibold uppercase tracking-widest text-[#8F7B5C]">
+        {label}
+      </p>
       <p className="mt-2 text-2xl font-black text-[#F2D27A]">{value}</p>
     </div>
   );
 }
 
-function InfoBox({ label, value }: { label: string; value: string | number }) {
+function EmptyState({
+  title,
+  text,
+  linkHref,
+  linkText,
+}: {
+  title: string;
+  text: string;
+  linkHref: string;
+  linkText: string;
+}) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#0B0610]/70 p-4">
-      <p className="text-xs font-bold uppercase tracking-widest text-[#8F7B5C]">
+    <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-5">
+      <h3 className="font-black text-[#F7E9C5]">{title}</h3>
+
+      <p className="mt-2 text-sm text-[#D8C7A0]">{text}</p>
+
+      <Link
+        href={linkHref}
+        className="mt-4 inline-flex rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+      >
+        {linkText}
+      </Link>
+    </div>
+  );
+}
+
+function MemberCompetitionCard({ data }: { data: MemberCompetitionCardData }) {
+  const { registration, competition, matchesTotal, matchesUpcoming, matchesCompleted, pendingScores } =
+    data;
+
+  return (
+    <article className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="truncate text-xl font-black text-[#F7E9C5]">
+            {competition?.name || "Compétition inconnue"}
+          </h3>
+
+          <p className="mt-2 text-sm text-[#D8C7A0]">
+            {competition?.season || "Saison non définie"} ·{" "}
+            {getCompetitionTypeLabel(competition?.type)}
+          </p>
+
+          <p className="mt-1 text-sm font-semibold text-[#F2D27A]">
+            {registration.ea_team_name || "Équipe EA FC non définie"}
+          </p>
+        </div>
+
+        <span className="rounded-full border border-[#D9A441]/30 px-3 py-1 text-xs font-semibold text-[#F2D27A]">
+          {competition?.status || "statut inconnu"}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
+        <MiniStat label="Matchs" value={matchesTotal} />
+        <MiniStat label="À jouer" value={matchesUpcoming} />
+        <MiniStat label="Terminés" value={matchesCompleted} />
+        <MiniStat label="Attente" value={pendingScores} />
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <Link
+          href={`/competitions/${registration.competition_id}/matchs`}
+          className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C]"
+        >
+          Matchs
+        </Link>
+
+        <Link
+          href={`/competitions/${registration.competition_id}/classement`}
+          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+        >
+          Classement
+        </Link>
+
+        <Link
+          href={`/competitions/${registration.competition_id}/inscription`}
+          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+        >
+          Modifier inscription
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-[#D9A441]/15 bg-[#160A12]/80 p-3 text-center">
+      <p className="text-lg font-black text-[#F2D27A]">{value}</p>
+      <p className="mt-1 text-[0.65rem] uppercase tracking-widest text-[#8F7B5C]">
         {label}
-      </p>
-      <p className="mt-2 break-words text-sm font-semibold text-[#F2D27A]">
-        {value}
       </p>
     </div>
   );
 }
 
-function MatchCard({
-  competitionLabel,
-  homeLabel,
-  awayLabel,
-  dateLabel,
-}: {
-  competitionLabel: string;
-  homeLabel: string;
-  awayLabel: string;
-  dateLabel: string;
-}) {
+function MemberMatchCard({ data }: { data: MatchCardData }) {
+  const { match, competition, currentRegistration, opponentRegistration, opponentPlayer } =
+    data;
+
+  const hasSubmittedScore =
+    match.submitted_home_score !== null && match.submitted_away_score !== null;
+
   return (
-    <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#8F7B5C]">
-        {competitionLabel}
-      </p>
+    <article className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-black text-[#F7E9C5]">
+            {competition?.name || "Compétition inconnue"}
+          </p>
+          <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
+            {competition?.season || "Saison non définie"}
+          </p>
+        </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
-        <p className="font-semibold text-[#F7E9C5]">{homeLabel}</p>
-
-        <span className="rounded-lg border border-[#D9A441]/25 bg-[#160A12] px-3 py-1 text-center text-sm font-black text-[#F2D27A]">
-          VS
+        <span className="rounded-full border border-[#D9A441]/30 px-3 py-1 text-xs font-semibold text-[#F2D27A]">
+          {formatMatchDate(match.match_date)}
         </span>
+      </div>
 
-        <p className="font-semibold text-[#F7E9C5] md:text-right">
-          {awayLabel}
+      <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+        <div>
+          <p className="text-sm text-[#8F7B5C]">Ton équipe</p>
+          <p className="mt-1 font-black text-[#F7E9C5]">
+            {currentRegistration?.ea_team_name || "Équipe non définie"}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-[#D9A441]/25 bg-[#160A12] px-5 py-3 text-center">
+          <p className="text-sm font-black uppercase tracking-widest text-[#F2D27A]">
+            VS
+          </p>
+        </div>
+
+        <div className="md:text-right">
+          <p className="text-sm text-[#8F7B5C]">Adversaire</p>
+          <p className="mt-1 font-black text-[#F7E9C5]">
+            {opponentPlayer?.name || "Joueur inconnu"}
+          </p>
+          <p className="mt-1 text-sm text-[#D8C7A0]">
+            {opponentRegistration?.ea_team_name || "Équipe non définie"}
+          </p>
+        </div>
+      </div>
+
+      {hasSubmittedScore && (
+        <div className="mt-4 rounded-xl border border-orange-400/20 bg-orange-950/20 p-4">
+          <p className="text-sm font-semibold text-orange-300">
+            Score proposé : {match.submitted_home_score} -{" "}
+            {match.submitted_away_score}
+          </p>
+
+          <p className="mt-1 text-xs text-[#D8C7A0]">
+            Statut : {getScoreStatusLabel(match.score_status)}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <Link
+          href={`/competitions/${match.competition_id}/matchs`}
+          className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C]"
+        >
+          Voir / proposer le score
+        </Link>
+
+        <Link
+          href={`/competitions/${match.competition_id}/classement`}
+          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+        >
+          Classement
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function MemberResultCard({ data }: { data: MatchCardData }) {
+  const { match, competition, opponentRegistration, opponentPlayer } = data;
+
+  return (
+    <article className="rounded-xl border border-green-400/20 bg-[#0B0610]/70 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-black text-[#F7E9C5]">
+            {competition?.name || "Compétition inconnue"}
+          </p>
+          <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
+            {competition?.season || "Saison non définie"}
+          </p>
+        </div>
+
+        <p className="text-2xl font-black text-green-300">
+          {match.home_score} - {match.away_score}
         </p>
       </div>
 
-      <p className="mt-3 text-sm text-[#8F7B5C]">{dateLabel}</p>
-    </div>
+      <p className="text-sm text-[#D8C7A0]">
+        Adversaire :{" "}
+        <span className="font-semibold text-[#F2D27A]">
+          {opponentPlayer?.name || "Joueur inconnu"}
+        </span>{" "}
+        · {opponentRegistration?.ea_team_name || "Équipe non définie"}
+      </p>
+    </article>
   );
+}
+
+function getCompetitionTypeLabel(type?: string | null) {
+  if (type === "league") return "Championnat";
+  if (type === "cup") return "Coupe";
+  if (type === "tournament") return "Tournoi";
+
+  return type || "Type inconnu";
+}
+
+function formatMatchDate(value: string | null) {
+  if (!value) return "À planifier";
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function getScoreStatusLabel(status: string | null) {
+  if (status === "pending") return "En attente de validation";
+  if (status === "validated") return "Validé";
+  if (status === "rejected") return "Refusé";
+
+  return "Aucun statut";
 }
