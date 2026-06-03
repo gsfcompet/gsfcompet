@@ -136,6 +136,12 @@ export async function POST(
           status: "planned",
           home_score: null,
           away_score: null,
+          submitted_home_score: null,
+          submitted_away_score: null,
+          score_submitted_by: null,
+          score_submitted_at: null,
+          score_status: null,
+          score_admin_note: null,
           mvp: null,
         });
       }

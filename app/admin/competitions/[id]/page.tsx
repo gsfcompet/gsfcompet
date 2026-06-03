@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import AdminCompetitionParticipantsManager from "@/components/AdminCompetitionParticipantsManager";
 
 type Profile = {
   id: string;
@@ -473,7 +474,7 @@ export default function AdminCompetitionPage() {
         submitted_away_score: null,
         score_submitted_by: null,
         score_submitted_at: null,
-        score_status: "none",
+        score_status: null,
       })
       .eq("id", match.id);
 
@@ -700,6 +701,11 @@ export default function AdminCompetitionPage() {
             </button>
           </div>
         </section>
+
+        <AdminCompetitionParticipantsManager
+          competitionId={competition.id}
+          onChanged={loadData}
+        />
 
         <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
