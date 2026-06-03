@@ -680,16 +680,113 @@ export default function MembrePage() {
   }, [memberMatches]);
 
   const matchesToPlayRows = useMemo<MemberMatchTableRow[]>(() => {
-    return matchesToPlay.map((match) => ({
-      id: match.id,
-      competition: getCompetitionName(match),
-      date: getMatchDate(match),
-      homeName: getSideName(match, "home"),
-      awayName: getSideName(match, "away"),
-      scoreLabel: "VS",
-      scoreStatus: getScoreStatus(match),
-    }));
-  }, [matchesToPlay, competitions, teams, players, allCompetitionPlayers]);
+    return matchesToPlay.map((match) => {
+      const scoreStatus = getScoreStatus(match);
+      const isFormOpen = openScoreMatchId === match.id;
+      const isSubmitting = submittingMatchId === match.id;
+
+      const actionLabel =
+        scoreStatus === "pending"
+          ? "Modifier"
+          : scoreStatus === "refused"
+          ? "Reproposer"
+          : "Proposer";
+
+      return {
+        id: match.id,
+        competition: getCompetitionName(match),
+        date: getMatchDate(match),
+        homeName: getSideName(match, "home"),
+        awayName: getSideName(match, "away"),
+        scoreLabel:
+          match.submitted_home_score !== null &&
+          match.submitted_home_score !== undefined &&
+          match.submitted_away_score !== null &&
+          match.submitted_away_score !== undefined
+            ? `${match.submitted_home_score} - ${match.submitted_away_score}`
+            : "VS",
+        scoreStatus,
+        actionNode: (
+          <button
+            type="button"
+            onClick={() => openScoreForm(match)}
+            className="rounded-lg border border-yellow-400/50 bg-yellow-400 px-3 py-2 text-xs font-black text-black shadow-lg shadow-yellow-950/30 transition hover:bg-yellow-300"
+          >
+            {actionLabel}
+          </button>
+        ),
+        expandedNode: isFormOpen ? (
+          <div className="rounded-2xl border border-yellow-700/25 bg-[#07000d] p-4">
+            <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr_auto] md:items-end">
+              <label className="block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/70">
+                  {getSideName(match, "home")}
+                </span>
+
+                <input
+                  type="number"
+                  min="0"
+                  value={scoreHome}
+                  onChange={(event) => setScoreHome(event.target.value)}
+                  className="w-full rounded-xl border border-yellow-700/35 bg-black px-4 py-3 text-center text-xl font-black text-yellow-100 outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
+                  placeholder="0"
+                />
+              </label>
+
+              <div className="hidden pb-3 text-2xl font-black text-red-300/80 md:block">
+                -
+              </div>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/70">
+                  {getSideName(match, "away")}
+                </span>
+
+                <input
+                  type="number"
+                  min="0"
+                  value={scoreAway}
+                  onChange={(event) => setScoreAway(event.target.value)}
+                  className="w-full rounded-xl border border-yellow-700/35 bg-black px-4 py-3 text-center text-xl font-black text-yellow-100 outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
+                  placeholder="0"
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => submitScore(match.id)}
+                  className="rounded-xl border border-green-400/40 bg-green-500 px-4 py-3 text-xs font-black text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? "Envoi..." : "Envoyer"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={resetScoreForm}
+                  className="rounded-xl border border-red-500/40 bg-red-700 px-4 py-3 text-xs font-black text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null,
+      };
+    });
+  }, [
+    matchesToPlay,
+    competitions,
+    teams,
+    players,
+    allCompetitionPlayers,
+    openScoreMatchId,
+    scoreHome,
+    scoreAway,
+    submittingMatchId,
+  ]);
 
   const finishedMatchRows = useMemo<MemberMatchTableRow[]>(() => {
     return finishedMatches.map((match) => {
@@ -903,40 +1000,44 @@ export default function MembrePage() {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setMessage("Session introuvable. Merci de te reconnecter.");
+      return;
+    }
+
     setSubmittingMatchId(matchId);
     setMessage(null);
 
-    const payload = {
-      submitted_home_score: parsedHome,
-      submitted_away_score: parsedAway,
-      score_submitted_by: userId,
-      score_submitted_at: new Date().toISOString(),
-      score_status: "pending" as ScoreStatus,
-      score_admin_note: null,
-    };
+    const response = await fetch(`/api/matches/${matchId}/submit-score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        homeScore: parsedHome,
+        awayScore: parsedAway,
+      }),
+    });
 
-    const { error } = await supabase.from("matches").update(payload).eq("id", matchId);
+    const result = await response.json();
 
-    if (error) {
-      console.error(error);
-      setMessage("Erreur lors de l'envoi du score.");
+    if (!response.ok) {
+      setMessage(result.error || "Erreur lors de l'envoi du score.");
       setSubmittingMatchId(null);
       return;
     }
 
-    setMatches((currentMatches) =>
-      currentMatches.map((match) =>
-        match.id === matchId
-          ? {
-              ...match,
-              ...payload,
-            }
-          : match
-      )
-    );
-
-    setMessage("Score proposé. Il est maintenant en attente de validation.");
+    setMessage(result.message || "Score proposé. Il est maintenant en attente de validation.");
     resetScoreForm();
+
+    await loadMemberData();
   }
 
   if (loading) {
@@ -955,9 +1056,9 @@ export default function MembrePage() {
 
   return (
     <main className="min-h-screen bg-[#07000d] px-4 py-8 text-[#fff2c6]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-8">
-        <section className="rounded-3xl border border-yellow-700/35 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8">
+        <section className="w-full rounded-[28px] border border-yellow-700/30 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+          <div className="flex min-h-[92px] flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.35em] text-yellow-400">
                 Guardian&apos;s Family
@@ -976,14 +1077,14 @@ export default function MembrePage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/membre/profil"
-                className="rounded-xl border border-yellow-400/50 bg-yellow-400 px-4 py-2 text-sm font-black text-black shadow-lg shadow-yellow-950/30 transition hover:bg-yellow-300"
+                className="rounded-xl border border-yellow-400/50 bg-yellow-400 px-5 py-3 text-sm font-black text-black shadow-lg shadow-yellow-950/30 transition hover:bg-yellow-300"
               >
                 Modifier mon profil
               </Link>
 
               <Link
                 href="/classement"
-                className="rounded-xl border border-red-500/40 bg-red-700 px-4 py-2 text-sm font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600"
+                className="rounded-xl border border-red-500/40 bg-red-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600"
               >
                 Voir le classement
               </Link>
@@ -997,14 +1098,14 @@ export default function MembrePage() {
           </div>
         )}
 
-        <section className="grid gap-8 lg:grid-cols-[380px_1fr]">
-          <div className="rounded-3xl border border-yellow-700/30 bg-[#140711] p-4 shadow-2xl shadow-black/50">
+        <section className="grid w-full items-start gap-8 lg:grid-cols-[380px_minmax(0,1fr)]">
+          <div className="w-full self-start rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-4 shadow-2xl shadow-black/50">
             <FutCard profile={safeProfile} {...safeProfile} />
           </div>
 
-          <div className="flex flex-col gap-8">
-            <section className="rounded-3xl border border-yellow-700/30 bg-[#140711] p-5 shadow-2xl shadow-black/40">
-              <div className="mb-5 flex items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-6">
+            <section className="rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-5 shadow-2xl shadow-black/40">
+              <div className="mb-5 flex min-h-[58px] items-start justify-between gap-4">
                 <div>
                   <h2 className="text-2xl font-black text-yellow-100">
                     Mes compétitions
@@ -1014,7 +1115,7 @@ export default function MembrePage() {
                   </p>
                 </div>
 
-                <span className="rounded-full border border-yellow-500/30 bg-black/40 px-3 py-1 text-sm font-black text-yellow-200">
+                <span className="flex h-9 min-w-9 items-center justify-center rounded-full border border-yellow-500/40 bg-black/40 px-3 text-sm font-black text-yellow-200 shadow-inner shadow-yellow-950/30">
                   {competitions.length}
                 </span>
               </div>

@@ -185,7 +185,7 @@ export default function FutMemberCard({
         <div className="absolute inset-0 z-10">
           {/* NOTE */}
           <Box left="8.9%" top="4.9%" width="18.8%" height="10.2%">
-            <span className="text-[clamp(2.15rem,6vw,3.5rem)] font-black leading-none text-[#F7D56D] drop-shadow-[0_0_10px_rgba(247,213,109,0.35)]">
+            <span className="text-[clamp(1.75rem,4.8vw,2.8rem)] font-black leading-none text-[#F7D56D] drop-shadow-[0_0_10px_rgba(247,213,109,0.35)]">
               {displayedShirtNumber}
             </span>
           </Box>
@@ -243,21 +243,21 @@ export default function FutMemberCard({
 
           {/* PSEUDO */}
           <Box left="22.2%" top="43.65%" width="55.8%" height="5.2%">
-            <span className="max-w-full truncate text-center text-[clamp(0.95rem,2.45vw,1.38rem)] font-black uppercase tracking-[0.08em] text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
+            <span className="max-w-full text-center text-[clamp(0.95rem,2.45vw,1.38rem)] font-black uppercase tracking-[0.08em] text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
               {pseudo}
             </span>
           </Box>
 
           {/* PAYS */}
           <Box left="28.9%" top="51.55%" width="42.2%" height="3.05%">
-            <span className="max-w-full truncate text-center text-[clamp(0.64rem,1.35vw,0.8rem)] font-bold text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
+            <span className="max-w-full text-center text-[clamp(0.64rem,1.35vw,0.8rem)] font-bold text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
               {pays}
             </span>
           </Box>
 
           {/* ÉQUIPE EA FC */}
           <Box left="33.8%" top="56.55%" width="32.4%" height="2.95%">
-            <span className="max-w-full truncate text-center text-[clamp(0.58rem,1.18vw,0.72rem)] font-semibold text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
+            <span className="max-w-full text-center text-[clamp(0.58rem,1.18vw,0.72rem)] font-semibold text-[#F7D56D] drop-shadow-[0_0_8px_rgba(0,0,0,0.9)]">
               {equipeEAFC}
             </span>
           </Box>
