@@ -505,33 +505,39 @@ export default function AdminCompetitionPage() {
   async function saveMatchDate(match: Match) {
     const value = dateForms[match.id] ?? "";
 
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setSavingDateMatchId(match.id);
     setMessage("");
 
     const nextDate = value ? new Date(value).toISOString() : null;
-    const nextStatus =
-      match.status === "completed" ? "completed" : nextDate ? "scheduled" : "planned";
 
-    const updateResult = await supabase
-      .from("matches")
-      .update({
+    const response = await fetch(`/api/admin/matches/${match.id}/schedule`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
         match_date: nextDate,
-        status: nextStatus,
-      })
-      .eq("id", match.id);
+      }),
+    });
 
-    if (updateResult.error) {
+    const result = await response.json();
+
+    if (!response.ok) {
       setSavingDateMatchId(null);
-      setMessage(`Erreur programmation match : ${updateResult.error.message}`);
+      setMessage(result.error || "Erreur programmation match.");
       return;
     }
 
     setSavingDateMatchId(null);
-    setMessage(
-      nextDate
-        ? "Date / heure du match enregistrée ✅"
-        : "Date / heure du match supprimée ✅"
-    );
+    setMessage(result.message || "Date / heure du match enregistrée ✅");
 
     await loadData();
   }
