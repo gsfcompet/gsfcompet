@@ -1,1031 +1,695 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import FutMemberCard from "@/components/FutMemberCard";
+import ScoreStatusBadge from "@/components/ScoreStatusBadge";
+
+type ScoreStatus = "pending" | "validated" | "refused" | null;
 
 type Profile = {
-  id: string;
-  email?: string | null;
-  username?: string | null;
-  role?: "member" | "admin" | string | null;
+  id?: string;
+  user_id?: string;
+  pseudo?: string | null;
+  role?: string | null;
+  note?: number | null;
+  plateforme?: string | null;
+  pays?: string | null;
+  equipe_ea?: string | null;
+  ea_team?: string | null;
   avatar_url?: string | null;
   avatarUrl?: string | null;
-  pays?: string | null;
-  country?: string | null;
-  plateforme?: string | null;
-  platform?: string | null;
+  mj?: number | null;
+  v?: number | null;
+  n?: number | null;
+  p?: number | null;
+  bp?: number | null;
+  bc?: number | null;
+  ga?: number | null;
+  pts?: number | null;
 };
 
-type Player = {
+type Team = {
   id: string;
-  user_id: string | null;
-  name: string;
-  ea_name: string | null;
-  platform: string | null;
+  name?: string | null;
 };
 
 type Competition = {
   id: string;
-  name: string;
-  type: string;
-  season: string | null;
-  status: string;
-  participant_type: "teams" | "players";
-};
-
-type CompetitionPlayer = {
-  id: string;
-  competition_id: string;
-  player_id: string;
-  ea_team_id: string | null;
-  ea_team_name: string;
+  title?: string | null;
+  name?: string | null;
+  description?: string | null;
+  status?: string | null;
 };
 
 type Match = {
   id: string;
-  competition_id: string;
-  home_team_id: string | null;
-  away_team_id: string | null;
-  home_competition_player_id: string | null;
-  away_competition_player_id: string | null;
-  match_date: string | null;
-  status: string;
-  home_score: number | null;
-  away_score: number | null;
-  submitted_home_score: number | null;
-  submitted_away_score: number | null;
-  score_status: string | null;
-  score_submitted_by: string | null;
-  score_submitted_at: string | null;
+  competition_id?: string | null;
+  home_team_id?: string | null;
+  away_team_id?: string | null;
+  date?: string | null;
+  match_date?: string | null;
+  status?: string | null;
+  score_home?: number | null;
+  score_away?: number | null;
+  submitted_home_score?: number | null;
+  submitted_away_score?: number | null;
+  score_submitted_by?: string | null;
+  score_submitted_at?: string | null;
+  score_status?: ScoreStatus;
+  score_admin_note?: string | null;
+  admin_note?: string | null;
+  refusal_reason?: string | null;
+  competition?: Competition | null;
+  home_team?: Team | null;
+  away_team?: Team | null;
 };
 
-type MemberStats = {
-  mj: number;
-  v: number;
-  n: number;
-  p: number;
-  bp: number;
-  bc: number;
-  ga: number;
-  pts: number;
-};
+export default function MembrePage() {
+  const router = useRouter();
 
-type MatchCardData = {
-  match: Match;
-  competition: Competition | null;
-  currentRegistration: CompetitionPlayer | null;
-  opponentRegistration: CompetitionPlayer | null;
-  opponentPlayer: Player | null;
-};
-
-type MemberCompetitionCardData = {
-  registration: CompetitionPlayer;
-  competition: Competition | null;
-  matchesTotal: number;
-  matchesUpcoming: number;
-  matchesCompleted: number;
-  pendingScores: number;
-};
-
-const emptyStats: MemberStats = {
-  mj: 0,
-  v: 0,
-  n: 0,
-  p: 0,
-  bp: 0,
-  bc: 0,
-  ga: 0,
-  pts: 0,
-};
-
-export default function MemberPage() {
-  const supabase = createClient();
-
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [player, setPlayer] = useState<Player | null>(null);
-
-  const [registrations, setRegistrations] = useState<CompetitionPlayer[]>([]);
-  const [allRegistrations, setAllRegistrations] = useState<CompetitionPlayer[]>(
-    []
-  );
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
+  const FutCard = FutMemberCard as ComponentType<any>;
 
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
 
-  async function loadData() {
+  const [openScoreMatchId, setOpenScoreMatchId] = useState<string | null>(null);
+  const [scoreHome, setScoreHome] = useState("");
+  const [scoreAway, setScoreAway] = useState("");
+  const [submittingMatchId, setSubmittingMatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadMemberData();
+  }, []);
+
+  async function loadMemberData() {
     setLoading(true);
-    setMessage("");
+    setMessage(null);
 
     const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    if (userError || !user) {
-      setProfile(null);
+    if (sessionError) {
+      console.error(sessionError);
+      setMessage("Erreur lors de la récupération de la session.");
       setLoading(false);
       return;
     }
 
-    const profileResult = await supabase
+    if (!session?.user) {
+      router.push("/login");
+      return;
+    }
+
+    const currentUserId = session.user.id;
+    setUserId(currentUserId);
+
+    let loadedProfile: Profile | null = null;
+
+    const profileById = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", user.id)
+      .eq("id", currentUserId)
       .maybeSingle();
 
-    if (profileResult.error || !profileResult.data) {
-      setMessage("Profil introuvable. Reconnecte-toi ou contacte un admin.");
-      setLoading(false);
-      return;
+    if (profileById.data) {
+      loadedProfile = profileById.data as Profile;
     }
 
-    const playerResult = await supabase
-      .from("players")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    if (!loadedProfile) {
+      const profileByUserId = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", currentUserId)
+        .maybeSingle();
 
-    if (playerResult.error) {
-      setMessage(`Erreur joueur : ${playerResult.error.message}`);
-      setLoading(false);
-      return;
+      if (profileByUserId.data) {
+        loadedProfile = profileByUserId.data as Profile;
+      }
     }
-
-    const loadedProfile = profileResult.data as Profile;
-    const loadedPlayer = playerResult.data as Player | null;
 
     setProfile(loadedProfile);
-    setPlayer(loadedPlayer);
 
-    if (!loadedPlayer) {
-      setRegistrations([]);
-      setAllRegistrations([]);
-      setPlayers([]);
-      setCompetitions([]);
-      setMatches([]);
-      setLoading(false);
-      return;
-    }
-
-    const registrationsResult = await supabase
-      .from("competition_players")
-      .select("*")
-      .eq("player_id", loadedPlayer.id);
-
-    if (registrationsResult.error) {
-      setMessage(`Erreur inscriptions : ${registrationsResult.error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    const loadedRegistrations =
-      (registrationsResult.data ?? []) as CompetitionPlayer[];
-
-    const registrationIds = loadedRegistrations.map(
-      (registration) => registration.id
-    );
-
-    if (registrationIds.length === 0) {
-      setRegistrations([]);
-      setAllRegistrations([]);
-      setPlayers([loadedPlayer]);
-      setCompetitions([]);
-      setMatches([]);
-      setLoading(false);
-      return;
-    }
-
-    const matchesResult = await supabase
+    const matchesWithRelations = await supabase
       .from("matches")
-      .select("*")
-      .or(
-        `home_competition_player_id.in.(${registrationIds.join(
-          ","
-        )}),away_competition_player_id.in.(${registrationIds.join(",")})`
+      .select(
+        `
+        *,
+        competition:competitions (
+          id,
+          title,
+          description,
+          status
+        ),
+        home_team:teams!matches_home_team_id_fkey (
+          id,
+          name
+        ),
+        away_team:teams!matches_away_team_id_fkey (
+          id,
+          name
+        )
+      `
       )
-      .order("match_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true });
+      .order("date", { ascending: true });
 
-    if (matchesResult.error) {
-      setMessage(`Erreur matchs : ${matchesResult.error.message}`);
-      setLoading(false);
-      return;
-    }
+    if (matchesWithRelations.error) {
+      console.warn(
+        "Chargement avec relations impossible :",
+        matchesWithRelations.error
+      );
 
-    const loadedMatches = (matchesResult.data ?? []) as Match[];
-
-    const competitionIds = Array.from(
-      new Set(
-        [
-          ...loadedRegistrations.map(
-            (registration) => registration.competition_id
-          ),
-          ...loadedMatches.map((match) => match.competition_id),
-        ].filter(Boolean)
-      )
-    );
-
-    let loadedCompetitions: Competition[] = [];
-
-    if (competitionIds.length > 0) {
-      const competitionsResult = await supabase
-        .from("competitions")
+      const plainMatches = await supabase
+        .from("matches")
         .select("*")
-        .in("id", competitionIds);
+        .order("date", { ascending: true });
 
-      if (competitionsResult.error) {
-        setMessage(
-          `Erreur compétitions : ${competitionsResult.error.message}`
-        );
-        setLoading(false);
-        return;
+      if (plainMatches.error) {
+        console.error(plainMatches.error);
+        setMessage("Erreur lors du chargement des matchs.");
+        setMatches([]);
+      } else {
+        setMatches((plainMatches.data ?? []) as Match[]);
       }
-
-      loadedCompetitions = (competitionsResult.data ?? []) as Competition[];
+    } else {
+      setMatches((matchesWithRelations.data ?? []) as Match[]);
     }
-
-    const relatedRegistrationIds = Array.from(
-      new Set(
-        loadedMatches
-          .flatMap((match) => [
-            match.home_competition_player_id,
-            match.away_competition_player_id,
-          ])
-          .filter(Boolean) as string[]
-      )
-    );
-
-    let loadedAllRegistrations: CompetitionPlayer[] = [];
-
-    if (relatedRegistrationIds.length > 0) {
-      const allRegistrationsResult = await supabase
-        .from("competition_players")
-        .select("*")
-        .in("id", relatedRegistrationIds);
-
-      if (allRegistrationsResult.error) {
-        setMessage(
-          `Erreur participants matchs : ${allRegistrationsResult.error.message}`
-        );
-        setLoading(false);
-        return;
-      }
-
-      loadedAllRegistrations =
-        (allRegistrationsResult.data ?? []) as CompetitionPlayer[];
-    }
-
-    const playerIds = Array.from(
-      new Set(
-        loadedAllRegistrations
-          .map((registration) => registration.player_id)
-          .filter(Boolean)
-      )
-    );
-
-    let loadedPlayers: Player[] = [];
-
-    if (playerIds.length > 0) {
-      const playersResult = await supabase
-        .from("players")
-        .select("*")
-        .in("id", playerIds);
-
-      if (playersResult.error) {
-        setMessage(`Erreur joueurs matchs : ${playersResult.error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      loadedPlayers = (playersResult.data ?? []) as Player[];
-    }
-
-    setRegistrations(loadedRegistrations);
-    setAllRegistrations(loadedAllRegistrations);
-    setPlayers(loadedPlayers);
-    setCompetitions(loadedCompetitions);
-    setMatches(loadedMatches);
 
     setLoading(false);
   }
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const competitions = useMemo(() => {
+    const map = new Map<string, Competition>();
 
-  const memberStats = useMemo(() => {
-    if (!player) return emptyStats;
-
-    const currentRegistrationIds = registrations.map(
-      (registration) => registration.id
-    );
-
-    const stats: MemberStats = { ...emptyStats };
-
-    for (const match of matches) {
-      if (match.status !== "completed") continue;
-      if (match.home_score === null || match.away_score === null) continue;
-
-      const isHome = currentRegistrationIds.includes(
-        match.home_competition_player_id || ""
-      );
-      const isAway = currentRegistrationIds.includes(
-        match.away_competition_player_id || ""
-      );
-
-      if (!isHome && !isAway) continue;
-
-      const goalsFor = isHome ? match.home_score : match.away_score;
-      const goalsAgainst = isHome ? match.away_score : match.home_score;
-
-      stats.mj += 1;
-      stats.bp += goalsFor;
-      stats.bc += goalsAgainst;
-
-      if (goalsFor > goalsAgainst) {
-        stats.v += 1;
-        stats.pts += 3;
-      } else if (goalsFor === goalsAgainst) {
-        stats.n += 1;
-        stats.pts += 1;
-      } else {
-        stats.p += 1;
+    matches.forEach((match) => {
+      if (match.competition?.id) {
+        map.set(match.competition.id, match.competition);
       }
+    });
+
+    return Array.from(map.values());
+  }, [matches]);
+
+  const matchesToPlay = useMemo(() => {
+    return matches.filter((match) => {
+      const hasFinalScore =
+        match.score_home !== null &&
+        match.score_home !== undefined &&
+        match.score_away !== null &&
+        match.score_away !== undefined;
+
+      return !hasFinalScore;
+    });
+  }, [matches]);
+
+  const finishedMatches = useMemo(() => {
+    return matches.filter((match) => {
+      return (
+        match.score_home !== null &&
+        match.score_home !== undefined &&
+        match.score_away !== null &&
+        match.score_away !== undefined
+      );
+    });
+  }, [matches]);
+
+  function getCompetitionName(match: Match) {
+    return match.competition?.title || match.competition?.name || "Compétition";
+  }
+
+  function getTeamName(team?: Team | null, fallback?: string | null) {
+    return team?.name || fallback || "Équipe";
+  }
+
+  function getMatchDate(match: Match) {
+    const rawDate = match.date || match.match_date;
+
+    if (!rawDate) {
+      return "Date non définie";
     }
 
-    stats.ga = stats.bp - stats.bc;
+    return new Intl.DateTimeFormat("fr-FR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(rawDate));
+  }
 
-    return stats;
-  }, [matches, player, registrations]);
+  function getScoreStatus(match: Match): ScoreStatus {
+    if (
+      match.score_status === "pending" ||
+      match.score_status === "validated" ||
+      match.score_status === "refused"
+    ) {
+      return match.score_status;
+    }
 
-  const memberCompetitionCards = useMemo(() => {
-    return registrations.map((registration): MemberCompetitionCardData => {
-      const competition =
-        competitions.find(
-          (currentCompetition) =>
-            currentCompetition.id === registration.competition_id
-        ) ?? null;
+    return null;
+  }
 
-      const competitionMatches = matches.filter((match) => {
-        const sameCompetition =
-          match.competition_id === registration.competition_id;
+  function getAdminNote(match: Match) {
+    return match.score_admin_note || match.admin_note || match.refusal_reason || null;
+  }
 
-        const memberMatch =
-          match.home_competition_player_id === registration.id ||
-          match.away_competition_player_id === registration.id;
+  function resetScoreForm() {
+    setOpenScoreMatchId(null);
+    setScoreHome("");
+    setScoreAway("");
+    setSubmittingMatchId(null);
+  }
 
-        return sameCompetition && memberMatch;
-      });
+  function openScoreForm(match: Match) {
+    setOpenScoreMatchId(match.id);
+    setScoreHome(
+      match.submitted_home_score !== null &&
+        match.submitted_home_score !== undefined
+        ? String(match.submitted_home_score)
+        : ""
+    );
+    setScoreAway(
+      match.submitted_away_score !== null &&
+        match.submitted_away_score !== undefined
+        ? String(match.submitted_away_score)
+        : ""
+    );
+    setMessage(null);
+  }
 
-      return {
-        registration,
-        competition,
-        matchesTotal: competitionMatches.length,
-        matchesUpcoming: competitionMatches.filter(
-          (match) => match.status !== "completed"
-        ).length,
-        matchesCompleted: competitionMatches.filter(
-          (match) => match.status === "completed"
-        ).length,
-        pendingScores: competitionMatches.filter(
-          (match) => match.score_status === "pending"
-        ).length,
-      };
-    });
-  }, [competitions, matches, registrations]);
+  async function submitScore(matchId: string) {
+    if (!userId) {
+      setMessage("Session introuvable. Merci de te reconnecter.");
+      return;
+    }
 
-  const upcomingMatchCards = useMemo(() => {
-    if (!player) return [];
+    const parsedHome = Number(scoreHome);
+    const parsedAway = Number(scoreAway);
 
-    const currentRegistrationIds = registrations.map(
-      (registration) => registration.id
+    if (
+      scoreHome.trim() === "" ||
+      scoreAway.trim() === "" ||
+      Number.isNaN(parsedHome) ||
+      Number.isNaN(parsedAway) ||
+      parsedHome < 0 ||
+      parsedAway < 0
+    ) {
+      setMessage("Merci de renseigner un score valide.");
+      return;
+    }
+
+    setSubmittingMatchId(matchId);
+    setMessage(null);
+
+    const payload = {
+      submitted_home_score: parsedHome,
+      submitted_away_score: parsedAway,
+      score_submitted_by: userId,
+      score_submitted_at: new Date().toISOString(),
+      score_status: "pending",
+      score_admin_note: null,
+    };
+
+    const { error } = await supabase.from("matches").update(payload).eq("id", matchId);
+
+    if (error) {
+      console.error(error);
+      setMessage("Erreur lors de l'envoi du score.");
+      setSubmittingMatchId(null);
+      return;
+    }
+
+    setMatches((currentMatches) =>
+      currentMatches.map((match) =>
+        match.id === matchId
+          ? {
+              ...match,
+              ...payload,
+              score_status: "pending",
+            }
+          : match
+      )
     );
 
-    return matches
-      .filter((match) => match.status !== "completed")
-      .map((match): MatchCardData => {
-        const isHome = currentRegistrationIds.includes(
-          match.home_competition_player_id || ""
-        );
-
-        const currentRegistrationId = isHome
-          ? match.home_competition_player_id
-          : match.away_competition_player_id;
-
-        const opponentRegistrationId = isHome
-          ? match.away_competition_player_id
-          : match.home_competition_player_id;
-
-        const currentRegistration =
-          allRegistrations.find(
-            (registration) => registration.id === currentRegistrationId
-          ) ?? null;
-
-        const opponentRegistration =
-          allRegistrations.find(
-            (registration) => registration.id === opponentRegistrationId
-          ) ?? null;
-
-        const opponentPlayer =
-          players.find(
-            (currentPlayer) =>
-              currentPlayer.id === opponentRegistration?.player_id
-          ) ?? null;
-
-        const competition =
-          competitions.find(
-            (currentCompetition) =>
-              currentCompetition.id === match.competition_id
-          ) ?? null;
-
-        return {
-          match,
-          competition,
-          currentRegistration,
-          opponentRegistration,
-          opponentPlayer,
-        };
-      });
-  }, [allRegistrations, competitions, matches, player, players, registrations]);
-
-  const completedMatchCards = useMemo(() => {
-    if (!player) return [];
-
-    const currentRegistrationIds = registrations.map(
-      (registration) => registration.id
-    );
-
-    return matches
-      .filter((match) => match.status === "completed")
-      .slice(0, 5)
-      .map((match): MatchCardData => {
-        const isHome = currentRegistrationIds.includes(
-          match.home_competition_player_id || ""
-        );
-
-        const currentRegistrationId = isHome
-          ? match.home_competition_player_id
-          : match.away_competition_player_id;
-
-        const opponentRegistrationId = isHome
-          ? match.away_competition_player_id
-          : match.home_competition_player_id;
-
-        const currentRegistration =
-          allRegistrations.find(
-            (registration) => registration.id === currentRegistrationId
-          ) ?? null;
-
-        const opponentRegistration =
-          allRegistrations.find(
-            (registration) => registration.id === opponentRegistrationId
-          ) ?? null;
-
-        const opponentPlayer =
-          players.find(
-            (currentPlayer) =>
-              currentPlayer.id === opponentRegistration?.player_id
-          ) ?? null;
-
-        const competition =
-          competitions.find(
-            (currentCompetition) =>
-              currentCompetition.id === match.competition_id
-          ) ?? null;
-
-        return {
-          match,
-          competition,
-          currentRegistration,
-          opponentRegistration,
-          opponentPlayer,
-        };
-      });
-  }, [allRegistrations, competitions, matches, player, players, registrations]);
-
-  const favoriteRegistration = registrations[0] ?? null;
-
-  const pseudo =
-    player?.name ||
-    profile?.username ||
-    profile?.email?.split("@")[0] ||
-    "Membre";
-
-  const plateforme =
-    player?.platform || profile?.plateforme || profile?.platform || "PC";
-
-  const pays = profile?.pays || profile?.country || "France";
-
-  const avatarUrl = profile?.avatar_url || profile?.avatarUrl || null;
-
-  const equipeEAFC = favoriteRegistration?.ea_team_name || "Sans équipe";
+    setMessage("Score proposé. Il est maintenant en attente de validation.");
+    resetScoreForm();
+  }
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="text-[#D8C7A0]">Chargement de l’espace membre...</p>
+      <main className="min-h-screen bg-[#050816] px-4 py-10 text-white">
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center">
+            <p className="text-lg font-bold">Chargement de ton espace membre...</p>
           </div>
-        </section>
-      </main>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-              Espace membre
-            </p>
-
-            <h1 className="text-3xl font-black">Connexion requise</h1>
-
-            <p className="mt-3 text-[#D8C7A0]">
-              Connecte-toi pour accéder à ta carte membre, tes matchs et tes
-              compétitions.
-            </p>
-
-            <div className="mt-6 flex justify-center gap-3">
-              <Link
-                href="/login"
-                className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
-              >
-                Se connecter
-              </Link>
-
-              <Link
-                href="/register"
-                className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
-              >
-                Créer un compte
-              </Link>
-            </div>
-          </div>
-        </section>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-10">
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-            Espace membre
-          </p>
+    <main className="min-h-screen bg-[#050816] px-4 py-8 text-white">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8">
+        <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-black p-6 shadow-2xl">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.35em] text-yellow-400">
+                Guardian&apos;s Family
+              </p>
 
-          <h1 className="text-4xl font-black md:text-5xl">
-            Bienvenue {pseudo}
-          </h1>
+              <h1 className="mt-2 text-3xl font-black md:text-5xl">
+                Espace membre
+              </h1>
 
-          <p className="mt-3 max-w-3xl text-[#D8C7A0]">
-            Retrouve ta carte membre, tes statistiques et tes matchs à jouer.
-          </p>
-
-          {message && (
-            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
-              {message}
+              <p className="mt-3 max-w-2xl text-sm text-slate-300 md:text-base">
+                Retrouve tes compétitions, tes matchs à jouer et le statut de
+                validation des scores proposés.
+              </p>
             </div>
-          )}
-        </div>
 
-        <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
-          <aside className="space-y-6">
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <FutMemberCard
-                pseudo={pseudo}
-                role={profile.role || "member"}
-                note={99}
-                plateforme={plateforme}
-                pays={pays}
-                equipeEAFC={equipeEAFC}
-                avatarUrl={avatarUrl}
-                mj={memberStats.mj}
-                v={memberStats.v}
-                n={memberStats.n}
-                p={memberStats.p}
-                bp={memberStats.bp}
-                bc={memberStats.bc}
-                ga={memberStats.ga}
-                pts={memberStats.pts}
-              />
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/membre/profil"
+                className="rounded-xl border border-yellow-400/40 bg-yellow-400 px-4 py-2 text-sm font-black text-black transition hover:bg-yellow-300"
+              >
+                Modifier mon profil
+              </Link>
 
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <Link
-                  href="/membre/profil"
-                  className="rounded-xl bg-[#A61E22] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#8E171C]"
-                >
-                  Modifier mon profil
-                </Link>
+              <Link
+                href="/classement"
+                className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15"
+              >
+                Voir le classement
+              </Link>
+            </div>
+          </div>
+        </section>
 
-                <Link
-                  href="/competitions"
-                  className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
-                >
-                  Voir les compétitions
-                </Link>
-              </div>
-            </section>
+        {message && (
+          <div className="rounded-2xl border border-yellow-400/30 bg-yellow-500/10 px-4 py-3 text-sm font-bold text-yellow-200">
+            {message}
+          </div>
+        )}
 
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Mes statistiques
-              </h2>
+        <section className="grid gap-8 lg:grid-cols-[380px_1fr]">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 shadow-2xl">
+            <FutCard profile={profile} {...profile} />
+          </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <StatBox label="MJ" value={memberStats.mj} />
-                <StatBox label="PTS" value={memberStats.pts} />
-                <StatBox label="V" value={memberStats.v} />
-                <StatBox label="N" value={memberStats.n} />
-                <StatBox label="P" value={memberStats.p} />
-                <StatBox label="GA" value={memberStats.ga} />
-              </div>
-            </section>
-          </aside>
-
-          <div className="space-y-8">
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-col gap-8">
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl">
+              <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-[#F7E9C5]">
-                    Mes compétitions
-                  </h2>
-
-                  <p className="mt-2 text-sm text-[#D8C7A0]">
-                    Toutes les compétitions auxquelles tu es inscrit.
+                  <h2 className="text-2xl font-black">Mes compétitions</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Les compétitions liées à tes matchs.
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-5 py-3 text-center">
-                  <p className="text-2xl font-black text-[#F2D27A]">
-                    {memberCompetitionCards.length}
-                  </p>
-                  <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
-                    inscriptions
-                  </p>
-                </div>
+                <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-sm font-bold text-slate-300">
+                  {competitions.length}
+                </span>
               </div>
 
-              {!player ? (
-                <EmptyState
-                  title="Aucune fiche joueur"
-                  text="Complète ton profil ou inscris-toi à une compétition pour générer ta fiche joueur."
-                  linkHref="/competitions"
-                  linkText="Voir les compétitions"
-                />
-              ) : memberCompetitionCards.length === 0 ? (
-                <EmptyState
-                  title="Aucune compétition"
-                  text="Tu n’es inscrit à aucune compétition pour le moment."
-                  linkHref="/competitions"
-                  linkText="Voir les compétitions"
-                />
+              {competitions.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-slate-400">
+                  Aucune compétition trouvée pour le moment.
+                </div>
               ) : (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {memberCompetitionCards.map((card) => (
-                    <MemberCompetitionCard
-                      key={card.registration.id}
-                      data={card}
-                    />
+                <div className="grid gap-3 md:grid-cols-2">
+                  {competitions.map((competition) => (
+                    <div
+                      key={competition.id}
+                      className="rounded-2xl border border-white/10 bg-black/25 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-black">
+                            {competition.title || competition.name || "Compétition"}
+                          </h3>
+
+                          {competition.description && (
+                            <p className="mt-2 line-clamp-2 text-sm text-slate-400">
+                              {competition.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {competition.status && (
+                          <span className="rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[11px] font-bold uppercase text-slate-300">
+                            {competition.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
             </section>
 
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl">
+              <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-[#F7E9C5]">
-                    Mes matchs à jouer
-                  </h2>
-
-                  <p className="mt-2 text-sm text-[#D8C7A0]">
-                    Tes prochains matchs et les scores à proposer.
+                  <h2 className="text-2xl font-black">Mes matchs à jouer</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Propose ton score après ton match. Il passera ensuite en
+                    validation admin.
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-5 py-3 text-center">
-                  <p className="text-2xl font-black text-[#F2D27A]">
-                    {upcomingMatchCards.length}
-                  </p>
-                  <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
-                    à jouer
-                  </p>
-                </div>
+                <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-sm font-bold text-slate-300">
+                  {matchesToPlay.length}
+                </span>
               </div>
 
-              {!player ? (
-                <EmptyState
-                  title="Aucune fiche joueur"
-                  text="Complète ton profil ou inscris-toi à une compétition pour générer ta fiche joueur."
-                  linkHref="/competitions"
-                  linkText="Voir les compétitions"
-                />
-              ) : upcomingMatchCards.length === 0 ? (
-                <EmptyState
-                  title="Aucun match à jouer"
-                  text="Tu n’as pas encore de match à jouer. Inscris-toi à une compétition ou attends la génération des matchs."
-                  linkHref="/competitions"
-                  linkText="Voir les compétitions"
-                />
+              {matchesToPlay.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-slate-400">
+                  Aucun match à jouer pour le moment.
+                </div>
               ) : (
-                <div className="space-y-4">
-                  {upcomingMatchCards.map((card) => (
-                    <MemberMatchCard key={card.match.id} data={card} />
-                  ))}
+                <div className="grid gap-4">
+                  {matchesToPlay.map((match) => {
+                    const scoreStatus = getScoreStatus(match);
+                    const adminNote = getAdminNote(match);
+                    const isFormOpen = openScoreMatchId === match.id;
+                    const isSubmitting = submittingMatchId === match.id;
+
+                    return (
+                      <article
+                        key={match.id}
+                        className="rounded-3xl border border-white/10 bg-black/25 p-5 shadow-xl"
+                      >
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-yellow-400">
+                              {getCompetitionName(match)}
+                            </p>
+
+                            <h3 className="mt-2 text-xl font-black">
+                              {getTeamName(match.home_team, match.home_team_id)}{" "}
+                              <span className="text-slate-500">vs</span>{" "}
+                              {getTeamName(match.away_team, match.away_team_id)}
+                            </h3>
+
+                            <p className="mt-2 text-sm text-slate-400">
+                              {getMatchDate(match)}
+                            </p>
+                          </div>
+
+                          <ScoreStatusBadge status={scoreStatus} />
+                        </div>
+
+                        {match.submitted_home_score !== null &&
+                          match.submitted_home_score !== undefined &&
+                          match.submitted_away_score !== null &&
+                          match.submitted_away_score !== undefined && (
+                            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                              <p className="text-sm text-slate-400">
+                                Score proposé
+                              </p>
+
+                              <p className="mt-1 text-3xl font-black text-white">
+                                {match.submitted_home_score} -{" "}
+                                {match.submitted_away_score}
+                              </p>
+
+                              {match.score_submitted_at && (
+                                <p className="mt-2 text-xs text-slate-500">
+                                  Envoyé le{" "}
+                                  {new Intl.DateTimeFormat("fr-FR", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  }).format(new Date(match.score_submitted_at))}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                        {scoreStatus === "refused" && adminNote && (
+                          <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
+                            <span className="font-black">Motif du refus : </span>
+                            {adminNote}
+                          </div>
+                        )}
+
+                        {scoreStatus !== "validated" && (
+                          <div className="mt-5">
+                            {!isFormOpen ? (
+                              <button
+                                type="button"
+                                onClick={() => openScoreForm(match)}
+                                className="rounded-xl border border-yellow-400/40 bg-yellow-400 px-4 py-2 text-sm font-black text-black transition hover:bg-yellow-300"
+                              >
+                                {scoreStatus === "pending"
+                                  ? "Modifier le score proposé"
+                                  : scoreStatus === "refused"
+                                  ? "Proposer un nouveau score"
+                                  : "Proposer le score"}
+                              </button>
+                            ) : (
+                              <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                                <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
+                                  <label className="block">
+                                    <span className="mb-2 block text-sm font-bold text-slate-300">
+                                      {getTeamName(
+                                        match.home_team,
+                                        match.home_team_id
+                                      )}
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={scoreHome}
+                                      onChange={(event) =>
+                                        setScoreHome(event.target.value)
+                                      }
+                                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-center text-2xl font-black text-white outline-none transition focus:border-yellow-400"
+                                    />
+                                  </label>
+
+                                  <div className="hidden pb-3 text-2xl font-black text-slate-500 md:block">
+                                    -
+                                  </div>
+
+                                  <label className="block">
+                                    <span className="mb-2 block text-sm font-bold text-slate-300">
+                                      {getTeamName(
+                                        match.away_team,
+                                        match.away_team_id
+                                      )}
+                                    </span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={scoreAway}
+                                      onChange={(event) =>
+                                        setScoreAway(event.target.value)
+                                      }
+                                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-center text-2xl font-black text-white outline-none transition focus:border-yellow-400"
+                                    />
+                                  </label>
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap gap-3">
+                                  <button
+                                    type="button"
+                                    disabled={isSubmitting}
+                                    onClick={() => submitScore(match.id)}
+                                    className="rounded-xl border border-green-400/40 bg-green-500 px-4 py-2 text-sm font-black text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {isSubmitting
+                                      ? "Envoi en cours..."
+                                      : "Envoyer le score"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    disabled={isSubmitting}
+                                    onClick={resetScoreForm}
+                                    className="rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Annuler
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </section>
 
-            <section className="rounded-2xl border border-green-400/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-green-300">
-                Derniers résultats
-              </h2>
-
-              <div className="mt-5 space-y-4">
-                {completedMatchCards.length === 0 ? (
-                  <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-                    Aucun résultat terminé pour le moment.
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black">Matchs terminés</h2>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Les scores validés ou déjà renseignés.
                   </p>
-                ) : (
-                  completedMatchCards.map((card) => (
-                    <MemberResultCard key={card.match.id} data={card} />
-                  ))
-                )}
+                </div>
+
+                <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-sm font-bold text-slate-300">
+                  {finishedMatches.length}
+                </span>
               </div>
+
+              {finishedMatches.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-5 text-sm text-slate-400">
+                  Aucun match terminé pour le moment.
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {finishedMatches.map((match) => {
+                    const scoreStatus = getScoreStatus(match);
+
+                    return (
+                      <article
+                        key={match.id}
+                        className="rounded-3xl border border-white/10 bg-black/25 p-5"
+                      >
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-yellow-400">
+                              {getCompetitionName(match)}
+                            </p>
+
+                            <h3 className="mt-2 text-xl font-black">
+                              {getTeamName(match.home_team, match.home_team_id)}{" "}
+                              <span className="text-slate-500">vs</span>{" "}
+                              {getTeamName(match.away_team, match.away_team_id)}
+                            </h3>
+
+                            <p className="mt-2 text-sm text-slate-400">
+                              {getMatchDate(match)}
+                            </p>
+                          </div>
+
+                          <ScoreStatusBadge status={scoreStatus || "validated"} />
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                          <p className="text-sm text-slate-400">Score final</p>
+
+                          <p className="mt-1 text-3xl font-black text-white">
+                            {match.score_home} - {match.score_away}
+                          </p>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
-}
-
-function StatBox({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-center">
-      <p className="text-xs font-semibold uppercase tracking-widest text-[#8F7B5C]">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-black text-[#F2D27A]">{value}</p>
-    </div>
-  );
-}
-
-function EmptyState({
-  title,
-  text,
-  linkHref,
-  linkText,
-}: {
-  title: string;
-  text: string;
-  linkHref: string;
-  linkText: string;
-}) {
-  return (
-    <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-5">
-      <h3 className="font-black text-[#F7E9C5]">{title}</h3>
-
-      <p className="mt-2 text-sm text-[#D8C7A0]">{text}</p>
-
-      <Link
-        href={linkHref}
-        className="mt-4 inline-flex rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-      >
-        {linkText}
-      </Link>
-    </div>
-  );
-}
-
-function MemberCompetitionCard({ data }: { data: MemberCompetitionCardData }) {
-  const {
-    registration,
-    competition,
-    matchesTotal,
-    matchesUpcoming,
-    matchesCompleted,
-    pendingScores,
-  } = data;
-
-  return (
-    <article className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="truncate text-xl font-black text-[#F7E9C5]">
-            {competition?.name || "Compétition inconnue"}
-          </h3>
-
-          <p className="mt-2 text-sm text-[#D8C7A0]">
-            {competition?.season || "Saison non définie"} ·{" "}
-            {getCompetitionTypeLabel(competition?.type)}
-          </p>
-
-          <p className="mt-1 text-sm font-semibold text-[#F2D27A]">
-            {registration.ea_team_name || "Équipe EA FC non définie"}
-          </p>
-        </div>
-
-        <span className="rounded-full border border-[#D9A441]/30 px-3 py-1 text-xs font-semibold text-[#F2D27A]">
-          {competition?.status || "statut inconnu"}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-4 gap-2">
-        <MiniStat label="Matchs" value={matchesTotal} />
-        <MiniStat label="À jouer" value={matchesUpcoming} />
-        <MiniStat label="Terminés" value={matchesCompleted} />
-        <MiniStat label="Attente" value={pendingScores} />
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-3">
-        <Link
-          href={`/competitions/${registration.competition_id}/matchs`}
-          className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C]"
-        >
-          Matchs
-        </Link>
-
-        <Link
-          href={`/competitions/${registration.competition_id}/classement`}
-          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-        >
-          Classement
-        </Link>
-
-        <Link
-          href={`/competitions/${registration.competition_id}/inscription`}
-          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-        >
-          Modifier inscription
-        </Link>
-      </div>
-    </article>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-[#D9A441]/15 bg-[#160A12]/80 p-3 text-center">
-      <p className="text-lg font-black text-[#F2D27A]">{value}</p>
-      <p className="mt-1 text-[0.65rem] uppercase tracking-widest text-[#8F7B5C]">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-function MemberMatchCard({ data }: { data: MatchCardData }) {
-  const {
-    match,
-    competition,
-    currentRegistration,
-    opponentRegistration,
-    opponentPlayer,
-  } = data;
-
-  const hasSubmittedScore =
-    match.submitted_home_score !== null && match.submitted_away_score !== null;
-
-  return (
-    <article className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="font-black text-[#F7E9C5]">
-            {competition?.name || "Compétition inconnue"}
-          </p>
-          <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
-            {competition?.season || "Saison non définie"}
-          </p>
-        </div>
-
-        <span className="rounded-full border border-[#D9A441]/30 px-3 py-1 text-xs font-semibold text-[#F2D27A]">
-          {formatMatchDate(match.match_date)}
-        </span>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
-        <div>
-          <p className="text-sm text-[#8F7B5C]">Ton équipe</p>
-          <p className="mt-1 font-black text-[#F7E9C5]">
-            {currentRegistration?.ea_team_name || "Équipe non définie"}
-          </p>
-        </div>
-
-        <div className="rounded-xl border border-[#D9A441]/25 bg-[#160A12] px-5 py-3 text-center">
-          <p className="text-sm font-black uppercase tracking-widest text-[#F2D27A]">
-            VS
-          </p>
-        </div>
-
-        <div className="md:text-right">
-          <p className="text-sm text-[#8F7B5C]">Adversaire</p>
-          <p className="mt-1 font-black text-[#F7E9C5]">
-            {opponentPlayer?.name || "Joueur inconnu"}
-          </p>
-          <p className="mt-1 text-sm text-[#D8C7A0]">
-            {opponentRegistration?.ea_team_name || "Équipe non définie"}
-          </p>
-        </div>
-      </div>
-
-      {hasSubmittedScore && (
-        <div className="mt-4 rounded-xl border border-orange-400/20 bg-orange-950/20 p-4">
-          <p className="text-sm font-semibold text-orange-300">
-            Score proposé : {match.submitted_home_score} -{" "}
-            {match.submitted_away_score}
-          </p>
-
-          <p className="mt-1 text-xs text-[#D8C7A0]">
-            Statut : {getScoreStatusLabel(match.score_status)}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-5 flex flex-wrap gap-3">
-        <Link
-          href={`/competitions/${match.competition_id}/matchs`}
-          className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C]"
-        >
-          Voir / proposer le score
-        </Link>
-
-        <Link
-          href={`/competitions/${match.competition_id}/classement`}
-          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-        >
-          Classement
-        </Link>
-      </div>
-    </article>
-  );
-}
-
-function MemberResultCard({ data }: { data: MatchCardData }) {
-  const { match, competition, opponentRegistration, opponentPlayer } = data;
-
-  return (
-    <article className="rounded-xl border border-green-400/20 bg-[#0B0610]/70 p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="font-black text-[#F7E9C5]">
-            {competition?.name || "Compétition inconnue"}
-          </p>
-          <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
-            {competition?.season || "Saison non définie"}
-          </p>
-        </div>
-
-        <p className="text-2xl font-black text-green-300">
-          {match.home_score} - {match.away_score}
-        </p>
-      </div>
-
-      <p className="text-sm text-[#D8C7A0]">
-        Adversaire :{" "}
-        <span className="font-semibold text-[#F2D27A]">
-          {opponentPlayer?.name || "Joueur inconnu"}
-        </span>{" "}
-        · {opponentRegistration?.ea_team_name || "Équipe non définie"}
-      </p>
-    </article>
-  );
-}
-
-function getCompetitionTypeLabel(type?: string | null) {
-  if (type === "league") return "Championnat";
-  if (type === "cup") return "Coupe";
-  if (type === "tournament") return "Tournoi";
-
-  return type || "Type inconnu";
-}
-
-function formatMatchDate(value: string | null) {
-  if (!value) return "À planifier";
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function getScoreStatusLabel(status: string | null) {
-  if (status === "pending") return "En attente de validation";
-  if (status === "validated") return "Validé";
-  if (status === "rejected") return "Refusé";
-
-  return "Aucun statut";
 }
