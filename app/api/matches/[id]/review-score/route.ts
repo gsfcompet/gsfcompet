@@ -128,7 +128,7 @@ export async function POST(
       const rejectResult = await admin
         .from("matches")
         .update({
-          score_status: "rejected",
+          score_status: "refused",
         })
         .eq("id", match.id);
 
@@ -161,7 +161,12 @@ export async function POST(
         home_score: match.submitted_home_score,
         away_score: match.submitted_away_score,
         status: "completed",
+        submitted_home_score: null,
+        submitted_away_score: null,
+        score_submitted_by: null,
+        score_submitted_at: null,
         score_status: "validated",
+        score_admin_note: null,
       })
       .eq("id", match.id);
 

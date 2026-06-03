@@ -57,7 +57,7 @@ type Match = {
   submitted_away_score: number | null;
   score_submitted_by: string | null;
   score_submitted_at: string | null;
-  score_status: "none" | "pending" | "validated" | "rejected" | string | null;
+  score_status: "pending" | "validated" | "refused" | string | null;
 };
 
 type ScoreForm = {
@@ -398,7 +398,7 @@ export default function CompetitionMatchesPage() {
   function getScoreStatusLabel(status: Match["score_status"]) {
     if (status === "pending") return "En attente de validation";
     if (status === "validated") return "Validé";
-    if (status === "rejected") return "Refusé";
+    if (status === "refused") return "Refusé";
 
     return "Aucun score proposé";
   }
@@ -463,31 +463,39 @@ export default function CompetitionMatchesPage() {
       return;
     }
 
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setSavingMatchId(match.id);
     setMessage("");
 
-    const updateResult = await supabase
-      .from("matches")
-      .update({
+    const response = await fetch(`/api/admin/matches/${match.id}/score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "save",
         home_score: homeScore,
         away_score: awayScore,
-        status: "completed",
-        submitted_home_score: null,
-        submitted_away_score: null,
-        score_submitted_by: null,
-        score_submitted_at: null,
-        score_status: "validated",
-      })
-      .eq("id", match.id);
+      }),
+    });
 
-    if (updateResult.error) {
+    const result = await response.json();
+
+    if (!response.ok) {
       setSavingMatchId(null);
-      setMessage(`Erreur enregistrement score : ${updateResult.error.message}`);
+      setMessage(result.error || "Erreur enregistrement score.");
       return;
     }
 
     setSavingMatchId(null);
-    setMessage("Score enregistré ✅");
+    setMessage(result.message || "Score enregistré ✅");
 
     await loadData();
   }
@@ -502,33 +510,37 @@ export default function CompetitionMatchesPage() {
 
     if (!confirmed) return;
 
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setSavingMatchId(match.id);
     setMessage("");
 
-    const updateResult = await supabase
-      .from("matches")
-      .update({
-        home_score: null,
-        away_score: null,
-        status: "planned",
-        submitted_home_score: null,
-        submitted_away_score: null,
-        score_submitted_by: null,
-        score_submitted_at: null,
-        score_status: "none",
-      })
-      .eq("id", match.id);
+    const response = await fetch(`/api/admin/matches/${match.id}/score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "reset",
+      }),
+    });
 
-    if (updateResult.error) {
+    const result = await response.json();
+
+    if (!response.ok) {
       setSavingMatchId(null);
-      setMessage(
-        `Erreur réinitialisation score : ${updateResult.error.message}`
-      );
+      setMessage(result.error || "Erreur réinitialisation score.");
       return;
     }
 
     setSavingMatchId(null);
-    setMessage("Score réinitialisé ✅");
+    setMessage(result.message || "Score réinitialisé ✅");
 
     await loadData();
   }
@@ -946,7 +958,9 @@ function MatchCard({
   const hasScore = match.home_score !== null && match.away_score !== null;
 
   const hasSubmittedScore =
-    match.submitted_home_score !== null && match.submitted_away_score !== null;
+    match.submitted_home_score !== null &&
+    match.submitted_away_score !== null &&
+    match.score_status !== "validated";
 
   const isPending = match.score_status === "pending";
 

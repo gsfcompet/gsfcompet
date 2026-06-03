@@ -425,31 +425,39 @@ export default function AdminCompetitionPage() {
       return;
     }
 
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setSavingScoreMatchId(match.id);
     setMessage("");
 
-    const updateResult = await supabase
-      .from("matches")
-      .update({
+    const response = await fetch(`/api/admin/matches/${match.id}/score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "save",
         home_score: homeScore,
         away_score: awayScore,
-        status: "completed",
-        submitted_home_score: null,
-        submitted_away_score: null,
-        score_submitted_by: null,
-        score_submitted_at: null,
-        score_status: "validated",
-      })
-      .eq("id", match.id);
+      }),
+    });
 
-    if (updateResult.error) {
+    const result = await response.json();
+
+    if (!response.ok) {
       setSavingScoreMatchId(null);
-      setMessage(`Erreur enregistrement score : ${updateResult.error.message}`);
+      setMessage(result.error || "Erreur enregistrement score.");
       return;
     }
 
     setSavingScoreMatchId(null);
-    setMessage("Score enregistré ✅");
+    setMessage(result.message || "Score enregistré ✅");
 
     await loadData();
   }
@@ -459,33 +467,37 @@ export default function AdminCompetitionPage() {
 
     if (!confirmed) return;
 
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setResettingMatchId(match.id);
     setMessage("");
 
-    const nextStatus = match.match_date ? "scheduled" : "planned";
+    const response = await fetch(`/api/admin/matches/${match.id}/score`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "reset",
+      }),
+    });
 
-    const updateResult = await supabase
-      .from("matches")
-      .update({
-        home_score: null,
-        away_score: null,
-        status: nextStatus,
-        submitted_home_score: null,
-        submitted_away_score: null,
-        score_submitted_by: null,
-        score_submitted_at: null,
-        score_status: null,
-      })
-      .eq("id", match.id);
+    const result = await response.json();
 
-    if (updateResult.error) {
+    if (!response.ok) {
       setResettingMatchId(null);
-      setMessage(`Erreur reset score : ${updateResult.error.message}`);
+      setMessage(result.error || "Erreur reset score.");
       return;
     }
 
     setResettingMatchId(null);
-    setMessage("Score réinitialisé ✅");
+    setMessage(result.message || "Score réinitialisé ✅");
 
     await loadData();
   }
@@ -742,7 +754,8 @@ export default function AdminCompetitionPage() {
 
                 const hasSubmittedScore =
                   match.submitted_home_score !== null &&
-                  match.submitted_away_score !== null;
+                  match.submitted_away_score !== null &&
+                  match.score_status !== "validated";
 
                 const isSavingScore = savingScoreMatchId === match.id;
                 const isResetting = resettingMatchId === match.id;
