@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import FutMemberCard from "@/components/FutMemberCard";
 import ScoreStatusBadge from "@/components/ScoreStatusBadge";
+import MemberMatchesTable, {
+  type MemberMatchTableRow,
+} from "@/components/MemberMatchesTable";
 
 type ScoreStatus = "pending" | "validated" | "refused" | null;
 
@@ -111,6 +114,9 @@ export default function MembrePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
   const [registrations, setRegistrations] = useState<CompetitionPlayer[]>([]);
+  const [allCompetitionPlayers, setAllCompetitionPlayers] = useState<
+    CompetitionPlayer[]
+  >([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [eaTeams, setEaTeams] = useState<EaTeam[]>([]);
@@ -226,6 +232,8 @@ export default function MembrePage() {
 
     if (!loadedPlayer) {
       setRegistrations([]);
+      setAllCompetitionPlayers([]);
+      setAllCompetitionPlayers([]);
       setCompetitions([]);
       setMatches([]);
       setEaTeams([]);
@@ -270,6 +278,25 @@ export default function MembrePage() {
       return;
     }
 
+    const allCompetitionPlayersResult = await supabase
+      .from("competition_players")
+      .select("*")
+      .in("competition_id", competitionIds);
+
+    if (allCompetitionPlayersResult.error) {
+      console.error(allCompetitionPlayersResult.error);
+      setMessage(
+        `Erreur participants compétitions : ${allCompetitionPlayersResult.error.message}`
+      );
+      setLoading(false);
+      return;
+    }
+
+    const loadedAllCompetitionPlayers =
+      (allCompetitionPlayersResult.data ?? []) as CompetitionPlayer[];
+
+    setAllCompetitionPlayers(loadedAllCompetitionPlayers);
+
     const competitionsResult = await supabase
       .from("competitions")
       .select("*")
@@ -309,20 +336,31 @@ export default function MembrePage() {
       setEaTeams([]);
     }
 
-    const matchesResult = await supabase
-      .from("matches")
-      .select("*")
-      .in("competition_id", competitionIds)
-      .order("match_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false });
+    const myRegistrationIds = loadedRegistrations
+      .map((registration) => registration.id)
+      .filter(Boolean);
 
-    if (matchesResult.error) {
-      console.error(matchesResult.error);
-      setMessage(`Erreur matchs : ${matchesResult.error.message}`);
-      setMatches([]);
-    } else {
-      const loadedMatches = ((matchesResult.data ?? []) as Match[]).sort(
-        (a, b) => {
+    let loadedMatches: Match[] = [];
+
+    if (myRegistrationIds.length > 0) {
+      const registrationFilter = myRegistrationIds.join(",");
+
+      const matchesResult = await supabase
+        .from("matches")
+        .select("*")
+        .in("competition_id", competitionIds)
+        .or(
+          `home_competition_player_id.in.(${registrationFilter}),away_competition_player_id.in.(${registrationFilter})`
+        )
+        .order("match_date", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false });
+
+      if (matchesResult.error) {
+        console.error(matchesResult.error);
+        setMessage(`Erreur matchs : ${matchesResult.error.message}`);
+        setMatches([]);
+      } else {
+        loadedMatches = ((matchesResult.data ?? []) as Match[]).sort((a, b) => {
           const dateA = new Date(
             a.match_date || a.date || a.created_at || "2099-01-01"
           ).getTime();
@@ -332,12 +370,53 @@ export default function MembrePage() {
           ).getTime();
 
           return dateA - dateB;
+        });
+
+        setMatches(loadedMatches);
+
+        const matchRegistrationIds = Array.from(
+          new Set(
+            loadedMatches
+              .flatMap((match) => [
+                match.home_competition_player_id,
+                match.away_competition_player_id,
+              ])
+              .filter(Boolean) as string[]
+          )
+        );
+
+        let loadedMatchRegistrations: CompetitionPlayer[] = [];
+
+        if (matchRegistrationIds.length > 0) {
+          const matchRegistrationsResult = await supabase
+            .from("competition_players")
+            .select("*")
+            .in("id", matchRegistrationIds);
+
+          if (matchRegistrationsResult.error) {
+            console.warn(
+              "Chargement participants des matchs impossible :",
+              matchRegistrationsResult.error
+            );
+          } else {
+            loadedMatchRegistrations =
+              (matchRegistrationsResult.data ?? []) as CompetitionPlayer[];
+          }
         }
-      );
 
-      setMatches(loadedMatches);
+        setAllCompetitionPlayers(loadedMatchRegistrations);
 
-      await loadRelatedData(loadedMatches, loadedRegistrations, loadedPlayer);
+        await loadRelatedData(
+          loadedMatches,
+          loadedMatchRegistrations,
+          loadedPlayer
+        );
+      }
+    } else {
+      setMatches([]);
+      setAllCompetitionPlayers([]);
+      setPlayers([loadedPlayer]);
+      setTeams([]);
     }
 
     setLoading(false);
@@ -412,6 +491,85 @@ export default function MembrePage() {
     }
   }
 
+  const memberStats = useMemo(() => {
+    const stats = {
+      mj: 0,
+      v: 0,
+      n: 0,
+      p: 0,
+      bp: 0,
+      bc: 0,
+      ga: 0,
+      pts: 0,
+    };
+
+    if (!player?.id) {
+      return stats;
+    }
+
+    const myRegistrationIds = registrations
+      .filter((registration) => registration.player_id === player.id)
+      .map((registration) => registration.id);
+
+    if (myRegistrationIds.length === 0) {
+      return stats;
+    }
+
+    matches.forEach((match) => {
+      const homeScoreRaw = match.home_score ?? match.score_home;
+      const awayScoreRaw = match.away_score ?? match.score_away;
+
+      if (
+        homeScoreRaw === null ||
+        homeScoreRaw === undefined ||
+        awayScoreRaw === null ||
+        awayScoreRaw === undefined
+      ) {
+        return;
+      }
+
+      const homeScore = Number(homeScoreRaw);
+      const awayScore = Number(awayScoreRaw);
+
+      if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) {
+        return;
+      }
+
+      const isHome =
+        typeof match.home_competition_player_id === "string" &&
+        myRegistrationIds.includes(match.home_competition_player_id);
+
+      const isAway =
+        typeof match.away_competition_player_id === "string" &&
+        myRegistrationIds.includes(match.away_competition_player_id);
+
+      if (!isHome && !isAway) {
+        return;
+      }
+
+      const goalsFor = isHome ? homeScore : awayScore;
+      const goalsAgainst = isHome ? awayScore : homeScore;
+
+      stats.mj += 1;
+      stats.bp += goalsFor;
+      stats.bc += goalsAgainst;
+
+      if (goalsFor > goalsAgainst) {
+        stats.v += 1;
+        stats.pts += 3;
+      } else if (goalsFor === goalsAgainst) {
+        stats.n += 1;
+        stats.pts += 1;
+      } else {
+        stats.p += 1;
+      }
+    });
+
+    stats.ga = stats.bp - stats.bc;
+
+    return stats;
+  }, [matches, player, registrations]);
+
   const safeProfile = useMemo(() => {
     const mainRegistration = registrations[0] ?? null;
 
@@ -472,16 +630,16 @@ export default function MembrePage() {
       club: cardEaTeam,
       avatar_url: profile?.avatar_url || profile?.avatarUrl || null,
       avatarUrl: profile?.avatarUrl || profile?.avatar_url || null,
-      mj: profile?.mj ?? 0,
-      v: profile?.v ?? 0,
-      n: profile?.n ?? 0,
-      p: profile?.p ?? 0,
-      bp: profile?.bp ?? 0,
-      bc: profile?.bc ?? 0,
-      ga: profile?.ga ?? 0,
-      pts: profile?.pts ?? 0,
+      mj: memberStats.mj,
+      v: memberStats.v,
+      n: memberStats.n,
+      p: memberStats.p,
+      bp: memberStats.bp,
+      bc: memberStats.bc,
+      ga: memberStats.ga,
+      pts: memberStats.pts,
     };
-  }, [profile, player, registrations, eaTeams]);
+  }, [profile, player, registrations, eaTeams, memberStats]);
 
   const teamById = useMemo(() => {
     return new Map(teams.map((team) => [team.id, team]));
@@ -493,18 +651,21 @@ export default function MembrePage() {
 
   const registrationById = useMemo(() => {
     return new Map(
-      registrations.map((registration) => [registration.id, registration])
+      allCompetitionPlayers.map((registration) => [
+        registration.id,
+        registration,
+      ])
     );
-  }, [registrations]);
+  }, [allCompetitionPlayers]);
 
   const registrationByPlayerId = useMemo(() => {
     return new Map(
-      registrations.map((registration) => [
+      allCompetitionPlayers.map((registration) => [
         registration.player_id,
         registration,
       ])
     );
-  }, [registrations]);
+  }, [allCompetitionPlayers]);
 
   const memberMatches = useMemo(() => {
     return matches.filter((match) => isMatchForCurrentPlayer(match));
@@ -517,6 +678,35 @@ export default function MembrePage() {
   const finishedMatches = useMemo(() => {
     return memberMatches.filter((match) => hasFinalScore(match));
   }, [memberMatches]);
+
+  const matchesToPlayRows = useMemo<MemberMatchTableRow[]>(() => {
+    return matchesToPlay.map((match) => ({
+      id: match.id,
+      competition: getCompetitionName(match),
+      date: getMatchDate(match),
+      homeName: getSideName(match, "home"),
+      awayName: getSideName(match, "away"),
+      scoreLabel: "VS",
+      scoreStatus: getScoreStatus(match),
+    }));
+  }, [matchesToPlay, competitions, teams, players, allCompetitionPlayers]);
+
+  const finishedMatchRows = useMemo<MemberMatchTableRow[]>(() => {
+    return finishedMatches.map((match) => {
+      const finalHomeScore = getFinalHomeScore(match);
+      const finalAwayScore = getFinalAwayScore(match);
+
+      return {
+        id: match.id,
+        competition: getCompetitionName(match),
+        date: getMatchDate(match),
+        homeName: getSideName(match, "home"),
+        awayName: getSideName(match, "away"),
+        scoreLabel: `${finalHomeScore ?? "-"} - ${finalAwayScore ?? "-"}`,
+        scoreStatus: getScoreStatus(match) || "validated",
+      };
+    });
+  }, [finishedMatches, competitions, teams, players, allCompetitionPlayers]);
 
   function normalizeScore(value: unknown) {
     if (value === null || value === undefined || value === "") {
@@ -885,244 +1075,21 @@ export default function MembrePage() {
               )}
             </section>
 
-            <section className="rounded-3xl border border-yellow-700/30 bg-[#140711] p-5 shadow-2xl shadow-black/40">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-black text-yellow-100">
-                    Mes matchs à jouer
-                  </h2>
-                  <p className="mt-1 text-sm text-yellow-100/60">
-                    Propose ton score après ton match. Il passera ensuite en
-                    validation admin.
-                  </p>
-                </div>
+            <MemberMatchesTable
+              title="Mes matchs à jouer"
+              description="Tes prochains matchs dans un affichage compact."
+              count={matchesToPlay.length}
+              rows={matchesToPlayRows}
+              emptyText="Aucun match à jouer pour le moment."
+            />
 
-                <span className="rounded-full border border-yellow-500/30 bg-black/40 px-3 py-1 text-sm font-black text-yellow-200">
-                  {matchesToPlay.length}
-                </span>
-              </div>
-
-              {matchesToPlay.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-yellow-700/30 bg-black/25 p-5 text-sm text-yellow-100/55">
-                  Aucun match à jouer pour le moment.
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {matchesToPlay.map((match) => {
-                    const scoreStatus = getScoreStatus(match);
-                    const adminNote = getAdminNote(match);
-                    const isFormOpen = openScoreMatchId === match.id;
-                    const isSubmitting = submittingMatchId === match.id;
-
-                    return (
-                      <article
-                        key={match.id}
-                        className="rounded-3xl border border-yellow-700/25 bg-black/30 p-5 shadow-xl shadow-black/30"
-                      >
-                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
-                              {getCompetitionName(match)}
-                            </p>
-
-                            <h3 className="mt-2 text-xl font-black text-yellow-100">
-                              {getSideName(match, "home")}{" "}
-                              <span className="text-red-300/70">vs</span>{" "}
-                              {getSideName(match, "away")}
-                            </h3>
-
-                            <p className="mt-2 text-sm text-yellow-100/55">
-                              {getMatchDate(match)}
-                            </p>
-                          </div>
-
-                          <ScoreStatusBadge status={scoreStatus} />
-                        </div>
-
-                        {match.submitted_home_score !== null &&
-                          match.submitted_home_score !== undefined &&
-                          match.submitted_away_score !== null &&
-                          match.submitted_away_score !== undefined && (
-                            <div className="mt-4 rounded-2xl border border-yellow-700/25 bg-[#21070b]/60 p-4">
-                              <p className="text-sm text-yellow-100/60">
-                                Score proposé
-                              </p>
-
-                              <p className="mt-1 text-3xl font-black text-yellow-100">
-                                {match.submitted_home_score} -{" "}
-                                {match.submitted_away_score}
-                              </p>
-
-                              {match.score_submitted_at && (
-                                <p className="mt-2 text-xs text-yellow-100/45">
-                                  Envoyé le{" "}
-                                  {new Intl.DateTimeFormat("fr-FR", {
-                                    dateStyle: "medium",
-                                    timeStyle: "short",
-                                  }).format(new Date(match.score_submitted_at))}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                        {scoreStatus === "refused" && adminNote && (
-                          <div className="mt-4 rounded-2xl border border-red-500/35 bg-red-500/10 p-4 text-sm text-red-200">
-                            <span className="font-black">Motif du refus : </span>
-                            {adminNote}
-                          </div>
-                        )}
-
-                        {scoreStatus !== "validated" && (
-                          <div className="mt-5">
-                            {!isFormOpen ? (
-                              <button
-                                type="button"
-                                onClick={() => openScoreForm(match)}
-                                className="rounded-xl border border-yellow-400/50 bg-yellow-400 px-4 py-2 text-sm font-black text-black shadow-lg shadow-yellow-950/30 transition hover:bg-yellow-300"
-                              >
-                                {scoreStatus === "pending"
-                                  ? "Modifier le score proposé"
-                                  : scoreStatus === "refused"
-                                  ? "Proposer un nouveau score"
-                                  : "Proposer le score"}
-                              </button>
-                            ) : (
-                              <div className="rounded-2xl border border-yellow-700/25 bg-black/35 p-4">
-                                <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
-                                  <label className="block">
-                                    <span className="mb-2 block text-sm font-black text-yellow-100/80">
-                                      {getSideName(match, "home")}
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={scoreHome}
-                                      onChange={(event) =>
-                                        setScoreHome(event.target.value)
-                                      }
-                                      className="w-full rounded-xl border border-yellow-700/35 bg-[#07000d] px-4 py-3 text-center text-2xl font-black text-yellow-100 outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
-                                    />
-                                  </label>
-
-                                  <div className="hidden pb-3 text-2xl font-black text-red-300/80 md:block">
-                                    -
-                                  </div>
-
-                                  <label className="block">
-                                    <span className="mb-2 block text-sm font-black text-yellow-100/80">
-                                      {getSideName(match, "away")}
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      value={scoreAway}
-                                      onChange={(event) =>
-                                        setScoreAway(event.target.value)
-                                      }
-                                      className="w-full rounded-xl border border-yellow-700/35 bg-[#07000d] px-4 py-3 text-center text-2xl font-black text-yellow-100 outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20"
-                                    />
-                                  </label>
-                                </div>
-
-                                <div className="mt-4 flex flex-wrap gap-3">
-                                  <button
-                                    type="button"
-                                    disabled={isSubmitting}
-                                    onClick={() => submitScore(match.id)}
-                                    className="rounded-xl border border-green-400/40 bg-green-500 px-4 py-2 text-sm font-black text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    {isSubmitting
-                                      ? "Envoi en cours..."
-                                      : "Envoyer le score"}
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    disabled={isSubmitting}
-                                    onClick={resetScoreForm}
-                                    className="rounded-xl border border-red-500/40 bg-red-700 px-4 py-2 text-sm font-black text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                                  >
-                                    Annuler
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-3xl border border-yellow-700/30 bg-[#140711] p-5 shadow-2xl shadow-black/40">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-black text-yellow-100">
-                    Matchs terminés
-                  </h2>
-                  <p className="mt-1 text-sm text-yellow-100/60">
-                    Les scores validés ou déjà renseignés.
-                  </p>
-                </div>
-
-                <span className="rounded-full border border-yellow-500/30 bg-black/40 px-3 py-1 text-sm font-black text-yellow-200">
-                  {finishedMatches.length}
-                </span>
-              </div>
-
-              {finishedMatches.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-yellow-700/30 bg-black/25 p-5 text-sm text-yellow-100/55">
-                  Aucun match terminé pour le moment.
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {finishedMatches.map((match) => {
-                    const scoreStatus = getScoreStatus(match);
-                    const finalHomeScore = getFinalHomeScore(match);
-                    const finalAwayScore = getFinalAwayScore(match);
-
-                    return (
-                      <article
-                        key={match.id}
-                        className="rounded-3xl border border-yellow-700/25 bg-black/30 p-5 shadow-xl shadow-black/30"
-                      >
-                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-400">
-                              {getCompetitionName(match)}
-                            </p>
-
-                            <h3 className="mt-2 text-xl font-black text-yellow-100">
-                              {getSideName(match, "home")}{" "}
-                              <span className="text-red-300/70">vs</span>{" "}
-                              {getSideName(match, "away")}
-                            </h3>
-
-                            <p className="mt-2 text-sm text-yellow-100/55">
-                              {getMatchDate(match)}
-                            </p>
-                          </div>
-
-                          <ScoreStatusBadge status={scoreStatus || "validated"} />
-                        </div>
-
-                        <div className="mt-4 rounded-2xl border border-yellow-700/25 bg-[#21070b]/60 p-4">
-                          <p className="text-sm text-yellow-100/60">
-                            Score final
-                          </p>
-
-                          <p className="mt-1 text-3xl font-black text-yellow-100">
-                            {finalHomeScore} - {finalAwayScore}
-                          </p>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+            <MemberMatchesTable
+              title="Matchs terminés"
+              description="Tes résultats validés ou déjà renseignés."
+              count={finishedMatches.length}
+              rows={finishedMatchRows}
+              emptyText="Aucun match terminé pour le moment."
+            />
           </div>
         </section>
       </div>
