@@ -373,7 +373,8 @@ export default function MemberPage() {
         ) ?? null;
 
       const competitionMatches = matches.filter((match) => {
-        const sameCompetition = match.competition_id === registration.competition_id;
+        const sameCompetition =
+          match.competition_id === registration.competition_id;
 
         const memberMatch =
           match.home_competition_player_id === registration.id ||
@@ -517,17 +518,13 @@ export default function MemberPage() {
     "Membre";
 
   const plateforme =
-    player?.platform ||
-    profile?.plateforme ||
-    profile?.platform ||
-    "PC";
+    player?.platform || profile?.plateforme || profile?.platform || "PC";
 
   const pays = profile?.pays || profile?.country || "France";
 
   const avatarUrl = profile?.avatar_url || profile?.avatarUrl || null;
 
-  const equipeEAFC =
-    favoriteRegistration?.ea_team_name || "Sans équipe";
+  const equipeEAFC = favoriteRegistration?.ea_team_name || "Sans équipe";
 
   if (loading) {
     return (
@@ -812,8 +809,14 @@ function EmptyState({
 }
 
 function MemberCompetitionCard({ data }: { data: MemberCompetitionCardData }) {
-  const { registration, competition, matchesTotal, matchesUpcoming, matchesCompleted, pendingScores } =
-    data;
+  const {
+    registration,
+    competition,
+    matchesTotal,
+    matchesUpcoming,
+    matchesCompleted,
+    pendingScores,
+  } = data;
 
   return (
     <article className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
@@ -883,8 +886,13 @@ function MiniStat({ label, value }: { label: string; value: number }) {
 }
 
 function MemberMatchCard({ data }: { data: MatchCardData }) {
-  const { match, competition, currentRegistration, opponentRegistration, opponentPlayer } =
-    data;
+  const {
+    match,
+    competition,
+    currentRegistration,
+    opponentRegistration,
+    opponentPlayer,
+  } = data;
 
   const hasSubmittedScore =
     match.submitted_home_score !== null && match.submitted_away_score !== null;
