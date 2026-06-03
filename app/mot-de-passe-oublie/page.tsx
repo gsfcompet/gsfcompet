@@ -2,17 +2,13 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
-  const router = useRouter();
+export default function ForgotPasswordPage() {
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -23,30 +19,25 @@ export default function LoginPage() {
       return;
     }
 
-    if (!password) {
-      setMessage("Merci de renseigner ton mot de passe.");
-      return;
-    }
-
-    setLoading(true);
+    setSending(true);
     setMessage("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
+    const redirectTo = `${window.location.origin}/reinitialiser-mot-de-passe`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
     });
 
     if (error) {
-      setLoading(false);
-      setMessage(`Erreur connexion : ${error.message}`);
+      setSending(false);
+      setMessage(`Erreur : ${error.message}`);
       return;
     }
 
-    setLoading(false);
-    setMessage("Connexion réussie ✅");
-
-    router.push("/");
-    router.refresh();
+    setSending(false);
+    setMessage(
+      "Email envoyé ✅ Vérifie ta boîte mail, puis clique sur le lien de réinitialisation."
+    );
   }
 
   return (
@@ -54,21 +45,23 @@ export default function LoginPage() {
       <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
         <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
           <Link
-            href="/"
+            href="/login"
             className="mb-6 inline-flex rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
           >
-            ← Retour accueil
+            ← Retour connexion
           </Link>
 
           <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-            Connexion membre
+            Mot de passe oublié
           </p>
 
-          <h1 className="text-3xl font-black">Se connecter</h1>
+          <h1 className="text-3xl font-black">
+            Réinitialiser mon mot de passe
+          </h1>
 
           <p className="mt-3 text-sm text-[#D8C7A0]">
-            Connecte-toi à ton compte Guardian&apos;s Family pour accéder à ton
-            espace membre, tes compétitions et tes matchs.
+            Renseigne ton adresse email. Tu recevras un lien pour choisir un
+            nouveau mot de passe.
           </p>
 
           {message && (
@@ -92,49 +85,14 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold text-[#F2D27A]">
-                  Mot de passe
-                </label>
-
-                <Link
-                  href="/mot-de-passe-oublie"
-                  className="text-xs font-semibold text-[#F2D27A] transition hover:underline"
-                >
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
-                placeholder="Ton mot de passe"
-              />
-            </div>
-
             <button
               type="submit"
-              disabled={loading}
+              disabled={sending}
               className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Connexion..." : "Se connecter"}
+              {sending ? "Envoi..." : "Recevoir le lien"}
             </button>
           </form>
-
-          <div className="mt-6 border-t border-[#D9A441]/10 pt-6 text-center">
-            <p className="text-sm text-[#D8C7A0]">
-              Pas encore de compte ?{" "}
-              <Link
-                href="/register"
-                className="font-semibold text-[#F2D27A] hover:underline"
-              >
-                Créer un compte
-              </Link>
-            </p>
-          </div>
         </div>
       </section>
     </main>
