@@ -1,142 +1,197 @@
 "use client";
 
-import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
-  const supabase = createClient();
+  const searchParams = useSearchParams();
+
+  const redirectTo = searchParams.get("redirect") || "/membre";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  useEffect(() => {
+    async function checkExistingSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+      if (session?.user) {
+        router.replace(redirectTo);
+        return;
+      }
+
+      setLoading(false);
+    }
+
+    checkExistingSession();
+  }, [router, redirectTo]);
+
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!email.trim()) {
-      setMessage("Merci de renseigner ton adresse email.");
+    setMessage(null);
+    setSubmitting(true);
+
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail || !password) {
+      setMessage("Merci de renseigner ton adresse email et ton mot de passe.");
+      setSubmitting(false);
       return;
     }
 
-    if (!password) {
-      setMessage("Merci de renseigner ton mot de passe.");
-      return;
-    }
-
-    setLoading(true);
-    setMessage("");
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
       password,
     });
 
     if (error) {
-      setLoading(false);
-      setMessage(`Erreur connexion : ${error.message}`);
+      console.error(error);
+      setMessage("Connexion impossible. Vérifie ton email et ton mot de passe.");
+      setSubmitting(false);
       return;
     }
 
-    setLoading(false);
-    setMessage("Connexion réussie ✅");
+    if (!data.session?.user) {
+      setMessage("Connexion effectuée, mais aucune session active n'a été trouvée.");
+      setSubmitting(false);
+      return;
+    }
 
-    router.push("/");
+    router.replace(redirectTo);
     router.refresh();
   }
 
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#07000d] px-4 text-white">
+        <div className="rounded-3xl border border-yellow-500/20 bg-black/30 p-8 text-center">
+          <p className="font-bold text-yellow-200">
+            Vérification de la session...
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-        <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+    <main className="flex min-h-screen items-center justify-center bg-[#07000d] px-4 py-10 text-white">
+      <section className="w-full max-w-xl rounded-3xl border border-yellow-700/40 bg-[#140711] p-6 shadow-2xl shadow-black/40 md:p-8">
+        <div className="mb-8 flex flex-wrap gap-2">
           <Link
             href="/"
-            className="mb-6 inline-flex rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+            className="rounded-2xl border border-yellow-500/40 px-4 py-2 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
           >
             ← Retour accueil
           </Link>
 
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+          <span className="rounded-2xl border border-yellow-500/40 px-4 py-2 text-sm font-black text-yellow-200">
             Connexion membre
-          </p>
+          </span>
+        </div>
 
-          <h1 className="text-3xl font-black">Se connecter</h1>
+        <h1 className="text-4xl font-black text-yellow-100">
+          Se connecter
+        </h1>
 
-          <p className="mt-3 text-sm text-[#D8C7A0]">
-            Connecte-toi à ton compte Guardian&apos;s Family pour accéder à ton
-            espace membre, tes compétitions et tes matchs.
-          </p>
+        <p className="mt-4 text-sm leading-6 text-yellow-100/80">
+          Connecte-toi à ton compte Guardian&apos;s Family pour accéder à ton
+          espace membre, tes compétitions et tes matchs.
+        </p>
 
-          {message && (
-            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#0B0610] p-4 text-sm text-[#F2D27A]">
-              {message}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="mt-8 grid gap-5">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                Adresse email
-              </label>
-
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
-                placeholder="ton.email@exemple.fr"
-              />
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold text-[#F2D27A]">
-                  Mot de passe
-                </label>
-
-                <Link
-                  href="/mot-de-passe-oublie"
-                  className="text-xs font-semibold text-[#F2D27A] transition hover:underline"
-                >
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
-                placeholder="Ton mot de passe"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading ? "Connexion..." : "Se connecter"}
-            </button>
-          </form>
-
-          <div className="mt-6 border-t border-[#D9A441]/10 pt-6 text-center">
-            <p className="text-sm text-[#D8C7A0]">
-              Pas encore de compte ?{" "}
-              <Link
-                href="/register"
-                className="font-semibold text-[#F2D27A] hover:underline"
-              >
-                Créer un compte
-              </Link>
-            </p>
+        {message && (
+          <div className="mt-6 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
+            {message}
           </div>
+        )}
+
+        <form onSubmit={handleLogin} className="mt-8 space-y-6">
+          <label className="block">
+            <span className="mb-2 block text-sm font-black text-yellow-200">
+              Adresse email
+            </span>
+
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              className="w-full rounded-xl border border-white/10 bg-slate-100 px-4 py-4 text-slate-950 outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/30"
+              placeholder="ton@email.fr"
+            />
+          </label>
+
+          <label className="block">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="block text-sm font-black text-yellow-200">
+                Mot de passe
+              </span>
+
+              <Link
+                href="/mot-de-passe-oublie"
+                className="text-xs font-black text-yellow-200 transition hover:text-yellow-100"
+              >
+                Mot de passe oublié ?
+              </Link>
+            </div>
+
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              className="w-full rounded-xl border border-white/10 bg-slate-100 px-4 py-4 text-slate-950 outline-none transition focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/30"
+              placeholder="••••••••••••"
+            />
+          </label>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-xl bg-red-700 px-5 py-4 font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? "Connexion en cours..." : "Se connecter"}
+          </button>
+        </form>
+
+        <div className="mt-8 border-t border-yellow-900/40 pt-6 text-center text-sm text-yellow-100/80">
+          Pas encore de compte ?{" "}
+          <Link
+            href="/register"
+            className="font-black text-yellow-200 transition hover:text-yellow-100"
+          >
+            Créer un compte
+          </Link>
         </div>
       </section>
     </main>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#07000d] px-4 text-white">
+      <div className="rounded-3xl border border-yellow-500/20 bg-black/30 p-8 text-center">
+        <p className="font-bold text-yellow-200">
+          Chargement de la page connexion...
+        </p>
+      </div>
+    </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -211,7 +211,7 @@ export default function FutMemberCard({
               />
             ) : (
               <span className="text-[clamp(2.4rem,6.6vw,3.8rem)] font-black uppercase text-[#F7D56D] drop-shadow-[0_0_14px_rgba(247,213,109,0.25)]">
-                {pseudo.charAt(0)}
+                {(pseudo || "?").charAt(0)}
               </span>
             )}
           </div>
