@@ -10,9 +10,11 @@ type Profile = {
   id: string;
   email: string;
   username: string | null;
+  pays: string | null;
   role: "member" | "admin";
   avatar_url: string | null;
   avatar_path: string | null;
+  numero_maillot: number | null;
 };
 
 type Player = {
@@ -34,6 +36,8 @@ export default function MemberProfilePage() {
   const [playerName, setPlayerName] = useState("");
   const [eaName, setEaName] = useState("");
   const [platform, setPlatform] = useState("");
+  const [numeroMaillot, setNumeroMaillot] = useState("0");
+  const [pays, setPays] = useState("France");
 
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
@@ -91,6 +95,8 @@ export default function MemberProfilePage() {
     setPlayerName(loadedPlayer?.name || loadedProfile.username || "");
     setEaName(loadedPlayer?.ea_name || "");
     setPlatform(loadedPlayer?.platform || "");
+    setNumeroMaillot(String(loadedProfile.numero_maillot ?? 0));
+    setPays(loadedProfile.pays || "France");
 
     setLoading(false);
   }
@@ -112,6 +118,18 @@ export default function MemberProfilePage() {
       return;
     }
 
+    const parsedNumeroMaillot = Number(numeroMaillot);
+
+    if (
+      numeroMaillot.trim() === "" ||
+      Number.isNaN(parsedNumeroMaillot) ||
+      parsedNumeroMaillot < 0 ||
+      parsedNumeroMaillot > 99
+    ) {
+      setMessage("Le numéro de maillot doit être compris entre 0 et 99.");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
@@ -119,11 +137,15 @@ export default function MemberProfilePage() {
     const cleanPlayerName = playerName.trim() || cleanUsername;
     const cleanEaName = eaName.trim() || null;
     const cleanPlatform = platform || null;
+    const cleanPays = pays || "France";
+    const cleanNumeroMaillot = Math.trunc(parsedNumeroMaillot);
 
     const profileResult = await supabase
       .from("profiles")
       .update({
         username: cleanUsername,
+        pays: cleanPays,
+        numero_maillot: cleanNumeroMaillot,
       })
       .eq("id", profile.id);
 
@@ -265,8 +287,8 @@ export default function MemberProfilePage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Mets à jour tes informations membre, ta fiche joueur et ton avatar
-            de carte UT.
+            Mets à jour tes informations membre, ta fiche joueur, ton numéro de
+            maillot et ton avatar de carte UT.
           </p>
         </div>
 
@@ -306,6 +328,54 @@ export default function MemberProfilePage() {
                   className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
                   placeholder="Ex : CeceII27II"
                 />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  Numéro de maillot
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={numeroMaillot}
+                  onChange={(event) => setNumeroMaillot(event.target.value)}
+                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                  placeholder="Ex : 27"
+                />
+
+                <p className="mt-2 text-xs text-[#D8C7A0]">
+                  Ce numéro apparaîtra en haut à gauche de ta carte membre.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  Pays membre
+                </label>
+
+                <select
+                  value={pays}
+                  onChange={(event) => setPays(event.target.value)}
+                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                >
+                  <option value="France">France</option>
+                  <option value="Angleterre">Angleterre</option>
+                  <option value="Espagne">Espagne</option>
+                  <option value="Italie">Italie</option>
+                  <option value="Allemagne">Allemagne</option>
+                  <option value="Portugal">Portugal</option>
+                  <option value="Pays-Bas">Pays-Bas</option>
+                  <option value="Belgique">Belgique</option>
+                  <option value="Maroc">Maroc</option>
+                  <option value="Algérie">Algérie</option>
+                  <option value="Tunisie">Tunisie</option>
+                </select>
+
+                <p className="mt-2 text-xs text-[#D8C7A0]">
+                  Ce pays apparaîtra en haut à droite de ta carte membre.
+                </p>
               </div>
 
               <div>
@@ -384,6 +454,20 @@ export default function MemberProfilePage() {
                   Rôle :{" "}
                   <span className="font-semibold text-[#F2D27A]">
                     {profile.role === "admin" ? "Admin" : "Membre"}
+                  </span>
+                </p>
+
+                <p>
+                  Pays membre :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {profile.pays || "France"}
+                  </span>
+                </p>
+
+                <p>
+                  Numéro de maillot :{" "}
+                  <span className="font-semibold text-[#F2D27A]">
+                    {profile.numero_maillot ?? 0}
                   </span>
                 </p>
 

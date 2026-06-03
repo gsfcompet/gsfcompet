@@ -9,6 +9,9 @@ type FutMemberCardProps = {
   note?: number;
   plateforme?: string;
   pays?: string;
+  paysMembre?: string;
+  memberCountry?: string;
+  countryMember?: string;
   equipeEAFC?: string;
   avatarUrl?: string | null;
 
@@ -20,6 +23,10 @@ type FutMemberCardProps = {
   bc?: number;
   ga?: number;
   pts?: number;
+  numero_maillot?: number | string | null;
+  numeroMaillot?: number | string | null;
+  jerseyNumber?: number | string | null;
+  shirtNumber?: number | string | null;
 };
 
 type StatPosition = {
@@ -72,6 +79,9 @@ export default function FutMemberCard({
   note = 99,
   plateforme = "PC",
   pays = "France",
+  paysMembre,
+  memberCountry,
+  countryMember,
   equipeEAFC = "Sans équipe",
   avatarUrl = null,
   mj = 0,
@@ -82,8 +92,15 @@ export default function FutMemberCard({
   bc = 0,
   ga = 0,
   pts = 0,
-}: FutMemberCardProps) {
+
+  numero_maillot,
+  numeroMaillot,
+  jerseyNumber,
+  shirtNumber,}: FutMemberCardProps) {
   const countryCode = getCountryCode(pays);
+  const memberCountryCode = getCountryCode(
+    paysMembre || memberCountry || countryMember || "France"
+  );
   const roleLabel = getRoleLabel(role);
 
   const statPositions: StatPosition[] = [
@@ -145,6 +162,14 @@ export default function FutMemberCard({
     },
   ];
 
+  const displayedShirtNumber =
+    numeroMaillot ??
+    numero_maillot ??
+    jerseyNumber ??
+    shirtNumber ??
+    note ??
+    0;
+
   return (
     <div className="relative mx-auto w-full max-w-[430px]">
       <div className="relative aspect-[9/16] w-full overflow-hidden rounded-[30px]">
@@ -161,7 +186,7 @@ export default function FutMemberCard({
           {/* NOTE */}
           <Box left="8.9%" top="4.9%" width="18.8%" height="10.2%">
             <span className="text-[clamp(2.15rem,6vw,3.5rem)] font-black leading-none text-[#F7D56D] drop-shadow-[0_0_10px_rgba(247,213,109,0.35)]">
-              {note}
+              {displayedShirtNumber}
             </span>
           </Box>
 
@@ -179,10 +204,10 @@ export default function FutMemberCard({
             </span>
           </Box>
 
-          {/* BARRE HAUT DROITE */}
+          {/* BARRE HAUT DROITE - PAYS MEMBRE */}
           <Box left="73.1%" top="4.55%" width="19.6%" height="3.15%">
             <span className="text-[clamp(0.58rem,1.2vw,0.74rem)] font-black tracking-[0.16em] text-[#F7D56D]">
-              {countryCode}
+              {memberCountryCode}
             </span>
           </Box>
 

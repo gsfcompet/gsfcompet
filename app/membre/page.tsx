@@ -12,9 +12,11 @@ type ScoreStatus = "pending" | "validated" | "refused" | null;
 type Profile = {
   id?: string;
   user_id?: string;
+  username?: string | null;
   pseudo?: string | null;
   role?: string | null;
   note?: number | null;
+  numero_maillot?: number | null;
   plateforme?: string | null;
   pays?: string | null;
   equipe_ea?: string | null;
@@ -31,6 +33,29 @@ type Profile = {
   pts?: number | null;
 };
 
+type Player = {
+  id: string;
+  user_id?: string | null;
+  name?: string | null;
+  ea_name?: string | null;
+  platform?: string | null;
+};
+
+type CompetitionPlayer = {
+  id: string;
+  competition_id: string;
+  player_id: string;
+  ea_team_id?: string | null;
+  ea_team_name?: string | null;
+};
+
+type EaTeam = {
+  id: string;
+  country?: string | null;
+  league?: string | null;
+  name?: string | null;
+};
+
 type Team = {
   id: string;
   name?: string | null;
@@ -41,7 +66,10 @@ type Competition = {
   title?: string | null;
   name?: string | null;
   description?: string | null;
+  type?: string | null;
+  season?: string | null;
   status?: string | null;
+  format?: string | null;
 };
 
 type Match = {
@@ -49,10 +77,18 @@ type Match = {
   competition_id?: string | null;
   home_team_id?: string | null;
   away_team_id?: string | null;
+  home_player_id?: string | null;
+  away_player_id?: string | null;
+  player1_id?: string | null;
+  player2_id?: string | null;
+  home_competition_player_id?: string | null;
+  away_competition_player_id?: string | null;
   date?: string | null;
   match_date?: string | null;
   created_at?: string | null;
   status?: string | null;
+  home_score?: number | null;
+  away_score?: number | null;
   score_home?: number | null;
   score_away?: number | null;
   submitted_home_score?: number | null;
@@ -63,10 +99,7 @@ type Match = {
   score_admin_note?: string | null;
   admin_note?: string | null;
   refusal_reason?: string | null;
-  competition?: Competition | null;
-  competitions?: Competition | null;
-  home_team?: Team | null;
-  away_team?: Team | null;
+  [key: string]: unknown;
 };
 
 export default function MembrePage() {
@@ -76,7 +109,13 @@ export default function MembrePage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [player, setPlayer] = useState<Player | null>(null);
+  const [registrations, setRegistrations] = useState<CompetitionPlayer[]>([]);
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [eaTeams, setEaTeams] = useState<EaTeam[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   const [openScoreMatchId, setOpenScoreMatchId] = useState<string | null>(null);
@@ -156,119 +195,281 @@ export default function MembrePage() {
     const currentUserId = user.id;
     setUserId(currentUserId);
 
-    await loadProfile(currentUserId);
-    await loadMatches();
-
-    setLoading(false);
-  }
-
-  async function loadProfile(currentUserId: string) {
-    let loadedProfile: Profile | null = null;
-
-    const profileById = await supabase
+    const profileResult = await supabase
       .from("profiles")
       .select("*")
       .eq("id", currentUserId)
       .maybeSingle();
 
-    if (profileById.data) {
-      loadedProfile = profileById.data as Profile;
+    if (profileResult.error) {
+      console.warn("Profil introuvable par id :", profileResult.error);
     }
 
-    if (!loadedProfile) {
-      const profileByUserId = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", currentUserId)
-        .maybeSingle();
-
-      if (profileByUserId.data) {
-        loadedProfile = profileByUserId.data as Profile;
-      }
-    }
-
+    const loadedProfile = (profileResult.data as Profile | null) ?? null;
     setProfile(loadedProfile);
-  }
 
-  async function loadMatches() {
-    const relationQuery = `
-      *,
-      competition:competitions (
-        id,
-        title,
-        description,
-        status
-      ),
-      home_team:teams!matches_home_team_id_fkey (
-        id,
-        name
-      ),
-      away_team:teams!matches_away_team_id_fkey (
-        id,
-        name
+    const playerResult = await supabase
+      .from("players")
+      .select("*")
+      .eq("user_id", currentUserId)
+      .maybeSingle();
+
+    if (playerResult.error) {
+      console.error(playerResult.error);
+      setMessage(`Erreur joueur : ${playerResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    const loadedPlayer = (playerResult.data as Player | null) ?? null;
+    setPlayer(loadedPlayer);
+
+    if (!loadedPlayer) {
+      setRegistrations([]);
+      setCompetitions([]);
+      setMatches([]);
+      setEaTeams([]);
+      setPlayers([]);
+      setTeams([]);
+      setLoading(false);
+      return;
+    }
+
+    const registrationsResult = await supabase
+      .from("competition_players")
+      .select("*")
+      .eq("player_id", loadedPlayer.id);
+
+    if (registrationsResult.error) {
+      console.error(registrationsResult.error);
+      setMessage(`Erreur inscriptions : ${registrationsResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    const loadedRegistrations =
+      (registrationsResult.data ?? []) as CompetitionPlayer[];
+
+    setRegistrations(loadedRegistrations);
+
+    const competitionIds = Array.from(
+      new Set(
+        loadedRegistrations
+          .map((registration) => registration.competition_id)
+          .filter(Boolean)
       )
-    `;
+    );
 
-    const attempts = [
-      () =>
-        supabase
-          .from("matches")
-          .select(relationQuery)
-          .order("date", { ascending: true }),
+    if (competitionIds.length === 0) {
+      setCompetitions([]);
+      setMatches([]);
+      setEaTeams([]);
+      setPlayers([loadedPlayer]);
+      setTeams([]);
+      setLoading(false);
+      return;
+    }
 
-      () =>
-        supabase
-          .from("matches")
-          .select(relationQuery),
+    const competitionsResult = await supabase
+      .from("competitions")
+      .select("*")
+      .in("id", competitionIds);
 
-      () =>
-        supabase
-          .from("matches")
-          .select("*")
-          .order("date", { ascending: true }),
+    if (competitionsResult.error) {
+      console.error(competitionsResult.error);
+      setMessage(`Erreur compétitions : ${competitionsResult.error.message}`);
+      setLoading(false);
+      return;
+    }
 
-      () =>
-        supabase
-          .from("matches")
-          .select("*"),
-    ];
+    const loadedCompetitions = (competitionsResult.data ?? []) as Competition[];
+    setCompetitions(loadedCompetitions);
 
-    for (const attempt of attempts) {
-      const { data, error } = await attempt();
+    const eaTeamIds = Array.from(
+      new Set(
+        loadedRegistrations
+          .map((registration) => registration.ea_team_id)
+          .filter(Boolean) as string[]
+      )
+    );
 
-      if (!error) {
-        const sortedMatches = [...((data ?? []) as Match[])].sort((a, b) => {
+    if (eaTeamIds.length > 0) {
+      const eaTeamsResult = await supabase
+        .from("ea_teams")
+        .select("*")
+        .in("id", eaTeamIds);
+
+      if (eaTeamsResult.error) {
+        console.warn("Chargement équipes EA FC impossible :", eaTeamsResult.error);
+        setEaTeams([]);
+      } else {
+        setEaTeams((eaTeamsResult.data ?? []) as EaTeam[]);
+      }
+    } else {
+      setEaTeams([]);
+    }
+
+    const matchesResult = await supabase
+      .from("matches")
+      .select("*")
+      .in("competition_id", competitionIds)
+      .order("match_date", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false });
+
+    if (matchesResult.error) {
+      console.error(matchesResult.error);
+      setMessage(`Erreur matchs : ${matchesResult.error.message}`);
+      setMatches([]);
+    } else {
+      const loadedMatches = ((matchesResult.data ?? []) as Match[]).sort(
+        (a, b) => {
           const dateA = new Date(
-            a.date || a.match_date || a.created_at || "2099-01-01"
+            a.match_date || a.date || a.created_at || "2099-01-01"
           ).getTime();
 
           const dateB = new Date(
-            b.date || b.match_date || b.created_at || "2099-01-01"
+            b.match_date || b.date || b.created_at || "2099-01-01"
           ).getTime();
 
           return dateA - dateB;
-        });
+        }
+      );
 
-        setMatches(sortedMatches);
-        return;
-      }
+      setMatches(loadedMatches);
 
-      console.warn("Tentative de chargement des matchs échouée :", error);
+      await loadRelatedData(loadedMatches, loadedRegistrations, loadedPlayer);
     }
 
-    setMatches([]);
-    setMessage("Erreur lors du chargement des matchs.");
+    setLoading(false);
+  }
+
+  async function loadRelatedData(
+    loadedMatches: Match[],
+    loadedRegistrations: CompetitionPlayer[],
+    currentPlayer: Player
+  ) {
+    const teamIds = Array.from(
+      new Set(
+        loadedMatches
+          .flatMap((match) => [match.home_team_id, match.away_team_id])
+          .filter(Boolean) as string[]
+      )
+    );
+
+    if (teamIds.length > 0) {
+      const teamsResult = await supabase
+        .from("teams")
+        .select("*")
+        .in("id", teamIds);
+
+      if (!teamsResult.error) {
+        setTeams((teamsResult.data ?? []) as Team[]);
+      } else {
+        console.warn("Chargement équipes impossible :", teamsResult.error);
+        setTeams([]);
+      }
+    } else {
+      setTeams([]);
+    }
+
+    const playerIds = new Set<string>();
+
+    playerIds.add(currentPlayer.id);
+
+    loadedRegistrations.forEach((registration) => {
+      if (registration.player_id) {
+        playerIds.add(registration.player_id);
+      }
+    });
+
+    loadedMatches.forEach((match) => {
+      [
+        match.home_player_id,
+        match.away_player_id,
+        match.player1_id,
+        match.player2_id,
+      ].forEach((id) => {
+        if (typeof id === "string" && id) {
+          playerIds.add(id);
+        }
+      });
+    });
+
+    if (playerIds.size > 0) {
+      const playersResult = await supabase
+        .from("players")
+        .select("*")
+        .in("id", Array.from(playerIds));
+
+      if (!playersResult.error) {
+        setPlayers((playersResult.data ?? []) as Player[]);
+      } else {
+        console.warn("Chargement joueurs impossible :", playersResult.error);
+        setPlayers([currentPlayer]);
+      }
+    } else {
+      setPlayers([currentPlayer]);
+    }
   }
 
   const safeProfile = useMemo(() => {
+    const mainRegistration = registrations[0] ?? null;
+
+    const mainEaTeam = mainRegistration?.ea_team_id
+      ? eaTeams.find((team) => team.id === mainRegistration.ea_team_id)
+      : null;
+
+    const cardPseudo =
+      profile?.pseudo ||
+      profile?.username ||
+      player?.ea_name ||
+      player?.name ||
+      "Membre";
+
+    const cardPlatform =
+      player?.platform ||
+      profile?.plateforme ||
+      "PC";
+
+    const cardMemberCountry =
+      profile?.pays ||
+      "FR";
+
+    const cardTeamCountry =
+      mainEaTeam?.country ||
+      "Pays équipe";
+
+    const cardEaTeam =
+      mainRegistration?.ea_team_name ||
+      mainEaTeam?.name ||
+      profile?.equipe_ea ||
+      profile?.ea_team ||
+      "Sans équipe";
+
     return {
-      pseudo: profile?.pseudo || "Membre",
-      role: profile?.role || "MEMBRE",
-      note: profile?.note ?? 0,
-      plateforme: profile?.plateforme || "PC",
-      pays: profile?.pays || "FR",
-      equipe_ea: profile?.equipe_ea || profile?.ea_team || "Sans équipe",
-      ea_team: profile?.ea_team || profile?.equipe_ea || "Sans équipe",
+      pseudo: cardPseudo,
+      role:
+        profile?.role?.toLowerCase() === "admin"
+          ? "ADMIN"
+          : profile?.role?.toUpperCase() || "MEMBRE",
+      note: profile?.numero_maillot ?? 0,
+      numero_maillot: profile?.numero_maillot ?? 0,
+      numeroMaillot: profile?.numero_maillot ?? 0,
+      jerseyNumber: profile?.numero_maillot ?? 0,
+      shirtNumber: profile?.numero_maillot ?? 0,
+      plateforme: cardPlatform,
+      pays: cardTeamCountry,
+      paysEquipe: cardTeamCountry,
+      paysMembre: cardMemberCountry,
+      memberCountry: cardMemberCountry,
+      countryMember: cardMemberCountry,
+      equipe: cardEaTeam,
+      equipeEAFC: cardEaTeam,
+      equipe_ea: cardEaTeam,
+      ea_team: cardEaTeam,
+      eaTeam: cardEaTeam,
+      team: cardEaTeam,
+      club: cardEaTeam,
       avatar_url: profile?.avatar_url || profile?.avatarUrl || null,
       avatarUrl: profile?.avatarUrl || profile?.avatar_url || null,
       mj: profile?.mj ?? 0,
@@ -280,56 +481,113 @@ export default function MembrePage() {
       ga: profile?.ga ?? 0,
       pts: profile?.pts ?? 0,
     };
-  }, [profile]);
+  }, [profile, player, registrations, eaTeams]);
 
-  const competitions = useMemo(() => {
-    const map = new Map<string, Competition>();
+  const teamById = useMemo(() => {
+    return new Map(teams.map((team) => [team.id, team]));
+  }, [teams]);
 
-    matches.forEach((match) => {
-      const competition = match.competition || match.competitions;
+  const playerById = useMemo(() => {
+    return new Map(players.map((loadedPlayer) => [loadedPlayer.id, loadedPlayer]));
+  }, [players]);
 
-      if (competition?.id) {
-        map.set(competition.id, competition);
-      }
-    });
+  const registrationById = useMemo(() => {
+    return new Map(
+      registrations.map((registration) => [registration.id, registration])
+    );
+  }, [registrations]);
 
-    return Array.from(map.values());
-  }, [matches]);
+  const registrationByPlayerId = useMemo(() => {
+    return new Map(
+      registrations.map((registration) => [
+        registration.player_id,
+        registration,
+      ])
+    );
+  }, [registrations]);
+
+  const memberMatches = useMemo(() => {
+    return matches.filter((match) => isMatchForCurrentPlayer(match));
+  }, [matches, player, registrations]);
 
   const matchesToPlay = useMemo(() => {
-    return matches.filter((match) => {
-      const hasFinalScore =
-        match.score_home !== null &&
-        match.score_home !== undefined &&
-        match.score_away !== null &&
-        match.score_away !== undefined;
-
-      return !hasFinalScore;
-    });
-  }, [matches]);
+    return memberMatches.filter((match) => !hasFinalScore(match));
+  }, [memberMatches]);
 
   const finishedMatches = useMemo(() => {
-    return matches.filter((match) => {
-      return (
-        match.score_home !== null &&
-        match.score_home !== undefined &&
-        match.score_away !== null &&
-        match.score_away !== undefined
+    return memberMatches.filter((match) => hasFinalScore(match));
+  }, [memberMatches]);
+
+  function normalizeScore(value: unknown) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const numberValue = Number(value);
+
+    if (!Number.isFinite(numberValue)) {
+      return null;
+    }
+
+    return numberValue;
+  }
+
+  function getFinalHomeScore(match: Match) {
+    return normalizeScore(match.home_score ?? match.score_home);
+  }
+
+  function getFinalAwayScore(match: Match) {
+    return normalizeScore(match.away_score ?? match.score_away);
+  }
+
+  function hasFinalScore(match: Match) {
+    return getFinalHomeScore(match) !== null && getFinalAwayScore(match) !== null;
+  }
+
+  function isMatchForCurrentPlayer(match: Match) {
+    if (!player?.id) {
+      return false;
+    }
+
+    const explicitPlayerIds = [
+      match.home_player_id,
+      match.away_player_id,
+      match.player1_id,
+      match.player2_id,
+    ].filter(Boolean);
+
+    if (explicitPlayerIds.length > 0) {
+      return explicitPlayerIds.includes(player.id);
+    }
+
+    const currentRegistrationIds = registrations
+      .filter((registration) => registration.player_id === player.id)
+      .map((registration) => registration.id);
+
+    const explicitRegistrationIds = [
+      match.home_competition_player_id,
+      match.away_competition_player_id,
+    ].filter(Boolean);
+
+    if (explicitRegistrationIds.length > 0) {
+      return explicitRegistrationIds.some((registrationId) =>
+        currentRegistrationIds.includes(String(registrationId))
       );
-    });
-  }, [matches]);
+    }
+
+    return true;
+  }
 
   function getCompetitionName(match: Match) {
-    const competition = match.competition || match.competitions;
+    const competition = competitions.find(
+      (item) => item.id === match.competition_id
+    );
+
     return competition?.title || competition?.name || "Compétition";
   }
 
-  function getTeamName(team?: Team | null, fallback?: string | null) {
-    return team?.name || fallback || "Équipe";
-  }
-
   function getMatchDate(match: Match) {
-    const rawDate = match.date || match.match_date;
+    const rawDate = match.match_date || match.date;
 
     if (!rawDate) {
       return "Date non définie";
@@ -355,6 +613,59 @@ export default function MembrePage() {
 
   function getAdminNote(match: Match) {
     return match.score_admin_note || match.admin_note || match.refusal_reason || null;
+  }
+
+  function getPlayerDisplayName(id?: string | null) {
+    if (!id) {
+      return null;
+    }
+
+    const loadedPlayer = playerById.get(id);
+
+    return loadedPlayer?.ea_name || loadedPlayer?.name || null;
+  }
+
+  function getRegistrationDisplayName(id?: string | null) {
+    if (!id) {
+      return null;
+    }
+
+    const registration = registrationById.get(id);
+
+    if (!registration) {
+      return null;
+    }
+
+    const registrationPlayer = playerById.get(registration.player_id);
+
+    return (
+      registrationPlayer?.ea_name ||
+      registrationPlayer?.name ||
+      registration.ea_team_name ||
+      null
+    );
+  }
+
+  function getSideName(match: Match, side: "home" | "away") {
+    if (side === "home") {
+      return (
+        teamById.get(match.home_team_id || "")?.name ||
+        getPlayerDisplayName(match.home_player_id) ||
+        getPlayerDisplayName(match.player1_id) ||
+        getRegistrationDisplayName(match.home_competition_player_id) ||
+        String(match.home_team_name || match.home_name || match.home_player_name || "") ||
+        "Domicile"
+      );
+    }
+
+    return (
+      teamById.get(match.away_team_id || "")?.name ||
+      getPlayerDisplayName(match.away_player_id) ||
+      getPlayerDisplayName(match.player2_id) ||
+      getRegistrationDisplayName(match.away_competition_player_id) ||
+      String(match.away_team_name || match.away_name || match.away_player_name || "") ||
+      "Extérieur"
+    );
   }
 
   function resetScoreForm() {
@@ -509,7 +820,7 @@ export default function MembrePage() {
                     Mes compétitions
                   </h2>
                   <p className="mt-1 text-sm text-yellow-100/60">
-                    Les compétitions liées à tes matchs.
+                    Les compétitions où ton inscription est enregistrée.
                   </p>
                 </div>
 
@@ -524,32 +835,52 @@ export default function MembrePage() {
                 </div>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2">
-                  {competitions.map((competition) => (
-                    <div
-                      key={competition.id}
-                      className="rounded-2xl border border-yellow-700/25 bg-black/30 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-black text-yellow-100">
-                            {competition.title || competition.name || "Compétition"}
-                          </h3>
+                  {competitions.map((competition) => {
+                    const registration = registrations.find(
+                      (item) => item.competition_id === competition.id
+                    );
 
-                          {competition.description && (
-                            <p className="mt-2 line-clamp-2 text-sm text-yellow-100/55">
-                              {competition.description}
-                            </p>
+                    return (
+                      <div
+                        key={competition.id}
+                        className="rounded-2xl border border-yellow-700/25 bg-black/30 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="font-black text-yellow-100">
+                              {competition.title || competition.name || "Compétition"}
+                            </h3>
+
+                            <div className="mt-2 space-y-1 text-sm text-yellow-100/65">
+                              {competition.season && (
+                                <p>
+                                  Saison :{" "}
+                                  <span className="font-black text-yellow-200">
+                                    {competition.season}
+                                  </span>
+                                </p>
+                              )}
+
+                              {registration?.ea_team_name && (
+                                <p>
+                                  Équipe EA FC :{" "}
+                                  <span className="font-black text-yellow-200">
+                                    {registration.ea_team_name}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {competition.status && (
+                            <span className="rounded-full border border-red-500/35 bg-red-500/15 px-2 py-1 text-[11px] font-black uppercase text-red-200">
+                              {competition.status}
+                            </span>
                           )}
                         </div>
-
-                        {competition.status && (
-                          <span className="rounded-full border border-red-500/35 bg-red-500/15 px-2 py-1 text-[11px] font-black uppercase text-red-200">
-                            {competition.status}
-                          </span>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -595,9 +926,9 @@ export default function MembrePage() {
                             </p>
 
                             <h3 className="mt-2 text-xl font-black text-yellow-100">
-                              {getTeamName(match.home_team, match.home_team_id)}{" "}
+                              {getSideName(match, "home")}{" "}
                               <span className="text-red-300/70">vs</span>{" "}
-                              {getTeamName(match.away_team, match.away_team_id)}
+                              {getSideName(match, "away")}
                             </h3>
 
                             <p className="mt-2 text-sm text-yellow-100/55">
@@ -660,10 +991,7 @@ export default function MembrePage() {
                                 <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
                                   <label className="block">
                                     <span className="mb-2 block text-sm font-black text-yellow-100/80">
-                                      {getTeamName(
-                                        match.home_team,
-                                        match.home_team_id
-                                      )}
+                                      {getSideName(match, "home")}
                                     </span>
                                     <input
                                       type="number"
@@ -682,10 +1010,7 @@ export default function MembrePage() {
 
                                   <label className="block">
                                     <span className="mb-2 block text-sm font-black text-yellow-100/80">
-                                      {getTeamName(
-                                        match.away_team,
-                                        match.away_team_id
-                                      )}
+                                      {getSideName(match, "away")}
                                     </span>
                                     <input
                                       type="number"
@@ -755,6 +1080,8 @@ export default function MembrePage() {
                 <div className="grid gap-4">
                   {finishedMatches.map((match) => {
                     const scoreStatus = getScoreStatus(match);
+                    const finalHomeScore = getFinalHomeScore(match);
+                    const finalAwayScore = getFinalAwayScore(match);
 
                     return (
                       <article
@@ -768,9 +1095,9 @@ export default function MembrePage() {
                             </p>
 
                             <h3 className="mt-2 text-xl font-black text-yellow-100">
-                              {getTeamName(match.home_team, match.home_team_id)}{" "}
+                              {getSideName(match, "home")}{" "}
                               <span className="text-red-300/70">vs</span>{" "}
-                              {getTeamName(match.away_team, match.away_team_id)}
+                              {getSideName(match, "away")}
                             </h3>
 
                             <p className="mt-2 text-sm text-yellow-100/55">
@@ -787,7 +1114,7 @@ export default function MembrePage() {
                           </p>
 
                           <p className="mt-1 text-3xl font-black text-yellow-100">
-                            {match.score_home} - {match.score_away}
+                            {finalHomeScore} - {finalAwayScore}
                           </p>
                         </div>
                       </article>
