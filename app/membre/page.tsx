@@ -73,6 +73,7 @@ type Competition = {
   season?: string | null;
   status?: string | null;
   format?: string | null;
+  participant_type?: "teams" | "players" | null;
 };
 
 type Match = {
@@ -641,6 +642,12 @@ export default function MembrePage() {
     };
   }, [profile, player, registrations, eaTeams, memberStats]);
 
+  const personalCompetitions = useMemo(() => {
+    return competitions.filter((competition) => {
+      return (competition.participant_type || "players") === "players";
+    });
+  }, [competitions]);
+
   const teamById = useMemo(() => {
     return new Map(teams.map((team) => [team.id, team]));
   }, [teams]);
@@ -831,8 +838,29 @@ export default function MembrePage() {
     return getFinalHomeScore(match) !== null && getFinalAwayScore(match) !== null;
   }
 
+  function isTeamOnlyMatch(match: Match) {
+    const hasTeamIds = Boolean(match.home_team_id || match.away_team_id);
+
+    const hasCompetitionPlayerIds = Boolean(
+      match.home_competition_player_id || match.away_competition_player_id
+    );
+
+    const hasDirectPlayerIds = Boolean(
+      match.home_player_id ||
+        match.away_player_id ||
+        match.player1_id ||
+        match.player2_id
+    );
+
+    return hasTeamIds && !hasCompetitionPlayerIds && !hasDirectPlayerIds;
+  }
+
   function isMatchForCurrentPlayer(match: Match) {
     if (!player?.id) {
+      return false;
+    }
+
+    if (isTeamOnlyMatch(match)) {
       return false;
     }
 
@@ -862,7 +890,7 @@ export default function MembrePage() {
       );
     }
 
-    return true;
+    return false;
   }
 
   function getCompetitionName(match: Match) {
@@ -1116,17 +1144,17 @@ export default function MembrePage() {
                 </div>
 
                 <span className="flex h-9 min-w-9 items-center justify-center rounded-full border border-yellow-500/40 bg-black/40 px-3 text-sm font-black text-yellow-200 shadow-inner shadow-yellow-950/30">
-                  {competitions.length}
+                  {personalCompetitions.length}
                 </span>
               </div>
 
-              {competitions.length === 0 ? (
+              {personalCompetitions.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-yellow-700/30 bg-black/25 p-5 text-sm text-yellow-100/55">
                   Aucune compétition trouvée pour le moment.
                 </div>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2">
-                  {competitions.map((competition) => {
+                  {personalCompetitions.map((competition) => {
                     const registration = registrations.find(
                       (item) => item.competition_id === competition.id
                     );
