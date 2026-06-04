@@ -287,7 +287,24 @@ export default function AdminPage() {
           </p>
 
           {isAdmin && (
-          <div className="mb-8 grid gap-4 md:grid-cols-3">
+          <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Link
+              href="/admin/teams"
+              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
+            >
+              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
+                Teams esport
+              </p>
+
+              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
+                Gestion des teams
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
+                Créer les teams, rattacher les membres et inscrire les teams aux compétitions dédiées.
+              </p>
+            </Link>
+
             <Link
               href="/admin/membres"
               className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
