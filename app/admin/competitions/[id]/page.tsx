@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminCompetitionParticipantsManager from "@/components/AdminCompetitionParticipantsManager";
+import AdminMatchesScheduler from "@/components/AdminMatchesScheduler";
 
 type Profile = {
   id: string;
@@ -721,6 +722,11 @@ export default function AdminCompetitionPage() {
         </section>
 
         <AdminCompetitionParticipantsManager
+          competitionId={competition.id}
+          onChanged={loadData}
+        />
+
+        <AdminMatchesScheduler
           competitionId={competition.id}
           onChanged={loadData}
         />
