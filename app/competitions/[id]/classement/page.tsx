@@ -13,8 +13,7 @@ type Competition = {
   type: string;
   season: string | null;
   status: string;
-  participantType?: ParticipantType;
-  participant_type?: ParticipantType;
+  participant_type: ParticipantType;
 };
 
 type Player = {
@@ -27,6 +26,7 @@ type Player = {
 type Team = {
   id: string;
   name: string;
+  manager: string | null;
 };
 
 type CompetitionPlayer = {
@@ -34,7 +34,13 @@ type CompetitionPlayer = {
   competition_id: string;
   player_id: string;
   ea_team_id: string | null;
-  ea_team_name: string;
+  ea_team_name: string | null;
+};
+
+type CompetitionTeam = {
+  id: string;
+  competition_id: string;
+  team_id: string;
 };
 
 type Match = {
@@ -65,6 +71,54 @@ type StandingRow = {
   pts: number;
 };
 
+function getCompetitionTypeLabel(type: string) {
+  if (type === "league") return "Championnat";
+  if (type === "cup") return "Coupe";
+  if (type === "tournament") return "Tournoi";
+
+  return type;
+}
+
+function getParticipantTypeLabel(type: ParticipantType) {
+  if (type === "teams") return "Teams esport";
+  return "Joueurs EA FC";
+}
+
+function getStatusLabel(status: string) {
+  if (status === "draft") return "Brouillon";
+  if (status === "planned") return "Planifiée";
+  if (status === "active") return "Active";
+  if (status === "completed") return "Terminée";
+  if (status === "archived") return "Archivée";
+  if (status === "scheduled") return "Programmée";
+
+  return status;
+}
+
+function getStatusClass(status: string) {
+  if (status === "active") {
+    return "border-green-400/40 bg-green-500/15 text-green-300";
+  }
+
+  if (status === "planned" || status === "scheduled") {
+    return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
+  }
+
+  if (status === "draft") {
+    return "border-orange-400/40 bg-orange-500/15 text-orange-300";
+  }
+
+  if (status === "completed") {
+    return "border-blue-400/40 bg-blue-500/15 text-blue-300";
+  }
+
+  if (status === "archived") {
+    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+  }
+
+  return "border-yellow-500/30 bg-black/30 text-yellow-200";
+}
+
 export default function CompetitionClassementPage() {
   const params = useParams<{ id: string }>();
   const competitionId = params.id;
@@ -76,6 +130,9 @@ export default function CompetitionClassementPage() {
   const [competitionPlayers, setCompetitionPlayers] = useState<
     CompetitionPlayer[]
   >([]);
+  const [competitionTeams, setCompetitionTeams] = useState<CompetitionTeam[]>(
+    []
+  );
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
@@ -92,21 +149,14 @@ export default function CompetitionClassementPage() {
       .from("competitions")
       .select("*")
       .eq("id", competitionId)
-      .single();
+      .maybeSingle();
 
     if (competitionResult.error || !competitionResult.data) {
-      console.error("Competition debug:", {
-        competitionId,
-        error: competitionResult.error,
-        data: competitionResult.data,
-      });
-
       setMessage(
         `Compétition introuvable. ID reçu : ${competitionId}. Erreur Supabase : ${
           competitionResult.error?.message || "aucune donnée retournée"
         }`
       );
-
       setLoading(false);
       return;
     }
@@ -118,7 +168,7 @@ export default function CompetitionClassementPage() {
       .select("*")
       .eq("competition_id", competitionId)
       .order("match_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (matchesResult.error) {
       setMessage(`Erreur matchs : ${matchesResult.error.message}`);
@@ -143,6 +193,22 @@ export default function CompetitionClassementPage() {
 
     const loadedCompetitionPlayers =
       (competitionPlayersResult.data ?? []) as CompetitionPlayer[];
+
+    const competitionTeamsResult = await supabase
+      .from("competition_teams")
+      .select("*")
+      .eq("competition_id", competitionId);
+
+    if (competitionTeamsResult.error) {
+      setMessage(
+        `Erreur inscriptions teams : ${competitionTeamsResult.error.message}`
+      );
+      setLoading(false);
+      return;
+    }
+
+    const loadedCompetitionTeams =
+      (competitionTeamsResult.data ?? []) as CompetitionTeam[];
 
     const playerIds = Array.from(
       new Set(
@@ -169,11 +235,20 @@ export default function CompetitionClassementPage() {
       loadedPlayers = (playersResult.data ?? []) as Player[];
     }
 
+    const teamIdsFromRegistrations = loadedCompetitionTeams.map(
+      (registration) => registration.team_id
+    );
+
+    const teamIdsFromMatches = loadedMatches.flatMap((match) => [
+      match.home_team_id,
+      match.away_team_id,
+    ]);
+
     const teamIds = Array.from(
       new Set(
-        loadedMatches
-          .flatMap((match) => [match.home_team_id, match.away_team_id])
-          .filter(Boolean) as string[]
+        [...teamIdsFromRegistrations, ...teamIdsFromMatches].filter(
+          Boolean
+        ) as string[]
       )
     );
 
@@ -182,17 +257,22 @@ export default function CompetitionClassementPage() {
     if (teamIds.length > 0) {
       const teamsResult = await supabase
         .from("teams")
-        .select("*")
+        .select("id, name, manager")
         .in("id", teamIds);
 
-      if (!teamsResult.error) {
-        loadedTeams = (teamsResult.data ?? []) as Team[];
+      if (teamsResult.error) {
+        setMessage(`Erreur teams : ${teamsResult.error.message}`);
+        setLoading(false);
+        return;
       }
+
+      loadedTeams = (teamsResult.data ?? []) as Team[];
     }
 
     setCompetition(loadedCompetition);
     setMatches(loadedMatches);
     setCompetitionPlayers(loadedCompetitionPlayers);
+    setCompetitionTeams(loadedCompetitionTeams);
     setPlayers(loadedPlayers);
     setTeams(loadedTeams);
     setLoading(false);
@@ -200,15 +280,8 @@ export default function CompetitionClassementPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitionId]);
-
-  function getParticipantType(currentCompetition: Competition): ParticipantType {
-    return (
-      currentCompetition.participantType ||
-      currentCompetition.participant_type ||
-      "players"
-    );
-  }
 
   function getPlayer(playerId: string | null) {
     if (!playerId) return null;
@@ -222,7 +295,7 @@ export default function CompetitionClassementPage() {
     return teams.find((team) => team.id === teamId) ?? null;
   }
 
-  function createEmptyRow(id: string, name: string, subLabel: string) {
+  function createEmptyRow(id: string, name: string, subLabel: string): StandingRow {
     return {
       id,
       name,
@@ -243,9 +316,7 @@ export default function CompetitionClassementPage() {
 
     if (!competition) return [];
 
-    const participantType = getParticipantType(competition);
-
-    if (participantType === "players") {
+    if (competition.participant_type === "players") {
       for (const registration of competitionPlayers) {
         const player = getPlayer(registration.player_id);
 
@@ -253,7 +324,7 @@ export default function CompetitionClassementPage() {
           registration.id,
           createEmptyRow(
             registration.id,
-            player?.name || "Joueur inconnu",
+            player?.name || player?.ea_name || "Joueur inconnu",
             registration.ea_team_name || "Équipe EA FC inconnue"
           )
         );
@@ -279,12 +350,17 @@ export default function CompetitionClassementPage() {
         applyResult(awayRow, match.away_score, match.home_score);
       }
     } else {
+      const registeredTeamIds = competitionTeams.map(
+        (registration) => registration.team_id
+      );
+
+      const matchTeamIds = matches.flatMap((match) => [
+        match.home_team_id,
+        match.away_team_id,
+      ]);
+
       const teamIds = Array.from(
-        new Set(
-          matches
-            .flatMap((match) => [match.home_team_id, match.away_team_id])
-            .filter(Boolean) as string[]
-        )
+        new Set([...registeredTeamIds, ...matchTeamIds].filter(Boolean) as string[])
       );
 
       for (const teamId of teamIds) {
@@ -292,7 +368,11 @@ export default function CompetitionClassementPage() {
 
         rows.set(
           teamId,
-          createEmptyRow(teamId, team?.name || "Équipe inconnue", "Club")
+          createEmptyRow(
+            teamId,
+            team?.name || "Team inconnue",
+            team?.manager ? `Manager : ${team.manager}` : "Team esport"
+          )
         );
       }
 
@@ -319,7 +399,7 @@ export default function CompetitionClassementPage() {
 
       return a.name.localeCompare(b.name);
     });
-  }, [competition, competitionPlayers, players, teams, matches]);
+  }, [competition, competitionPlayers, competitionTeams, players, teams, matches]);
 
   const completedMatchesCount = useMemo(() => {
     return matches.filter(
@@ -328,6 +408,19 @@ export default function CompetitionClassementPage() {
         match.home_score !== null &&
         match.away_score !== null
     ).length;
+  }, [matches]);
+
+  const totalGoals = useMemo(() => {
+    return matches
+      .filter(
+        (match) =>
+          match.status === "completed" &&
+          match.home_score !== null &&
+          match.away_score !== null
+      )
+      .reduce((total, match) => {
+        return total + Number(match.home_score ?? 0) + Number(match.away_score ?? 0);
+      }, 0);
   }, [matches]);
 
   if (loading) {
@@ -363,138 +456,185 @@ export default function CompetitionClassementPage() {
     );
   }
 
-  const participantType = getParticipantType(competition);
-
   const competitionLabel = competition.season
     ? `${competition.name} · ${competition.season}`
     : competition.name;
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-6xl px-6 py-12">
-        <div className="mb-10">
-          <Link
-            href="/competitions"
-            className="mb-6 inline-flex rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-          >
-            ← Retour aux compétitions
-          </Link>
+      <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
+        <section className="rounded-[28px] border border-[#D9A441]/25 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-5 flex flex-wrap gap-3">
+                <Link
+                  href="/competitions"
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  ← Retour aux compétitions
+                </Link>
 
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-            Classement de la compétition
-          </p>
+                <Link
+                  href={`/competitions/${competition.id}/matchs`}
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  Matchs
+                </Link>
 
-          <h1 className="text-4xl font-black md:text-5xl">
-            {competitionLabel}
-          </h1>
+                <Link
+                  href={`/competitions/${competition.id}/inscription`}
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  Inscription
+                </Link>
+              </div>
 
-          <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Classement calculé uniquement avec les matchs terminés.
-          </p>
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
+                Classement de la compétition
+              </p>
 
-          {message && (
-            <div className="mt-6 rounded-xl border border-red-400/30 bg-[#160A12] p-4 text-sm text-red-300">
-              {message}
+              <h1 className="mt-3 text-4xl font-black text-[#F7E9C5] md:text-5xl">
+                {competitionLabel}
+              </h1>
+
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#D8C7A0]">
+                Classement calculé uniquement avec les matchs terminés.
+              </p>
             </div>
-          )}
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href={`/competitions/${competition.id}/matchs`}
-              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-            >
-              Matchs
-            </Link>
-
-            <Link
-              href={`/competitions/${competition.id}/inscription`}
-              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-            >
-              Inscription
-            </Link>
+            <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+              <SummaryTile label="Participants" value={classement.length} />
+              <SummaryTile label="Matchs joués" value={completedMatchesCount} />
+              <SummaryTile
+                label="Format"
+                value={
+                  competition.participant_type === "players"
+                    ? "Joueurs"
+                    : "Teams"
+                }
+              />
+              <SummaryTile label="Buts" value={totalGoals} />
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="mb-8 grid gap-4 md:grid-cols-4">
-          <StatCard label="Participants" value={classement.length} />
-          <StatCard label="Matchs joués" value={completedMatchesCount} />
-          <StatCard
-            label="Type"
-            value={participantType === "players" ? "Joueurs" : "Équipes"}
-          />
-          <StatCard label="Statut" value={competition.status} />
-        </div>
+        {message && (
+          <div className="mt-6 rounded-2xl border border-red-400/30 bg-[#160A12] px-4 py-3 text-sm font-black text-red-300">
+            {message}
+          </div>
+        )}
 
-        <section className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 shadow-lg shadow-black/30">
-          <div className="border-b border-[#D9A441]/15 p-6">
-            <h2 className="text-2xl font-black text-[#F7E9C5]">
-              Classement
-            </h2>
+        <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-[#F7E9C5]">
+                Classement
+              </h2>
 
-            <p className="mt-2 text-sm text-[#8F7B5C]">
-              Tri : points, goal average, buts pour, buts contre.
-            </p>
+              <p className="mt-2 text-sm text-[#D8C7A0]">
+                Tri : points, goal average, buts pour, buts contre.
+              </p>
+            </div>
+
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wider ${getStatusClass(
+                competition.status
+              )}`}
+            >
+              {getStatusLabel(competition.status)}
+            </span>
           </div>
 
           {classement.length === 0 ? (
-            <div className="p-6">
-              <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-                Aucun participant dans le classement pour le moment.
-              </p>
-            </div>
+            <p className="rounded-xl border border-dashed border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+              Aucun participant dans le classement pour le moment.
+            </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] border-collapse">
-                <thead>
-                  <tr className="border-b border-[#D9A441]/15 bg-[#0B0610]/70 text-left text-xs uppercase tracking-widest text-[#8F7B5C]">
-                    <th className="px-5 py-4">#</th>
-                    <th className="px-5 py-4">Participant</th>
-                    <th className="px-5 py-4 text-center">MJ</th>
-                    <th className="px-5 py-4 text-center text-green-300">V</th>
-                    <th className="px-5 py-4 text-center text-orange-300">N</th>
-                    <th className="px-5 py-4 text-center text-red-300">P</th>
-                    <th className="px-5 py-4 text-center text-green-300">
-                      BP
-                    </th>
-                    <th className="px-5 py-4 text-center text-red-300">BC</th>
-                    <th className="px-5 py-4 text-center">GA</th>
-                    <th className="px-5 py-4 text-center">Pts</th>
-                  </tr>
-                </thead>
+            <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/20">
+              <div className="max-h-[680px] overflow-y-auto">
+                <table className="w-full table-fixed border-collapse text-left text-sm">
+                  <colgroup>
+                    <col className="w-[7%]" />
+                    <col className="w-[31%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[10%]" />
+                  </colgroup>
 
-                <tbody>
-                  {classement.map((row, index) => (
-                    <tr
-                      key={row.id}
-                      className="border-b border-[#D9A441]/10 transition hover:bg-[#0B0610]/50"
-                    >
-                      <td className="px-5 py-4">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#D9A441]/25 bg-[#0B0610] text-sm font-black text-[#F2D27A]">
-                          {index + 1}
-                        </span>
-                      </td>
-
-                      <td className="px-5 py-4">
-                        <p className="font-black text-[#F7E9C5]">{row.name}</p>
-                        <p className="mt-1 text-sm text-[#8F7B5C]">
-                          {row.subLabel}
-                        </p>
-                      </td>
-
-                      <TableStat value={row.mj} />
-                      <TableStat value={row.v} tone="green" />
-                      <TableStat value={row.n} tone="orange" />
-                      <TableStat value={row.p} tone="red" />
-                      <TableStat value={row.bp} tone="green" />
-                      <TableStat value={row.bc} tone="red" />
-                      <TableStat
-                        value={row.ga > 0 ? `+${row.ga}` : row.ga}
-                      />
-                      <TableStat value={row.pts} strong />
+                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                    <tr>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        #
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Participant
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                        MJ
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-green-300">
+                        V
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-orange-300">
+                        N
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-red-300">
+                        P
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-green-300">
+                        BP
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-red-300">
+                        BC
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                        GA
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                        PTS
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {classement.map((row, index) => (
+                      <tr
+                        key={row.id}
+                        className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
+                      >
+                        <td className="px-4 py-4">
+                          <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/40 px-2 text-sm font-black text-[#F2D27A]">
+                            {index + 1}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <p className="truncate font-black text-[#F7E9C5]">
+                            {row.name}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-[#8F7B5C]">
+                            {row.subLabel}
+                          </p>
+                        </td>
+
+                        <TableStat value={row.mj} />
+                        <TableStat value={row.v} tone="green" />
+                        <TableStat value={row.n} tone="orange" />
+                        <TableStat value={row.p} tone="red" />
+                        <TableStat value={row.bp} tone="green" />
+                        <TableStat value={row.bc} tone="red" />
+                        <TableStat value={row.ga > 0 ? `+${row.ga}` : row.ga} />
+                        <TableStat value={row.pts} strong />
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
@@ -520,11 +660,19 @@ function applyResult(row: StandingRow, goalsFor: number, goalsAgainst: number) {
   }
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function SummaryTile({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-5 shadow-lg shadow-black/30">
-      <p className="text-sm text-[#8F7B5C]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#F2D27A]">{value}</p>
+    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-5 py-4">
+      <p className="text-2xl font-black text-[#F2D27A]">{value}</p>
+      <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+        {label}
+      </p>
     </div>
   );
 }
@@ -549,7 +697,7 @@ function TableStat({
 
   return (
     <td
-      className={`px-5 py-4 text-center ${
+      className={`px-4 py-4 text-center ${
         strong ? "text-lg font-black" : "font-semibold"
       } ${colorClass}`}
     >
