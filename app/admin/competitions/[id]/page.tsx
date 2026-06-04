@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminCompetitionParticipantsManager from "@/components/AdminCompetitionParticipantsManager";
+import AdminCompetitionTeamsManager from "@/components/AdminCompetitionTeamsManager";
 import AdminMatchesScheduler from "@/components/AdminMatchesScheduler";
 import AdminCompetitionMatchesTable, {
   type AdminCompetitionMatchTableRow,
@@ -22,6 +23,18 @@ type Competition = {
   season: string | null;
   status: string;
   participant_type: "teams" | "players";
+};
+
+type Team = {
+  id: string;
+  name: string;
+  manager: string | null;
+};
+
+type CompetitionTeam = {
+  id: string;
+  competition_id: string;
+  team_id: string;
 };
 
 type Player = {
@@ -84,6 +97,10 @@ export default function AdminCompetitionPage() {
   >([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<CompetitionTeam[]>(
+    []
+  );
 
   const [scoreForms, setScoreForms] = useState<Record<string, ScoreForm>>({});
   const [dateForms, setDateForms] = useState<Record<string, string>>({});
@@ -254,6 +271,29 @@ export default function AdminCompetitionPage() {
       return;
     }
 
+    const teamsResult = await supabase
+      .from("teams")
+      .select("id, name, manager")
+      .order("name", { ascending: true });
+
+    if (teamsResult.error) {
+      setMessage(`Erreur teams : ${teamsResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    const competitionTeamsResult = await supabase
+      .from("competition_teams")
+      .select("id, competition_id, team_id")
+      .eq("competition_id", competitionId)
+      .order("created_at", { ascending: true });
+
+    if (competitionTeamsResult.error) {
+      setMessage(`Erreur teams compétition : ${competitionTeamsResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
     const loadedMatches = (matchesResult.data ?? []) as Match[];
 
     const nextScoreForms: Record<string, ScoreForm> = {};
@@ -272,6 +312,10 @@ export default function AdminCompetitionPage() {
     setCompetitionPlayers(loadedCompetitionPlayers);
     setPlayers(loadedPlayers);
     setMatches(loadedMatches);
+    setTeams((teamsResult.data ?? []) as Team[]);
+    setCompetitionTeams(
+      (competitionTeamsResult.data ?? []) as CompetitionTeam[]
+    );
     setScoreForms(nextScoreForms);
     setDateForms(nextDateForms);
 
@@ -296,6 +340,43 @@ export default function AdminCompetitionPage() {
       competitionPlayers.find(
         (registration) => registration.id === registrationId
       ) ?? null
+    );
+  }
+
+  function getTeamLabel(teamId: string | null): ParticipantLabel {
+    if (!teamId) {
+      return {
+        title: "Team inconnue",
+        subtitle: "Aucune team trouvée",
+      };
+    }
+
+    const team = teams.find((item) => item.id === teamId);
+
+    if (!team) {
+      return {
+        title: "Team introuvable",
+        subtitle: "Team esport",
+      };
+    }
+
+    return {
+      title: team.name,
+      subtitle: team.manager ? `Manager : ${team.manager}` : "Team esport",
+    };
+  }
+
+  function getMatchParticipantLabel(match: Match, side: "home" | "away") {
+    if (competition?.participant_type === "teams") {
+      return getTeamLabel(
+        side === "home" ? match.home_team_id : match.away_team_id
+      );
+    }
+
+    return getParticipantLabel(
+      side === "home"
+        ? match.home_competition_player_id
+        : match.away_competition_player_id
     );
   }
 
@@ -409,15 +490,33 @@ export default function AdminCompetitionPage() {
   }
 
   async function generateMatches() {
-    if (!competition) return;
+    if (!competition) {
+      setMessage("Compétition introuvable.");
+      return;
+    }
+
+    if (!isAdmin) {
+      setMessage("Action réservée aux admins.");
+      return;
+    }
+
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
 
     setGenerating(true);
     setMessage("");
 
     const response = await fetch(
-      `/api/competitions/${competition.id}/generate-matches`,
+      `/api/admin/competitions/${competition.id}/generate-matches`,
       {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       }
     );
 
@@ -430,7 +529,7 @@ export default function AdminCompetitionPage() {
     }
 
     setGenerating(false);
-    setMessage(result.message || "Matchs générés.");
+    setMessage(result.message || "Matchs générés ✅");
 
     await loadData();
   }
@@ -632,8 +731,8 @@ export default function AdminCompetitionPage() {
 
   const matchTableRows = useMemo<AdminCompetitionMatchTableRow[]>(() => {
     return filteredMatches.map((match) => {
-      const home = getParticipantLabel(match.home_competition_player_id);
-      const away = getParticipantLabel(match.away_competition_player_id);
+      const home = getMatchParticipantLabel(match, "home");
+      const away = getMatchParticipantLabel(match, "away");
 
       const hasScore = match.home_score !== null && match.away_score !== null;
 
@@ -906,7 +1005,14 @@ export default function AdminCompetitionPage() {
             value={getParticipantTypeLabel(competition.participant_type)}
           />
 
-          <StatCard label="Participants" value={competitionPlayers.length} />
+          <StatCard
+            label="Participants"
+            value={
+              competition.participant_type === "teams"
+                ? competitionTeams.length
+                : competitionPlayers.length
+            }
+          />
 
           <StatCard label="Matchs" value={matches.length} />
         </div>
@@ -935,10 +1041,17 @@ export default function AdminCompetitionPage() {
           </div>
         </section>
 
-        <AdminCompetitionParticipantsManager
-          competitionId={competition.id}
-          onChanged={loadData}
-        />
+        {competition.participant_type === "teams" ? (
+          <AdminCompetitionTeamsManager
+            competitionId={competition.id}
+            onChanged={loadData}
+          />
+        ) : (
+          <AdminCompetitionParticipantsManager
+            competitionId={competition.id}
+            onChanged={loadData}
+          />
+        )}
 
         <AdminMatchesScheduler
           competitionId={competition.id}
@@ -988,12 +1101,8 @@ export default function AdminCompetitionPage() {
           ) : (
             <div className="space-y-4">
               {pendingScoreMatches.map((match) => {
-                const home = getParticipantLabel(
-                  match.home_competition_player_id
-                );
-                const away = getParticipantLabel(
-                  match.away_competition_player_id
-                );
+                const home = getMatchParticipantLabel(match, "home");
+                const away = getMatchParticipantLabel(match, "away");
 
                 return (
                   <article

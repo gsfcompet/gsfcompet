@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 type Match = {
   id: string;
   competition_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
   home_competition_player_id: string | null;
   away_competition_player_id: string | null;
   match_date: string | null;
@@ -29,6 +31,12 @@ type Player = {
   name: string | null;
   ea_name: string | null;
   platform: string | null;
+};
+
+type Team = {
+  id: string;
+  name: string;
+  manager: string | null;
 };
 
 type AdminMatchesSchedulerProps = {
@@ -97,11 +105,12 @@ export default function AdminMatchesScheduler({
     CompetitionPlayer[]
   >([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   const [dateForms, setDateForms] = useState<Record<string, string>>({});
-  const [initialDateForms, setInitialDateForms] = useState<Record<string, string>>(
-    {}
-  );
+  const [initialDateForms, setInitialDateForms] = useState<
+    Record<string, string>
+  >({});
 
   const [loading, setLoading] = useState(true);
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
@@ -136,6 +145,31 @@ export default function AdminMatchesScheduler({
     }
 
     const loadedMatches = (matchesResult.data ?? []) as Match[];
+
+    const teamIds = Array.from(
+      new Set(
+        loadedMatches
+          .flatMap((match) => [match.home_team_id, match.away_team_id])
+          .filter(Boolean) as string[]
+      )
+    );
+
+    let loadedTeams: Team[] = [];
+
+    if (teamIds.length > 0) {
+      const teamsResult = await supabase
+        .from("teams")
+        .select("id, name, manager")
+        .in("id", teamIds);
+
+      if (teamsResult.error) {
+        setMessage(`Erreur teams : ${teamsResult.error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      loadedTeams = (teamsResult.data ?? []) as Team[];
+    }
 
     const registrationIds = Array.from(
       new Set(
@@ -200,6 +234,7 @@ export default function AdminMatchesScheduler({
     setMatches(loadedMatches);
     setCompetitionPlayers(loadedCompetitionPlayers);
     setPlayers(loadedPlayers);
+    setTeams(loadedTeams);
     setDateForms(nextDateForms);
     setInitialDateForms(nextDateForms);
 
@@ -216,6 +251,10 @@ export default function AdminMatchesScheduler({
     return new Map(players.map((player) => [player.id, player]));
   }, [players]);
 
+  const teamById = useMemo(() => {
+    return new Map(teams.map((team) => [team.id, team]));
+  }, [teams]);
+
   const editableMatches = useMemo(() => {
     return matches.filter((match) => match.status !== "completed");
   }, [matches]);
@@ -223,7 +262,9 @@ export default function AdminMatchesScheduler({
   const changedMatchIds = useMemo(() => {
     return editableMatches
       .filter((match) => {
-        return (dateForms[match.id] ?? "") !== (initialDateForms[match.id] ?? "");
+        return (
+          (dateForms[match.id] ?? "") !== (initialDateForms[match.id] ?? "")
+        );
       })
       .map((match) => match.id);
   }, [editableMatches, dateForms, initialDateForms]);
@@ -241,6 +282,28 @@ export default function AdminMatchesScheduler({
     const eaTeamName = registration.ea_team_name || "Équipe EA FC";
 
     return `${playerName} · ${eaTeamName}`;
+  }
+
+  function getTeamName(teamId: string | null) {
+    if (!teamId) return "Team inconnue";
+
+    const team = teamById.get(teamId);
+
+    return team?.name || "Team introuvable";
+  }
+
+  function getMatchParticipantName(match: Match, side: "home" | "away") {
+    const teamId = side === "home" ? match.home_team_id : match.away_team_id;
+
+    if (teamId) {
+      return getTeamName(teamId);
+    }
+
+    return getParticipantName(
+      side === "home"
+        ? match.home_competition_player_id
+        : match.away_competition_player_id
+    );
   }
 
   function updateDateForm(matchId: string, value: string) {
@@ -330,12 +393,16 @@ export default function AdminMatchesScheduler({
     <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#F7E9C5]">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F2D27A]">
+            Planning
+          </p>
+
+          <h2 className="mt-2 text-2xl font-black text-[#F7E9C5]">
             Programmation rapide des matchs
           </h2>
 
           <p className="mt-2 text-sm text-[#D8C7A0]">
-            Planifie plusieurs matchs sans ouvrir chaque fiche une par une.
+            Planifie les dates et heures dans un tableau compact.
           </p>
         </div>
 
@@ -353,7 +420,11 @@ export default function AdminMatchesScheduler({
             type="button"
             disabled={savingAll || changedMatchIds.length === 0}
             onClick={handleSaveAll}
-            className="rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-50"
+            className={
+              savingAll || changedMatchIds.length === 0
+                ? "rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 px-5 py-3 text-sm font-semibold text-[#8F7B5C] opacity-70"
+                : "rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+            }
           >
             {savingAll
               ? "Enregistrement..."
@@ -379,7 +450,15 @@ export default function AdminMatchesScheduler({
       ) : (
         <div className="overflow-hidden rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70">
           <div className="max-h-[460px] overflow-y-auto">
-            <table className="w-full border-collapse text-left text-sm">
+            <table className="w-full table-fixed border-collapse text-left text-sm">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[18%]" />
+                <col className="w-[28%]" />
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+              </colgroup>
+
               <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
                 <tr>
                   <th className="border-b border-[#D9A441]/20 px-4 py-3">
@@ -389,9 +468,9 @@ export default function AdminMatchesScheduler({
                     Date actuelle
                   </th>
                   <th className="border-b border-[#D9A441]/20 px-4 py-3">
-                    Nouvelle date / heure
+                    Nouvelle programmation
                   </th>
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                  <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
                     Statut
                   </th>
                   <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
@@ -414,15 +493,31 @@ export default function AdminMatchesScheduler({
                       className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
                     >
                       <td className="px-4 py-4">
-                        <p className="font-black text-[#F7E9C5]">
-                          {getParticipantName(match.home_competition_player_id)}
-                        </p>
-                        <p className="my-1 text-xs font-black uppercase tracking-widest text-[#F2D27A]">
-                          vs
-                        </p>
-                        <p className="font-black text-[#F7E9C5]">
-                          {getParticipantName(match.away_competition_player_id)}
-                        </p>
+                        <div className="grid gap-2">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="rounded-full border border-green-400/35 bg-green-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-green-300">
+                              Domicile
+                            </span>
+
+                            <p className="truncate font-black text-[#F7E9C5]">
+                              {getMatchParticipantName(match, "home")}
+                            </p>
+                          </div>
+
+                          <div className="pl-1 text-xs font-black uppercase tracking-[0.25em] text-[#F2D27A]">
+                            vs
+                          </div>
+
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="rounded-full border border-blue-400/35 bg-blue-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-blue-300">
+                              Extérieur
+                            </span>
+
+                            <p className="truncate font-black text-[#F7E9C5]">
+                              {getMatchParticipantName(match, "away")}
+                            </p>
+                          </div>
+                        </div>
                       </td>
 
                       <td className="px-4 py-4 text-[#D8C7A0]">
@@ -430,14 +525,22 @@ export default function AdminMatchesScheduler({
                       </td>
 
                       <td className="px-4 py-4">
-                        <input
-                          type="datetime-local"
-                          value={dateForms[match.id] ?? ""}
-                          onChange={(event) =>
-                            updateDateForm(match.id, event.target.value)
-                          }
-                          className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                        />
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="datetime-local"
+                            value={dateForms[match.id] ?? ""}
+                            onChange={(event) =>
+                              updateDateForm(match.id, event.target.value)
+                            }
+                            className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                          />
+
+                          {isChanged && (
+                            <span className="shrink-0 rounded-full border border-yellow-400/35 bg-yellow-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-yellow-300">
+                              Modifié
+                            </span>
+                          )}
+                        </div>
 
                         <button
                           type="button"
@@ -448,7 +551,7 @@ export default function AdminMatchesScheduler({
                         </button>
                       </td>
 
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-4 py-4 text-center">
                         <span
                           className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wider ${getStatusClass(
                             match.status
@@ -463,7 +566,11 @@ export default function AdminMatchesScheduler({
                           type="button"
                           disabled={isSaving || !isChanged}
                           onClick={() => handleSaveOne(match.id)}
-                          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#160A12] disabled:cursor-not-allowed disabled:opacity-40"
+                          className={
+                            isSaving || !isChanged
+                              ? "rounded-lg border border-[#D9A441]/15 px-4 py-2 text-xs font-semibold text-[#8F7B5C] opacity-60"
+                              : "rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                          }
                         >
                           {isSaving ? "..." : "Enregistrer"}
                         </button>
