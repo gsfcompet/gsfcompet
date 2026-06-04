@@ -52,18 +52,21 @@ type Match = {
   home_score: number | null;
   away_score: number | null;
   mvp: string | null;
+  created_at?: string | null;
 
   submitted_home_score: number | null;
   submitted_away_score: number | null;
   score_submitted_by: string | null;
   score_submitted_at: string | null;
-  score_status: "pending" | "validated" | "refused" | string | null;
+  score_status: "none" | "pending" | "validated" | "refused" | "rejected" | string | null;
 };
 
 type ScoreForm = {
   home: string;
   away: string;
 };
+
+type MatchFilter = "all" | "upcoming" | "completed" | "pending";
 
 export default function CompetitionMatchesPage() {
   const params = useParams<{ id: string }>();
@@ -88,6 +91,9 @@ export default function CompetitionMatchesPage() {
   const [memberScoreForms, setMemberScoreForms] = useState<
     Record<string, ScoreForm>
   >({});
+
+  const [matchFilter, setMatchFilter] = useState<MatchFilter>("all");
+  const [openMatchId, setOpenMatchId] = useState<string | null>(null);
 
   const [savingMatchId, setSavingMatchId] = useState<string | null>(null);
   const [submittingMatchId, setSubmittingMatchId] = useState<string | null>(
@@ -163,7 +169,7 @@ export default function CompetitionMatchesPage() {
       .select("*")
       .eq("competition_id", competitionId)
       .order("match_date", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (matchesResult.error) {
       setMessage(`Erreur matchs : ${matchesResult.error.message}`);
@@ -227,7 +233,7 @@ export default function CompetitionMatchesPage() {
     if (teamIds.length > 0) {
       const teamsResult = await supabase
         .from("teams")
-        .select("*")
+        .select("id, name")
         .in("id", teamIds);
 
       if (!teamsResult.error) {
@@ -258,7 +264,6 @@ export default function CompetitionMatchesPage() {
 
     setProfile(loadedProfile);
     setCurrentPlayer(loadedCurrentPlayer);
-
     setCompetition(competitionResult.data as Competition);
     setMatches(loadedMatches);
     setCompetitionPlayers(loadedCompetitionPlayers);
@@ -271,6 +276,7 @@ export default function CompetitionMatchesPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitionId]);
 
   const upcomingMatches = useMemo(() => {
@@ -280,6 +286,22 @@ export default function CompetitionMatchesPage() {
   const completedMatches = useMemo(() => {
     return matches.filter((match) => match.status === "completed");
   }, [matches]);
+
+  const pendingScoreMatches = useMemo(() => {
+    return matches.filter((match) => match.score_status === "pending");
+  }, [matches]);
+
+  const filteredMatches = useMemo(() => {
+    if (matchFilter === "upcoming") return upcomingMatches;
+    if (matchFilter === "completed") return completedMatches;
+    if (matchFilter === "pending") return pendingScoreMatches;
+
+    return matches;
+  }, [matchFilter, matches, upcomingMatches, completedMatches, pendingScoreMatches]);
+
+  const openMatch = useMemo(() => {
+    return matches.find((match) => match.id === openMatchId) ?? null;
+  }, [matches, openMatchId]);
 
   function getCompetitionPlayer(registrationId: string | null) {
     if (!registrationId) return null;
@@ -315,19 +337,42 @@ export default function CompetitionMatchesPage() {
     if (registration) {
       const player = getPlayer(registration.player_id);
 
-      const playerName = player?.name || "Joueur";
+      const playerName = player?.name || player?.ea_name || "Joueur";
       const eaTeamName = registration.ea_team_name || "Équipe EA FC";
 
-      return `${playerName} · ${eaTeamName}`;
+      return {
+        title: playerName,
+        subtitle: eaTeamName,
+      };
     }
 
     const team = getTeam(teamId);
 
     if (team) {
-      return team.name;
+      return {
+        title: team.name,
+        subtitle: "Team esport",
+      };
     }
 
-    return "À définir";
+    return {
+      title: "À définir",
+      subtitle: "Participant inconnu",
+    };
+  }
+
+  function getHomeLabel(match: Match) {
+    return getParticipantLabel({
+      competitionPlayerId: match.home_competition_player_id,
+      teamId: match.home_team_id,
+    });
+  }
+
+  function getAwayLabel(match: Match) {
+    return getParticipantLabel({
+      competitionPlayerId: match.away_competition_player_id,
+      teamId: match.away_team_id,
+    });
   }
 
   function isCurrentUserParticipant(match: Match) {
@@ -351,9 +396,11 @@ export default function CompetitionMatchesPage() {
 
     const date = new Date(value);
 
+    if (Number.isNaN(date.getTime())) return "Date invalide";
+
     return new Intl.DateTimeFormat("fr-FR", {
       day: "2-digit",
-      month: "long",
+      month: "short",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
@@ -364,6 +411,8 @@ export default function CompetitionMatchesPage() {
     if (!value) return "";
 
     const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return "";
 
     return new Intl.DateTimeFormat("fr-FR", {
       day: "2-digit",
@@ -385,22 +434,50 @@ export default function CompetitionMatchesPage() {
 
   function getStatusClass(status: string) {
     if (status === "completed") {
-      return "border-green-400/30 text-green-300";
+      return "border-green-400/40 bg-green-500/15 text-green-300";
     }
 
     if (status === "in_progress") {
-      return "border-orange-400/30 text-orange-300";
+      return "border-orange-400/40 bg-orange-500/15 text-orange-300";
     }
 
-    return "border-[#D9A441]/30 text-[#F2D27A]";
+    if (status === "scheduled") {
+      return "border-blue-400/40 bg-blue-500/15 text-blue-300";
+    }
+
+    return "border-[#D9A441]/30 bg-black/25 text-[#F2D27A]";
   }
 
   function getScoreStatusLabel(status: Match["score_status"]) {
-    if (status === "pending") return "En attente de validation";
+    if (status === "pending") return "À valider";
     if (status === "validated") return "Validé";
-    if (status === "refused") return "Refusé";
+    if (status === "refused" || status === "rejected") return "Refusé";
 
-    return "Aucun score proposé";
+    return "Aucun";
+  }
+
+  function getScoreStatusClass(status: Match["score_status"]) {
+    if (status === "pending") {
+      return "border-orange-400/40 bg-orange-500/15 text-orange-300";
+    }
+
+    if (status === "validated") {
+      return "border-green-400/40 bg-green-500/15 text-green-300";
+    }
+
+    if (status === "refused" || status === "rejected") {
+      return "border-red-400/40 bg-red-500/15 text-red-300";
+    }
+
+    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+  }
+
+  function getScoreLabel(match: Match) {
+    if (match.home_score !== null && match.away_score !== null) {
+      return `${match.home_score} - ${match.away_score}`;
+    }
+
+    return "VS";
   }
 
   function updateAdminScoreForm(
@@ -496,6 +573,7 @@ export default function CompetitionMatchesPage() {
 
     setSavingMatchId(null);
     setMessage(result.message || "Score enregistré ✅");
+    setOpenMatchId(null);
 
     await loadData();
   }
@@ -541,6 +619,7 @@ export default function CompetitionMatchesPage() {
 
     setSavingMatchId(null);
     setMessage(result.message || "Score réinitialisé ✅");
+    setOpenMatchId(null);
 
     await loadData();
   }
@@ -613,6 +692,7 @@ export default function CompetitionMatchesPage() {
 
     setSubmittingMatchId(null);
     setMessage(result.message || "Score proposé ✅");
+    setOpenMatchId(null);
 
     await loadData();
   }
@@ -657,6 +737,7 @@ export default function CompetitionMatchesPage() {
 
     setReviewingMatchId(null);
     setMessage(result.message || "Score traité ✅");
+    setOpenMatchId(null);
 
     await loadData();
   }
@@ -700,220 +781,330 @@ export default function CompetitionMatchesPage() {
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-6xl px-6 py-12">
-        <div className="mb-10">
-          <Link
-            href="/competitions"
-            className="mb-6 inline-flex rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-          >
-            ← Retour aux compétitions
-          </Link>
+      <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
+        <section className="rounded-[28px] border border-[#D9A441]/25 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-5 flex flex-wrap gap-3">
+                <Link
+                  href="/competitions"
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  ← Retour aux compétitions
+                </Link>
 
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-            Matchs de la compétition
-          </p>
+                <Link
+                  href={`/competitions/${competition.id}/classement`}
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  Classement
+                </Link>
+              </div>
 
-          <h1 className="text-4xl font-black md:text-5xl">
-            {competitionLabel}
-          </h1>
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
+                Matchs de la compétition
+              </p>
 
-          <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Consulte les rencontres, propose un score si tu participes au match,
-            et suis les résultats validés.
-          </p>
+              <h1 className="mt-3 text-4xl font-black text-[#F7E9C5] md:text-5xl">
+                {competitionLabel}
+              </h1>
 
-          {message && (
-            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
-              {message}
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#D8C7A0]">
+                Vue tableur des rencontres, résultats et actions de score.
+              </p>
             </div>
-          )}
 
-          {isAdmin && (
-            <div className="mt-4 rounded-xl border border-green-400/20 bg-green-950/20 p-4 text-sm text-green-300">
-              Mode admin actif : tu peux saisir directement les scores ou
-              valider les scores proposés par les membres.
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <SummaryTile label="Matchs" value={matches.length} />
+              <SummaryTile label="À venir" value={upcomingMatches.length} />
+              <SummaryTile label="Terminés" value={completedMatches.length} />
             </div>
-          )}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href={`/competitions/${competition.id}/inscription`}
-              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-            >
-              Inscription
-            </Link>
-
-            <Link
-              href={`/competitions/${competition.id}/classement`}
-              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-            >
-              Classement
-            </Link>
           </div>
-        </div>
+        </section>
 
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
-          <StatCard label="Matchs" value={matches.length} />
-          <StatCard label="À venir" value={upcomingMatches.length} />
-          <StatCard label="Terminés" value={completedMatches.length} />
-        </div>
+        {message && (
+          <div className="mt-6 rounded-2xl border border-[#D9A441]/30 bg-[#160A12] px-4 py-3 text-sm font-black text-[#F2D27A]">
+            {message}
+          </div>
+        )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-            <h2 className="text-2xl font-black">Matchs à venir</h2>
+        {isAdmin && (
+          <div className="mt-6 rounded-2xl border border-green-400/25 bg-green-950/20 px-4 py-3 text-sm font-semibold text-green-300">
+            Mode admin actif : utilise le bouton “Gérer” pour saisir, reset ou
+            valider un score.
+          </div>
+        )}
 
-            <div className="mt-5 space-y-4">
-              {upcomingMatches.length === 0 && (
-                <EmptyState text="Aucun match à venir pour cette compétition." />
-              )}
+        <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black text-[#F7E9C5]">
+                Liste des matchs
+              </h2>
 
-              {upcomingMatches.map((match) => (
-                <MatchCard
-                  key={match.id}
-                  match={match}
-                  homeLabel={getParticipantLabel({
-                    competitionPlayerId: match.home_competition_player_id,
-                    teamId: match.home_team_id,
-                  })}
-                  awayLabel={getParticipantLabel({
-                    competitionPlayerId: match.away_competition_player_id,
-                    teamId: match.away_team_id,
-                  })}
-                  dateLabel={formatDate(match.match_date)}
-                  statusLabel={getStatusLabel(match.status)}
-                  statusClass={getStatusClass(match.status)}
-                  scoreStatusLabel={getScoreStatusLabel(match.score_status)}
-                  submittedAtLabel={formatSubmittedAt(
-                    match.score_submitted_at
-                  )}
-                  isAdmin={isAdmin}
-                  canSubmitScore={
-                    match.status !== "completed" &&
-                    isCurrentUserParticipant(match)
-                  }
-                  canSeeSubmittedScore={
-                    isAdmin || isCurrentUserParticipant(match)
-                  }
-                  adminScoreForm={
-                    adminScoreForms[match.id] ?? { home: "", away: "" }
-                  }
-                  memberScoreForm={
-                    memberScoreForms[match.id] ?? { home: "", away: "" }
-                  }
-                  saving={savingMatchId === match.id}
-                  submitting={submittingMatchId === match.id}
-                  reviewing={reviewingMatchId === match.id}
-                  onAdminScoreChange={(field, value) =>
-                    updateAdminScoreForm(match.id, field, value)
-                  }
-                  onMemberScoreChange={(field, value) =>
-                    updateMemberScoreForm(match.id, field, value)
-                  }
-                  onSaveScore={() => saveScore(match)}
-                  onResetScore={() => resetScore(match)}
-                  onSubmitMemberScore={() => submitMemberScore(match)}
-                  onValidateSubmittedScore={() =>
-                    reviewSubmittedScore(match, "validate")
-                  }
-                  onRejectSubmittedScore={() =>
-                    reviewSubmittedScore(match, "reject")
-                  }
-                />
-              ))}
+              <p className="mt-2 text-sm text-[#D8C7A0]">
+                Affichage compact des matchs, scores et statuts.
+              </p>
             </div>
-          </section>
 
-          <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-            <h2 className="text-2xl font-black">Résultats</h2>
+            <div className="flex rounded-xl border border-[#D9A441]/25 bg-black p-1">
+              <FilterButton
+                active={matchFilter === "all"}
+                onClick={() => setMatchFilter("all")}
+              >
+                Tous ({matches.length})
+              </FilterButton>
 
-            <div className="mt-5 space-y-4">
-              {completedMatches.length === 0 && (
-                <EmptyState text="Aucun résultat pour cette compétition." />
-              )}
+              <FilterButton
+                active={matchFilter === "upcoming"}
+                onClick={() => setMatchFilter("upcoming")}
+              >
+                À venir ({upcomingMatches.length})
+              </FilterButton>
 
-              {completedMatches.map((match) => (
-                <MatchCard
-                  key={match.id}
-                  match={match}
-                  homeLabel={getParticipantLabel({
-                    competitionPlayerId: match.home_competition_player_id,
-                    teamId: match.home_team_id,
-                  })}
-                  awayLabel={getParticipantLabel({
-                    competitionPlayerId: match.away_competition_player_id,
-                    teamId: match.away_team_id,
-                  })}
-                  dateLabel={formatDate(match.match_date)}
-                  statusLabel={getStatusLabel(match.status)}
-                  statusClass={getStatusClass(match.status)}
-                  scoreStatusLabel={getScoreStatusLabel(match.score_status)}
-                  submittedAtLabel={formatSubmittedAt(
-                    match.score_submitted_at
-                  )}
-                  isAdmin={isAdmin}
-                  canSubmitScore={false}
-                  canSeeSubmittedScore={
-                    isAdmin || isCurrentUserParticipant(match)
-                  }
-                  adminScoreForm={
-                    adminScoreForms[match.id] ?? { home: "", away: "" }
-                  }
-                  memberScoreForm={
-                    memberScoreForms[match.id] ?? { home: "", away: "" }
-                  }
-                  saving={savingMatchId === match.id}
-                  submitting={submittingMatchId === match.id}
-                  reviewing={reviewingMatchId === match.id}
-                  onAdminScoreChange={(field, value) =>
-                    updateAdminScoreForm(match.id, field, value)
-                  }
-                  onMemberScoreChange={(field, value) =>
-                    updateMemberScoreForm(match.id, field, value)
-                  }
-                  onSaveScore={() => saveScore(match)}
-                  onResetScore={() => resetScore(match)}
-                  onSubmitMemberScore={() => submitMemberScore(match)}
-                  onValidateSubmittedScore={() =>
-                    reviewSubmittedScore(match, "validate")
-                  }
-                  onRejectSubmittedScore={() =>
-                    reviewSubmittedScore(match, "reject")
-                  }
-                />
-              ))}
+              <FilterButton
+                active={matchFilter === "completed"}
+                onClick={() => setMatchFilter("completed")}
+              >
+                Terminés ({completedMatches.length})
+              </FilterButton>
+
+              <FilterButton
+                active={matchFilter === "pending"}
+                onClick={() => setMatchFilter("pending")}
+              >
+                À valider ({pendingScoreMatches.length})
+              </FilterButton>
             </div>
-          </section>
-        </div>
+          </div>
+
+          {filteredMatches.length === 0 ? (
+            <EmptyState text="Aucun match pour ce filtre." />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/20">
+              <div className="max-h-[680px] overflow-y-auto">
+                <table className="w-full table-fixed border-collapse text-left text-sm">
+                  <colgroup>
+                    <col className="w-[15%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[9%]" />
+                  </colgroup>
+
+                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                    <tr>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Date
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Domicile
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                        Score
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Extérieur
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Statut
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Proposition
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredMatches.map((match) => {
+                      const home = getHomeLabel(match);
+                      const away = getAwayLabel(match);
+                      const canSubmit =
+                        match.status !== "completed" &&
+                        isCurrentUserParticipant(match);
+
+                      return (
+                        <tr
+                          key={match.id}
+                          className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
+                        >
+                          <td className="px-4 py-4 text-[#D8C7A0]">
+                            {formatDate(match.match_date)}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <p className="truncate font-black text-[#F7E9C5]">
+                              {home.title}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-[#8F7B5C]">
+                              {home.subtitle}
+                            </p>
+                          </td>
+
+                          <td className="px-4 py-4 text-center">
+                            <span className="inline-flex min-w-14 items-center justify-center rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-3 py-2 text-sm font-black text-[#F2D27A]">
+                              {getScoreLabel(match)}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <p className="truncate font-black text-[#F7E9C5]">
+                              {away.title}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-[#8F7B5C]">
+                              {away.subtitle}
+                            </p>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${getStatusClass(
+                                match.status
+                              )}`}
+                            >
+                              {getStatusLabel(match.status)}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${getScoreStatusClass(
+                                match.score_status
+                              )}`}
+                            >
+                              {getScoreStatusLabel(match.score_status)}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setOpenMatchId(match.id)}
+                              className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                            >
+                              {isAdmin ? "Gérer" : canSubmit ? "Proposer" : "Voir"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
       </section>
+
+      {openMatch && (
+        <MatchModal
+          match={openMatch}
+          homeLabel={getHomeLabel(openMatch)}
+          awayLabel={getAwayLabel(openMatch)}
+          dateLabel={formatDate(openMatch.match_date)}
+          scoreLabel={getScoreLabel(openMatch)}
+          statusLabel={getStatusLabel(openMatch.status)}
+          statusClass={getStatusClass(openMatch.status)}
+          scoreStatusLabel={getScoreStatusLabel(openMatch.score_status)}
+          scoreStatusClass={getScoreStatusClass(openMatch.score_status)}
+          submittedAtLabel={formatSubmittedAt(openMatch.score_submitted_at)}
+          isAdmin={isAdmin}
+          canSubmitScore={
+            openMatch.status !== "completed" &&
+            isCurrentUserParticipant(openMatch)
+          }
+          canSeeSubmittedScore={
+            isAdmin || isCurrentUserParticipant(openMatch)
+          }
+          adminScoreForm={
+            adminScoreForms[openMatch.id] ?? { home: "", away: "" }
+          }
+          memberScoreForm={
+            memberScoreForms[openMatch.id] ?? { home: "", away: "" }
+          }
+          saving={savingMatchId === openMatch.id}
+          submitting={submittingMatchId === openMatch.id}
+          reviewing={reviewingMatchId === openMatch.id}
+          onClose={() => setOpenMatchId(null)}
+          onAdminScoreChange={(field, value) =>
+            updateAdminScoreForm(openMatch.id, field, value)
+          }
+          onMemberScoreChange={(field, value) =>
+            updateMemberScoreForm(openMatch.id, field, value)
+          }
+          onSaveScore={() => saveScore(openMatch)}
+          onResetScore={() => resetScore(openMatch)}
+          onSubmitMemberScore={() => submitMemberScore(openMatch)}
+          onValidateSubmittedScore={() =>
+            reviewSubmittedScore(openMatch, "validate")
+          }
+          onRejectSubmittedScore={() =>
+            reviewSubmittedScore(openMatch, "reject")
+          }
+        />
+      )}
     </main>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-5 shadow-lg shadow-black/30">
-      <p className="text-sm text-[#8F7B5C]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#F2D27A]">{value}</p>
+    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-5 py-4">
+      <p className="text-2xl font-black text-[#F2D27A]">{value}</p>
+      <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+        {label}
+      </p>
     </div>
+  );
+}
+
+function FilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        active
+          ? "rounded-lg bg-[#F2C300] px-4 py-2 text-xs font-black text-black"
+          : "rounded-lg px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#160A12]"
+      }
+    >
+      {children}
+    </button>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+    <p className="rounded-xl border border-dashed border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
       {text}
     </p>
   );
 }
 
-function MatchCard({
+function MatchModal({
   match,
   homeLabel,
   awayLabel,
   dateLabel,
+  scoreLabel,
   statusLabel,
   statusClass,
   scoreStatusLabel,
+  scoreStatusClass,
   submittedAtLabel,
   isAdmin,
   canSubmitScore,
@@ -923,6 +1114,7 @@ function MatchCard({
   saving,
   submitting,
   reviewing,
+  onClose,
   onAdminScoreChange,
   onMemberScoreChange,
   onSaveScore,
@@ -932,12 +1124,14 @@ function MatchCard({
   onRejectSubmittedScore,
 }: {
   match: Match;
-  homeLabel: string;
-  awayLabel: string;
+  homeLabel: { title: string; subtitle: string };
+  awayLabel: { title: string; subtitle: string };
   dateLabel: string;
+  scoreLabel: string;
   statusLabel: string;
   statusClass: string;
   scoreStatusLabel: string;
+  scoreStatusClass: string;
   submittedAtLabel: string;
   isAdmin: boolean;
   canSubmitScore: boolean;
@@ -947,6 +1141,7 @@ function MatchCard({
   saving: boolean;
   submitting: boolean;
   reviewing: boolean;
+  onClose: () => void;
   onAdminScoreChange: (field: "home" | "away", value: string) => void;
   onMemberScoreChange: (field: "home" | "away", value: string) => void;
   onSaveScore: () => void;
@@ -955,8 +1150,6 @@ function MatchCard({
   onValidateSubmittedScore: () => void;
   onRejectSubmittedScore: () => void;
 }) {
-  const hasScore = match.home_score !== null && match.away_score !== null;
-
   const hasSubmittedScore =
     match.submitted_home_score !== null &&
     match.submitted_away_score !== null &&
@@ -965,183 +1158,230 @@ function MatchCard({
   const isPending = match.score_status === "pending";
 
   return (
-    <article className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[#8F7B5C]">{dateLabel}</p>
-
-        <span
-          className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}
-        >
-          {statusLabel}
-        </span>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
-        <p className="font-semibold text-[#F7E9C5]">{homeLabel}</p>
-
-        <div className="rounded-xl border border-[#D9A441]/25 bg-[#160A12] px-4 py-3 text-center">
-          {hasScore ? (
-            <p className="text-2xl font-black text-[#F2D27A]">
-              {match.home_score} - {match.away_score}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 py-8 backdrop-blur-sm">
+      <section className="max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-[28px] border border-[#D9A441]/40 bg-[#140711] shadow-2xl shadow-black/70">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#D9A441]/20 p-6">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.35em] text-[#F2D27A]">
+              Gestion du match
             </p>
-          ) : (
-            <p className="text-sm font-black uppercase tracking-widest text-[#F2D27A]">
-              VS
-            </p>
-          )}
+
+            <h2 className="mt-3 text-3xl font-black text-[#F7E9C5]">
+              {homeLabel.title} vs {awayLabel.title}
+            </h2>
+
+            <p className="mt-2 text-sm text-[#D8C7A0]">{dateLabel}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-[#D9A441]/35 px-4 py-2 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+          >
+            Fermer
+          </button>
         </div>
 
-        <p className="font-semibold text-[#F7E9C5] md:text-right">
-          {awayLabel}
-        </p>
-      </div>
+        <div className="max-h-[calc(92vh-120px)] overflow-y-auto p-6">
+          <div className="grid gap-5">
+            <section className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-5">
+              <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.25em] text-green-300">
+                    Domicile
+                  </p>
+                  <p className="mt-2 text-xl font-black text-[#F7E9C5]">
+                    {homeLabel.title}
+                  </p>
+                  <p className="mt-1 text-sm text-[#8F7B5C]">
+                    {homeLabel.subtitle}
+                  </p>
+                </div>
 
-      {canSeeSubmittedScore && hasSubmittedScore && (
-        <div className="mt-5 rounded-xl border border-orange-400/20 bg-orange-950/20 p-4">
-          <p className="text-sm font-semibold text-orange-300">
-            Score proposé : {match.submitted_home_score} -{" "}
-            {match.submitted_away_score}
-          </p>
+                <div className="rounded-2xl border border-[#D9A441]/30 bg-[#0B0610] px-8 py-5 text-center">
+                  <p className="text-3xl font-black text-[#F2D27A]">
+                    {scoreLabel}
+                  </p>
+                </div>
 
-          <p className="mt-1 text-xs text-[#D8C7A0]">
-            Statut : {scoreStatusLabel}
-            {submittedAtLabel ? ` · proposé le ${submittedAtLabel}` : ""}
-          </p>
+                <div className="md:text-right">
+                  <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-300">
+                    Extérieur
+                  </p>
+                  <p className="mt-2 text-xl font-black text-[#F7E9C5]">
+                    {awayLabel.title}
+                  </p>
+                  <p className="mt-1 text-sm text-[#8F7B5C]">
+                    {awayLabel.subtitle}
+                  </p>
+                </div>
+              </div>
 
-          {isAdmin && isPending && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                disabled={reviewing}
-                onClick={onValidateSubmittedScore}
-                className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {reviewing ? "..." : "Valider"}
-              </button>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wider ${statusClass}`}
+                >
+                  {statusLabel}
+                </span>
 
-              <button
-                type="button"
-                disabled={reviewing}
-                onClick={onRejectSubmittedScore}
-                className="rounded-lg border border-red-400/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Refuser
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wider ${scoreStatusClass}`}
+                >
+                  Score : {scoreStatusLabel}
+                </span>
+              </div>
+            </section>
 
-      {canSubmitScore && (
-        <div className="mt-5 rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
-          <p className="mb-3 text-sm font-semibold text-[#F2D27A]">
-            Proposer le score
-          </p>
+            {isAdmin && (
+              <section className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-5">
+                <h3 className="text-lg font-black text-[#F7E9C5]">
+                  Saisie score admin
+                </h3>
 
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
-                Score domicile
-              </label>
+                <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_auto_auto]">
+                  <label>
+                    <span className="mb-2 block text-xs font-black uppercase tracking-wider text-[#F2D27A]">
+                      Score domicile
+                    </span>
+                    <input
+                      inputMode="numeric"
+                      value={adminScoreForm.home}
+                      onChange={(event) =>
+                        onAdminScoreChange("home", event.target.value)
+                      }
+                      className="w-full rounded-xl border border-[#D9A441]/25 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none focus:border-[#D9A441]/70"
+                    />
+                  </label>
 
-              <input
-                value={memberScoreForm.home}
-                onChange={(event) =>
-                  onMemberScoreChange("home", event.target.value)
-                }
-                inputMode="numeric"
-                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                placeholder="0"
-              />
-            </div>
+                  <label>
+                    <span className="mb-2 block text-xs font-black uppercase tracking-wider text-[#F2D27A]">
+                      Score extérieur
+                    </span>
+                    <input
+                      inputMode="numeric"
+                      value={adminScoreForm.away}
+                      onChange={(event) =>
+                        onAdminScoreChange("away", event.target.value)
+                      }
+                      className="w-full rounded-xl border border-[#D9A441]/25 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none focus:border-[#D9A441]/70"
+                    />
+                  </label>
 
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
-                Score extérieur
-              </label>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={onSaveScore}
+                    className="self-end rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-black text-white transition hover:bg-[#8E171C] disabled:opacity-50"
+                  >
+                    {saving ? "..." : "Enregistrer"}
+                  </button>
 
-              <input
-                value={memberScoreForm.away}
-                onChange={(event) =>
-                  onMemberScoreChange("away", event.target.value)
-                }
-                inputMode="numeric"
-                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                placeholder="0"
-              />
-            </div>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={onResetScore}
+                    className="self-end rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610] disabled:opacity-50"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </section>
+            )}
 
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={onSubmitMemberScore}
-              className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? "..." : isPending ? "Modifier" : "Proposer"}
-            </button>
+            {canSubmitScore && (
+              <section className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-5">
+                <h3 className="text-lg font-black text-[#F7E9C5]">
+                  Proposer un score
+                </h3>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_auto]">
+                  <label>
+                    <span className="mb-2 block text-xs font-black uppercase tracking-wider text-[#F2D27A]">
+                      Score domicile
+                    </span>
+                    <input
+                      inputMode="numeric"
+                      value={memberScoreForm.home}
+                      onChange={(event) =>
+                        onMemberScoreChange("home", event.target.value)
+                      }
+                      className="w-full rounded-xl border border-[#D9A441]/25 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none focus:border-[#D9A441]/70"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-2 block text-xs font-black uppercase tracking-wider text-[#F2D27A]">
+                      Score extérieur
+                    </span>
+                    <input
+                      inputMode="numeric"
+                      value={memberScoreForm.away}
+                      onChange={(event) =>
+                        onMemberScoreChange("away", event.target.value)
+                      }
+                      className="w-full rounded-xl border border-[#D9A441]/25 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none focus:border-[#D9A441]/70"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={onSubmitMemberScore}
+                    className="self-end rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-black text-white transition hover:bg-[#8E171C] disabled:opacity-50"
+                  >
+                    {submitting ? "..." : "Proposer"}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {hasSubmittedScore && canSeeSubmittedScore && (
+              <section className="rounded-2xl border border-orange-400/25 bg-orange-950/10 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-orange-300">
+                      Score proposé
+                    </h3>
+
+                    <p className="mt-2 text-2xl font-black text-[#F7E9C5]">
+                      {match.submitted_home_score} -{" "}
+                      {match.submitted_away_score}
+                    </p>
+
+                    {submittedAtLabel && (
+                      <p className="mt-1 text-sm text-[#D8C7A0]">
+                        Proposé le {submittedAtLabel}
+                      </p>
+                    )}
+                  </div>
+
+                  {isAdmin && isPending && (
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        disabled={reviewing}
+                        onClick={onValidateSubmittedScore}
+                        className="rounded-xl bg-green-700 px-5 py-3 text-sm font-black text-white transition hover:bg-green-600 disabled:opacity-50"
+                      >
+                        Valider
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={reviewing}
+                        onClick={onRejectSubmittedScore}
+                        className="rounded-xl border border-red-400/40 bg-red-500/10 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                      >
+                        Refuser
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
         </div>
-      )}
-
-      {isAdmin && (
-        <div className="mt-5 rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
-          <p className="mb-3 text-sm font-semibold text-[#F2D27A]">
-            Saisie score admin
-          </p>
-
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
-                Score domicile
-              </label>
-
-              <input
-                value={adminScoreForm.home}
-                onChange={(event) =>
-                  onAdminScoreChange("home", event.target.value)
-                }
-                inputMode="numeric"
-                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                placeholder="0"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
-                Score extérieur
-              </label>
-
-              <input
-                value={adminScoreForm.away}
-                onChange={(event) =>
-                  onAdminScoreChange("away", event.target.value)
-                }
-                inputMode="numeric"
-                className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                placeholder="0"
-              />
-            </div>
-
-            <button
-              type="button"
-              disabled={saving}
-              onClick={onSaveScore}
-              className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? "..." : "Enregistrer"}
-            </button>
-
-            <button
-              type="button"
-              disabled={saving || !hasScore}
-              onClick={onResetScore}
-              className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-      )}
-    </article>
+      </section>
+    </div>
   );
 }
