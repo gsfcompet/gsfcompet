@@ -16,8 +16,8 @@ type Match = {
   away_competition_player_id: string | null;
 };
 
-function createPairKey(a: string, b: string) {
-  return [a, b].sort().join("__");
+function createDirectionalPairKey(homeId: string, awayId: string) {
+  return `${homeId}__${awayId}`;
 }
 
 export async function POST(
@@ -96,15 +96,15 @@ export async function POST(
 
     const existingMatches = (matchesResult.data ?? []) as Match[];
 
-    const existingPairKeys = new Set<string>();
+    const existingDirectionalPairKeys = new Set<string>();
 
     for (const match of existingMatches) {
       if (
         match.home_competition_player_id &&
         match.away_competition_player_id
       ) {
-        existingPairKeys.add(
-          createPairKey(
+        existingDirectionalPairKeys.add(
+          createDirectionalPairKey(
             match.home_competition_player_id,
             match.away_competition_player_id
           )
@@ -115,16 +115,18 @@ export async function POST(
     const matchesToCreate = [];
 
     for (let i = 0; i < registrations.length; i++) {
-      for (let j = i + 1; j < registrations.length; j++) {
+      for (let j = 0; j < registrations.length; j++) {
+        if (i === j) continue;
+
         const homeRegistration = registrations[i];
         const awayRegistration = registrations[j];
 
-        const pairKey = createPairKey(
+        const pairKey = createDirectionalPairKey(
           homeRegistration.id,
           awayRegistration.id
         );
 
-        if (existingPairKeys.has(pairKey)) continue;
+        if (existingDirectionalPairKeys.has(pairKey)) continue;
 
         matchesToCreate.push({
           competition_id: competitionId,
@@ -151,7 +153,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         created: 0,
-        message: "Tous les matchs existent déjà.",
+        message: "Tous les matchs aller-retour existent déjà.",
       });
     }
 
@@ -167,7 +169,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       created: matchesToCreate.length,
-      message: `${matchesToCreate.length} match(s) créé(s).`,
+      message: `${matchesToCreate.length} match(s) aller-retour créé(s).`,
     });
   } catch (error) {
     const message =

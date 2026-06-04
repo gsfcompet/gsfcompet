@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
 
   const redirectTo = searchParams.get("redirect") || "/membre";
 
@@ -32,7 +33,7 @@ function LoginContent() {
     }
 
     checkExistingSession();
-  }, [router, redirectTo]);
+  }, [router, redirectTo, supabase]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
