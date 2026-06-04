@@ -23,6 +23,8 @@ type Member = {
   numero_maillot: number | null;
   created_at?: string | null;
   player: Player | null;
+  banned_until: string | null;
+  is_disabled: boolean;
   registrations_count: number;
 };
 
@@ -77,6 +79,11 @@ export default function AdminMembersPage() {
   const [creating, setCreating] = useState(false);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editModalMemberId, setEditModalMemberId] = useState<string | null>(null);
+  const [actionMemberId, setActionMemberId] = useState<string | null>(null);
+  const [openActionsMemberId, setOpenActionsMemberId] = useState<string | null>(
+    null
+  );
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | MemberRole>("all");
@@ -159,6 +166,10 @@ export default function AdminMembersPage() {
 
   const adminCount = members.filter((member) => member.role === "admin").length;
   const memberCount = members.filter((member) => member.role === "member").length;
+
+  const editModalMember = useMemo(() => {
+    return members.find((member) => member.id === editModalMemberId) ?? null;
+  }, [members, editModalMemberId]);
 
   function updateCreateForm<K extends keyof CreateMemberForm>(
     key: K,
@@ -274,9 +285,113 @@ export default function AdminMembersPage() {
 
     setSavingMemberId(null);
     setEditingMemberId(null);
+    setEditModalMemberId(null);
     setMessage(result.message || "Membre modifié avec succès ✅");
 
     await loadMembers();
+  }
+
+  async function runSensitiveMemberAction(
+    member: Member,
+    action: "disable" | "enable" | "reset_password" | "delete",
+    payload: Record<string, unknown> = {}
+  ) {
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return false;
+    }
+
+    setActionMemberId(member.id);
+    setMessage("");
+
+    const response = await fetch("/api/admin/members", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action,
+        member_id: member.id,
+        ...payload,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setActionMemberId(null);
+      setMessage(result.error || "Erreur action membre.");
+      return false;
+    }
+
+    setActionMemberId(null);
+    setOpenActionsMemberId(null);
+    setMessage(result.message || "Action effectuée ✅");
+
+    await loadMembers();
+
+    return true;
+  }
+
+  async function disableMember(member: Member) {
+    const confirmed = window.confirm(
+      `Désactiver le compte de ${member.username || member.email} ? Il ne pourra plus se connecter.`
+    );
+
+    if (!confirmed) return;
+
+    await runSensitiveMemberAction(member, "disable");
+  }
+
+  async function enableMember(member: Member) {
+    const confirmed = window.confirm(
+      `Réactiver le compte de ${member.username || member.email} ?`
+    );
+
+    if (!confirmed) return;
+
+    await runSensitiveMemberAction(member, "enable");
+  }
+
+  async function resetMemberPassword(member: Member) {
+    const password = window.prompt(
+      `Nouveau mot de passe temporaire pour ${member.username || member.email} :`
+    );
+
+    if (password === null) return;
+
+    if (password.length < 6) {
+      setMessage("Le nouveau mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+
+    await runSensitiveMemberAction(member, "reset_password", {
+      password,
+    });
+  }
+
+  async function deleteMember(member: Member) {
+    const label = member.username || member.email || "ce membre";
+
+    const firstConfirm = window.confirm(
+      `Supprimer définitivement ${label} ? Cette action supprimera aussi sa fiche joueur, ses inscriptions et les matchs liés.`
+    );
+
+    if (!firstConfirm) return;
+
+    const typed = window.prompt(
+      `Pour confirmer la suppression définitive de ${label}, écris SUPPRIMER :`
+    );
+
+    if (typed !== "SUPPRIMER") {
+      setMessage('Suppression annulée. Tu dois écrire exactement "SUPPRIMER".');
+      return;
+    }
+
+    await runSensitiveMemberAction(member, "delete");
   }
 
   return (
@@ -500,12 +615,12 @@ export default function AdminMembersPage() {
                 <table className="w-full table-fixed border-collapse text-left text-sm">
                   <colgroup>
                     <col className="w-[23%]" />
-                    <col className="w-[11%]" />
-                    <col className="w-[13%]" />
-                    <col className="w-[20%]" />
-                    <col className="w-[13%]" />
                     <col className="w-[10%]" />
-                    <col className="w-[10%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[18%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[19%]" />
                   </colgroup>
 
                   <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-yellow-200">
@@ -553,7 +668,7 @@ export default function AdminMembersPage() {
                         return (
                           <tr
                             key={member.id}
-                            className="border-b border-yellow-900/25 align-top"
+                            className="border-b border-yellow-900/25 align-middle transition hover:bg-yellow-400/5"
                           >
                             <td className="px-4 py-4">
                               <p className="font-black text-yellow-100">
@@ -562,6 +677,12 @@ export default function AdminMembersPage() {
                               <p className="mt-1 truncate text-xs text-yellow-100/45">
                                 {member.email || "Email inconnu"}
                               </p>
+
+                              {member.is_disabled && (
+                                <span className="mt-2 inline-flex rounded-full border border-red-400/40 bg-red-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-red-300">
+                                  Désactivé
+                                </span>
+                              )}
                             </td>
 
                             <td className="px-4 py-4">
@@ -712,7 +833,7 @@ export default function AdminMembersPage() {
                             </td>
 
                             <td className="px-4 py-4 text-center">
-                              <span className="inline-flex rounded-full border border-yellow-500/30 bg-black/40 px-3 py-1 font-black text-yellow-200">
+                              <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-yellow-500/35 bg-black/40 px-2 text-sm font-black text-yellow-200 shadow-inner shadow-yellow-950/30">
                                 {member.registrations_count}
                               </span>
                             </td>
@@ -738,13 +859,94 @@ export default function AdminMembersPage() {
                                   </button>
                                 </div>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingMemberId(member.id)}
-                                  className="rounded-lg border border-yellow-700/30 px-4 py-2 text-xs font-black text-yellow-200 transition hover:bg-yellow-500/10"
-                                >
-                                  Modifier
-                                </button>
+                                <div className="relative flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditModalMemberId(member.id);
+                                      setOpenActionsMemberId(null);
+                                    }}
+                                    className="rounded-lg border border-yellow-700/35 bg-black/20 px-3 py-2 text-xs font-black text-yellow-200 transition hover:border-yellow-500/60 hover:bg-yellow-500/10"
+                                  >
+                                    Modifier
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    aria-label="Actions sensibles"
+                                    title="Actions sensibles"
+                                    onClick={() =>
+                                      setOpenActionsMemberId(
+                                        openActionsMemberId === member.id
+                                          ? null
+                                          : member.id
+                                      )
+                                    }
+                                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-yellow-700/35 bg-black/30 text-base font-black leading-none text-yellow-200 transition hover:border-yellow-500/60 hover:bg-yellow-500/10"
+                                  >
+                                    ⋯
+                                  </button>
+
+                                  {openActionsMemberId === member.id && (
+                                    <div className="absolute right-0 top-11 z-20 w-56 rounded-xl border border-yellow-700/30 bg-[#0B0610] p-2 shadow-2xl shadow-black/70">
+                                      <p className="px-3 pb-2 pt-1 text-[10px] font-black uppercase tracking-[0.2em] text-yellow-100/45">
+                                        Actions sensibles
+                                      </p>
+
+                                      {member.is_disabled ? (
+                                        <button
+                                          type="button"
+                                          disabled={actionMemberId === member.id}
+                                          onClick={() => enableMember(member)}
+                                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-black text-green-300 transition hover:bg-green-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          <span>
+                                            {actionMemberId === member.id
+                                              ? "Action..."
+                                              : "Réactiver"}
+                                          </span>
+                                          <span className="text-green-300/50">↻</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled={actionMemberId === member.id}
+                                          onClick={() => disableMember(member)}
+                                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-black text-orange-300 transition hover:bg-orange-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          <span>
+                                            {actionMemberId === member.id
+                                              ? "Action..."
+                                              : "Désactiver"}
+                                          </span>
+                                          <span className="text-orange-300/50">⏸</span>
+                                        </button>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        disabled={actionMemberId === member.id}
+                                        onClick={() => resetMemberPassword(member)}
+                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-black text-blue-300 transition hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        <span>Réinitialiser MDP</span>
+                                        <span className="text-blue-300/50">🔑</span>
+                                      </button>
+
+                                      <div className="my-2 border-t border-yellow-900/40" />
+
+                                      <button
+                                        type="button"
+                                        disabled={actionMemberId === member.id}
+                                        onClick={() => deleteMember(member)}
+                                        className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-black text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        <span>Supprimer</span>
+                                        <span className="text-red-300/50">✕</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -758,6 +960,225 @@ export default function AdminMembersPage() {
           )}
         </section>
       </section>
+
+      {editModalMember &&
+        (() => {
+          const form =
+            editForms[editModalMember.id] ?? memberToForm(editModalMember);
+          const isSaving = savingMemberId === editModalMember.id;
+
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 py-8 backdrop-blur-sm">
+              <section className="w-full max-w-4xl rounded-[28px] border border-yellow-700/40 bg-[#140711] p-6 shadow-2xl shadow-black/70">
+                <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.35em] text-yellow-400">
+                      Modification membre
+                    </p>
+
+                    <h2 className="mt-3 text-3xl font-black text-yellow-100">
+                      {editModalMember.username || editModalMember.email}
+                    </h2>
+
+                    <p className="mt-2 text-sm text-yellow-100/55">
+                      {editModalMember.email || "Email inconnu"}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditModalMemberId(null)}
+                    className="rounded-xl border border-yellow-700/35 px-4 py-2 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
+                  >
+                    Fermer
+                  </button>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-yellow-700/25 bg-black/25 p-5">
+                    <h3 className="mb-4 text-lg font-black text-yellow-100">
+                      Profil membre
+                    </h3>
+
+                    <div className="grid gap-4">
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/60">
+                          Pseudo membre
+                        </span>
+
+                        <input
+                          value={form.username}
+                          onChange={(event) =>
+                            updateEditForm(
+                              editModalMember.id,
+                              "username",
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                          placeholder="Pseudo membre"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/60">
+                          Rôle
+                        </span>
+
+                        <select
+                          value={form.role}
+                          onChange={(event) =>
+                            updateEditForm(
+                              editModalMember.id,
+                              "role",
+                              event.target.value as MemberRole
+                            )
+                          }
+                          className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                        >
+                          <option value="member">Membre</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      </label>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/60">
+                            Pays membre
+                          </span>
+
+                          <input
+                            value={form.pays}
+                            onChange={(event) =>
+                              updateEditForm(
+                                editModalMember.id,
+                                "pays",
+                                event.target.value
+                              )
+                            }
+                            className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                            placeholder="France"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/60">
+                            Numéro de maillot
+                          </span>
+
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            value={form.numero_maillot}
+                            onChange={(event) =>
+                              updateEditForm(
+                                editModalMember.id,
+                                "numero_maillot",
+                                event.target.value
+                              )
+                            }
+                            className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                            placeholder="0"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-yellow-700/25 bg-black/25 p-5">
+                    <h3 className="mb-4 text-lg font-black text-yellow-100">
+                      Fiche joueur
+                    </h3>
+
+                    <div className="grid gap-4">
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/60">
+                          Nom joueur
+                        </span>
+
+                        <input
+                          value={form.player_name}
+                          onChange={(event) =>
+                            updateEditForm(
+                              editModalMember.id,
+                              "player_name",
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                          placeholder="Nom joueur"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/60">
+                          Pseudo EA FC
+                        </span>
+
+                        <input
+                          value={form.ea_name}
+                          onChange={(event) =>
+                            updateEditForm(
+                              editModalMember.id,
+                              "ea_name",
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                          placeholder="Pseudo EA FC"
+                        />
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-yellow-100/60">
+                          Plateforme
+                        </span>
+
+                        <select
+                          value={form.platform}
+                          onChange={(event) =>
+                            updateEditForm(
+                              editModalMember.id,
+                              "platform",
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                        >
+                          <option value="PC">PC</option>
+                          <option value="PS5">PS5</option>
+                          <option value="Xbox Series">Xbox Series</option>
+                          <option value="Switch">Switch</option>
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-yellow-900/40 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setEditModalMemberId(null)}
+                    className="rounded-xl border border-yellow-700/35 px-5 py-3 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
+                  >
+                    Annuler
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => saveMember(editModalMember)}
+                    className="rounded-xl bg-red-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
+                  </button>
+                </div>
+              </section>
+            </div>
+          );
+        })()}
+
     </main>
   );
 }
