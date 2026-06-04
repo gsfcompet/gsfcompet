@@ -71,6 +71,8 @@ export default function CompetitionInscriptionPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  const isAdmin = profile?.role === "admin";
+
   async function loadData() {
     if (!competitionId) return;
 
@@ -197,6 +199,7 @@ export default function CompetitionInscriptionPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitionId]);
 
   const countries = useMemo(() => {
@@ -250,7 +253,7 @@ export default function CompetitionInscriptionPage() {
 
     if (competition.participant_type !== "players") {
       setMessage(
-        "Cette page est prévue pour les compétitions avec inscription joueur."
+        "Cette compétition est au format Teams esport. L’inscription est gérée par l’admin."
       );
       return;
     }
@@ -453,6 +456,16 @@ export default function CompetitionInscriptionPage() {
     return type;
   }
 
+  function getStatusLabel(status: string) {
+    if (status === "draft") return "Brouillon";
+    if (status === "planned") return "Planifiée";
+    if (status === "active") return "Active";
+    if (status === "completed") return "Terminée";
+    if (status === "archived") return "Archivée";
+
+    return status;
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -467,58 +480,20 @@ export default function CompetitionInscriptionPage() {
 
   if (!profile) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
-              Inscription compétition
-            </p>
-
-            <h1 className="text-3xl font-black">Connexion requise</h1>
-
-            <p className="mt-3 text-[#D8C7A0]">
-              Connecte-toi pour t’inscrire à cette compétition.
-            </p>
-
-            <div className="mt-6 flex justify-center gap-3">
-              <Link
-                href="/login"
-                className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
-              >
-                Se connecter
-              </Link>
-
-              <Link
-                href="/register"
-                className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
-              >
-                Créer un compte
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
+      <AccessRequiredCard
+        title="Connexion requise"
+        text="Connecte-toi pour accéder à l’inscription de cette compétition."
+      />
     );
   }
 
   if (!competition) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-        <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <h1 className="text-3xl font-black">Compétition introuvable</h1>
-
-            {message && <p className="mt-3 text-[#D8C7A0]">{message}</p>}
-
-            <Link
-              href="/competitions"
-              className="mt-6 inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
-            >
-              Retour aux compétitions
-            </Link>
-          </div>
-        </section>
-      </main>
+      <AccessRequiredCard
+        title="Compétition introuvable"
+        text={message || "Impossible de retrouver cette compétition."}
+        backOnly
+      />
     );
   }
 
@@ -526,300 +501,456 @@ export default function CompetitionInscriptionPage() {
     ? `${competition.name} · ${competition.season}`
     : competition.name;
 
+  const isTeamsCompetition = competition.participant_type === "teams";
+
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-5xl px-6 py-12">
-        <div className="mb-10">
-          <Link
-            href="/competitions"
-            className="mb-6 inline-flex rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-          >
-            ← Retour aux compétitions
-          </Link>
+      <section className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6">
+        <section className="rounded-[28px] border border-[#D9A441]/25 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-5 flex flex-wrap gap-3">
+                <Link
+                  href="/competitions"
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  ← Retour aux compétitions
+                </Link>
 
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+                <Link
+                  href={`/competitions/${competition.id}/matchs`}
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  Matchs
+                </Link>
+
+                <Link
+                  href={`/competitions/${competition.id}/classement`}
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                >
+                  Classement
+                </Link>
+              </div>
+
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
+                Inscription compétition
+              </p>
+
+              <h1 className="mt-3 text-4xl font-black text-[#F7E9C5] md:text-5xl">
+                {competitionLabel}
+              </h1>
+
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#D8C7A0]">
+                {isTeamsCompetition
+                  ? "Cette compétition est au format Teams esport. Les inscriptions sont gérées depuis l’administration."
+                  : "Choisis ton pays, ton championnat puis ton équipe EA FC pour participer."}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <SummaryTile
+                label="Format"
+                value={isTeamsCompetition ? "Teams" : "Joueurs"}
+              />
+              <SummaryTile label="Statut" value={getStatusLabel(competition.status)} />
+            </div>
+          </div>
+        </section>
+
+        {message && (
+          <div className="mt-6 rounded-2xl border border-[#D9A441]/30 bg-[#160A12] px-4 py-3 text-sm font-black text-[#F2D27A]">
+            {message}
+          </div>
+        )}
+
+        {isTeamsCompetition ? (
+          <TeamsCompetitionInfo
+            competition={competition}
+            isAdmin={isAdmin}
+            getCompetitionTypeLabel={getCompetitionTypeLabel}
+            getStatusLabel={getStatusLabel}
+          />
+        ) : (
+          <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+              <h2 className="text-2xl font-black text-[#F7E9C5]">
+                Mon inscription
+              </h2>
+
+              <form onSubmit={handleSubmit} className="mt-8 grid gap-5">
+                <FormInput
+                  label="Nom joueur"
+                  value={playerName}
+                  onChange={setPlayerName}
+                  placeholder="Ex : CeceII27II"
+                />
+
+                <FormInput
+                  label="Pseudo EA FC"
+                  value={eaName}
+                  onChange={setEaName}
+                  placeholder="Ex : Cece_GSF"
+                />
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                    Plateforme
+                  </label>
+
+                  <select
+                    value={platform}
+                    onChange={(event) => setPlatform(event.target.value)}
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  >
+                    <option value="">Choisir une plateforme</option>
+                    <option value="PS5">PS5</option>
+                    <option value="Xbox Series">Xbox Series</option>
+                    <option value="PC">PC</option>
+                    <option value="Switch">Switch</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                    Pays
+                  </label>
+
+                  <select
+                    value={selectedCountry}
+                    onChange={(event) => {
+                      setSelectedCountry(event.target.value);
+                      setSelectedLeague("");
+                      setSelectedEaTeamId("");
+                    }}
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  >
+                    <option value="">Choisir un pays</option>
+
+                    {countries.map((country) => (
+                      <option key={country} value={country}>
+                        {country}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                    Championnat
+                  </label>
+
+                  <select
+                    value={selectedLeague}
+                    disabled={!selectedCountry}
+                    onChange={(event) => {
+                      setSelectedLeague(event.target.value);
+                      setSelectedEaTeamId("");
+                    }}
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">
+                      {selectedCountry
+                        ? "Choisir un championnat"
+                        : "Choisis d’abord un pays"}
+                    </option>
+
+                    {leagues.map((league) => (
+                      <option key={league} value={league}>
+                        {league}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                    Équipe
+                  </label>
+
+                  <select
+                    value={selectedEaTeamId}
+                    disabled={!selectedCountry || !selectedLeague}
+                    onChange={(event) => setSelectedEaTeamId(event.target.value)}
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">
+                      {selectedCountry && selectedLeague
+                        ? "Choisir une équipe"
+                        : "Choisis d’abord un pays et un championnat"}
+                    </option>
+
+                    {filteredEaTeams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving
+                    ? "Enregistrement..."
+                    : registration
+                      ? "Modifier mon inscription"
+                      : "Valider mon inscription"}
+                </button>
+              </form>
+            </section>
+
+            <aside className="space-y-6">
+              <CompetitionDetailsCard
+                competition={competition}
+                getCompetitionTypeLabel={getCompetitionTypeLabel}
+                getStatusLabel={getStatusLabel}
+              />
+
+              <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+                <h2 className="text-2xl font-black text-[#F7E9C5]">
+                  Ton choix
+                </h2>
+
+                <InfoList
+                  items={[
+                    ["Joueur", playerName || "Non défini"],
+                    ["Pseudo EA", eaName || "Non défini"],
+                    ["Plateforme", platform || "Non définie"],
+                    ["Pays", selectedCountry || "Non choisi"],
+                    ["Championnat", selectedLeague || "Non choisi"],
+                    [
+                      "Équipe EA FC",
+                      selectedEaTeam ? selectedEaTeam.name : "Non choisie",
+                    ],
+                    [
+                      "Inscription",
+                      registration ? "Déjà enregistrée" : "Non enregistrée",
+                    ],
+                  ]}
+                />
+              </section>
+            </aside>
+          </section>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function AccessRequiredCard({
+  title,
+  text,
+  backOnly = false,
+}: {
+  title: string;
+  text: string;
+  backOnly?: boolean;
+}) {
+  return (
+    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
+        <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
             Inscription compétition
           </p>
 
-          <h1 className="text-4xl font-black md:text-5xl">
-            {competitionLabel}
-          </h1>
+          <h1 className="text-3xl font-black">{title}</h1>
 
-          <p className="mt-3 max-w-2xl text-[#D8C7A0]">
-            Choisis ton pays, ton championnat puis ton équipe EA FC. Les matchs
-            de la compétition seront générés automatiquement.
-          </p>
+          <p className="mt-3 text-[#D8C7A0]">{text}</p>
 
-          {message && (
-            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
-              {message}
-            </div>
-          )}
-
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-6 flex justify-center gap-3">
             <Link
-              href={`/competitions/${competition.id}/matchs`}
-              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+              href="/competitions"
+              className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
             >
-              Matchs
+              Retour compétitions
             </Link>
 
-            <Link
-              href={`/competitions/${competition.id}/classement`}
-              className="rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-            >
-              Classement
-            </Link>
+            {!backOnly && (
+              <>
+                <Link
+                  href="/login"
+                  className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
+                >
+                  Se connecter
+                </Link>
+
+                <Link
+                  href="/register"
+                  className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                >
+                  Créer un compte
+                </Link>
+              </>
+            )}
           </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-            <h2 className="text-2xl font-black text-[#F7E9C5]">
-              Mon inscription
-            </h2>
-
-            <form onSubmit={handleSubmit} className="mt-8 grid gap-5">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Nom joueur
-                </label>
-
-                <input
-                  value={playerName}
-                  onChange={(event) => setPlayerName(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
-                  placeholder="Ex : CeceII27II"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Pseudo EA FC
-                </label>
-
-                <input
-                  value={eaName}
-                  onChange={(event) => setEaName(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
-                  placeholder="Ex : Cece_GSF"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Plateforme
-                </label>
-
-                <select
-                  value={platform}
-                  onChange={(event) => setPlatform(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                >
-                  <option value="">Choisir une plateforme</option>
-                  <option value="PS5">PS5</option>
-                  <option value="Xbox Series">Xbox Series</option>
-                  <option value="PC">PC</option>
-                  <option value="Switch">Switch</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Pays
-                </label>
-
-                <select
-                  value={selectedCountry}
-                  onChange={(event) => {
-                    setSelectedCountry(event.target.value);
-                    setSelectedLeague("");
-                    setSelectedEaTeamId("");
-                  }}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                >
-                  <option value="">Choisir un pays</option>
-
-                  {countries.map((country) => (
-                    <option key={country} value={country}>
-                      {country}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Championnat
-                </label>
-
-                <select
-                  value={selectedLeague}
-                  disabled={!selectedCountry}
-                  onChange={(event) => {
-                    setSelectedLeague(event.target.value);
-                    setSelectedEaTeamId("");
-                  }}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="">
-                    {selectedCountry
-                      ? "Choisir un championnat"
-                      : "Choisis d’abord un pays"}
-                  </option>
-
-                  {leagues.map((league) => (
-                    <option key={league} value={league}>
-                      {league}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
-                  Équipe
-                </label>
-
-                <select
-                  value={selectedEaTeamId}
-                  disabled={!selectedCountry || !selectedLeague}
-                  onChange={(event) => setSelectedEaTeamId(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="">
-                    {selectedCountry && selectedLeague
-                      ? "Choisir une équipe"
-                      : "Choisis d’abord un pays et un championnat"}
-                  </option>
-
-                  {filteredEaTeams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                disabled={saving || competition.participant_type !== "players"}
-                className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving
-                  ? "Enregistrement..."
-                  : registration
-                    ? "Modifier mon inscription"
-                    : "Valider mon inscription"}
-              </button>
-            </form>
-          </section>
-
-          <aside className="space-y-6">
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Détails compétition
-              </h2>
-
-              <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
-                <p>
-                  Nom :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {competition.name}
-                  </span>
-                </p>
-
-                <p>
-                  Type :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {getCompetitionTypeLabel(competition.type)}
-                  </span>
-                </p>
-
-                <p>
-                  Saison :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {competition.season || "Non définie"}
-                  </span>
-                </p>
-
-                <p>
-                  Statut :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {competition.status}
-                  </span>
-                </p>
-
-                <p>
-                  Format :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {competition.participant_type === "players"
-                      ? "Joueurs"
-                      : "Équipes"}
-                  </span>
-                </p>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Ton choix
-              </h2>
-
-              <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
-                <p>
-                  Joueur :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {playerName || "Non défini"}
-                  </span>
-                </p>
-
-                <p>
-                  Pseudo EA :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {eaName || "Non défini"}
-                  </span>
-                </p>
-
-                <p>
-                  Plateforme :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {platform || "Non définie"}
-                  </span>
-                </p>
-
-                <p>
-                  Pays :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {selectedCountry || "Non choisi"}
-                  </span>
-                </p>
-
-                <p>
-                  Championnat :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {selectedLeague || "Non choisi"}
-                  </span>
-                </p>
-
-                <p>
-                  Équipe EA FC :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {selectedEaTeam ? selectedEaTeam.name : "Non choisie"}
-                  </span>
-                </p>
-
-                <p>
-                  Inscription :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
-                    {registration ? "Déjà enregistrée" : "Non enregistrée"}
-                  </span>
-                </p>
-              </div>
-            </section>
-          </aside>
         </div>
       </section>
     </main>
+  );
+}
+
+function TeamsCompetitionInfo({
+  competition,
+  isAdmin,
+  getCompetitionTypeLabel,
+  getStatusLabel,
+}: {
+  competition: Competition;
+  isAdmin: boolean;
+  getCompetitionTypeLabel: (type: string) => string;
+  getStatusLabel: (status: string) => string;
+}) {
+  return (
+    <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="rounded-[28px] border border-red-400/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+        <p className="inline-flex rounded-full border border-red-400/35 bg-red-500/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-red-300">
+          Format Teams esport
+        </p>
+
+        <h2 className="mt-5 text-3xl font-black text-[#F7E9C5]">
+          Inscription gérée par l’admin
+        </h2>
+
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-[#D8C7A0]">
+          Cette compétition n’accepte pas les inscriptions individuelles. Les
+          teams doivent être créées, composées puis inscrites depuis la gestion
+          admin des teams esport.
+        </p>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href={`/competitions/${competition.id}/matchs`}
+            className="rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+          >
+            Voir les matchs
+          </Link>
+
+          <Link
+            href={`/competitions/${competition.id}/classement`}
+            className="rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+          >
+            Voir le classement
+          </Link>
+
+          {isAdmin && (
+            <>
+              <Link
+                href="/admin/teams"
+                className="rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+              >
+                Gérer les teams
+              </Link>
+
+              <Link
+                href={`/admin/competitions/${competition.id}`}
+                className="rounded-xl border border-green-400/30 bg-green-500/10 px-5 py-3 text-sm font-black text-green-300 transition hover:bg-green-500/20"
+              >
+                Admin compétition
+              </Link>
+            </>
+          )}
+        </div>
+
+        {!isAdmin && (
+          <div className="mt-6 rounded-2xl border border-[#D9A441]/20 bg-black/25 p-4 text-sm text-[#D8C7A0]">
+            Tu veux inscrire une team ? Contacte un administrateur Guardian’s
+            Family pour rattacher ta team à cette compétition.
+          </div>
+        )}
+      </section>
+
+      <CompetitionDetailsCard
+        competition={competition}
+        getCompetitionTypeLabel={getCompetitionTypeLabel}
+        getStatusLabel={getStatusLabel}
+      />
+    </section>
+  );
+}
+
+function CompetitionDetailsCard({
+  competition,
+  getCompetitionTypeLabel,
+  getStatusLabel,
+}: {
+  competition: Competition;
+  getCompetitionTypeLabel: (type: string) => string;
+  getStatusLabel: (status: string) => string;
+}) {
+  return (
+    <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+      <h2 className="text-2xl font-black text-[#F7E9C5]">
+        Détails compétition
+      </h2>
+
+      <InfoList
+        items={[
+          ["Nom", competition.name],
+          ["Type", getCompetitionTypeLabel(competition.type)],
+          ["Saison", competition.season || "Non définie"],
+          ["Statut", getStatusLabel(competition.status)],
+          [
+            "Format",
+            competition.participant_type === "players"
+              ? "Joueurs EA FC"
+              : "Teams esport",
+          ],
+        ]}
+      />
+    </section>
+  );
+}
+
+function InfoList({ items }: { items: [string, string][] }) {
+  return (
+    <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
+      {items.map(([label, value]) => (
+        <p key={label}>
+          {label} :{" "}
+          <span className="font-semibold text-[#F2D27A]">{value}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function FormInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+        {label}
+      </label>
+
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-5 py-4">
+      <p className="text-xl font-black text-[#F2D27A]">{value}</p>
+      <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+        {label}
+      </p>
+    </div>
   );
 }
