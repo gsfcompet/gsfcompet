@@ -286,7 +286,64 @@ export default function AdminPage() {
             Crée, modifie et gère les compétitions du site.
           </p>
 
-          {message && (
+          {isAdmin && (
+          <div className="mb-8 grid gap-4 md:grid-cols-3">
+            <Link
+              href="/admin/membres"
+              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
+            >
+              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
+                Membres
+              </p>
+
+              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
+                Gestion des membres
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
+                Créer et modifier les membres, rôles, fiches joueur,
+                plateformes, pays et numéros de maillot.
+              </p>
+            </Link>
+
+            <Link
+              href="/admin"
+              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
+            >
+              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
+                Compétitions
+              </p>
+
+              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
+                Gestion des compétitions
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
+                Créer les compétitions, gérer les participants, matchs,
+                scores et programmations.
+              </p>
+            </Link>
+
+            <Link
+              href="/membre"
+              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
+            >
+              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
+                Vue membre
+              </p>
+
+              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
+                Espace membre
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
+                Vérifier la carte membre, les matchs à jouer et les résultats.
+              </p>
+            </Link>
+          </div>
+        )}
+
+        {message && (
             <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
               {message}
             </div>
