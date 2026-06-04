@@ -6,6 +6,9 @@ import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminCompetitionParticipantsManager from "@/components/AdminCompetitionParticipantsManager";
 import AdminMatchesScheduler from "@/components/AdminMatchesScheduler";
+import AdminCompetitionMatchesTable, {
+  type AdminCompetitionMatchTableRow,
+} from "@/components/AdminCompetitionMatchesTable";
 
 type Profile = {
   id: string;
@@ -65,6 +68,8 @@ type ScoreForm = {
   away: string;
 };
 
+type AdminMatchFilter = "all" | "planned" | "scheduled" | "completed" | "pending";
+
 export default function AdminCompetitionPage() {
   const params = useParams<{ id: string }>();
   const competitionId = params.id;
@@ -82,6 +87,8 @@ export default function AdminCompetitionPage() {
 
   const [scoreForms, setScoreForms] = useState<Record<string, ScoreForm>>({});
   const [dateForms, setDateForms] = useState<Record<string, string>>({});
+  const [matchFilter, setMatchFilter] = useState<AdminMatchFilter>("all");
+  const [openMatchId, setOpenMatchId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -105,9 +112,32 @@ export default function AdminCompetitionPage() {
     return matches.filter((match) => match.status !== "completed");
   }, [matches]);
 
+  const onlyPlannedMatches = useMemo(() => {
+    return matches.filter((match) => match.status === "planned");
+  }, [matches]);
+
+  const scheduledMatches = useMemo(() => {
+    return matches.filter((match) => match.status === "scheduled");
+  }, [matches]);
+
   const completedMatches = useMemo(() => {
     return matches.filter((match) => match.status === "completed");
   }, [matches]);
+
+  const filteredMatches = useMemo(() => {
+    if (matchFilter === "planned") return onlyPlannedMatches;
+    if (matchFilter === "scheduled") return scheduledMatches;
+    if (matchFilter === "completed") return completedMatches;
+    if (matchFilter === "pending") return pendingScoreMatches;
+    return matches;
+  }, [
+    matchFilter,
+    matches,
+    onlyPlannedMatches,
+    scheduledMatches,
+    completedMatches,
+    pendingScoreMatches,
+  ]);
 
   async function getAccessToken() {
     const sessionResult = await supabase.auth.getSession();
@@ -577,6 +607,190 @@ export default function AdminCompetitionPage() {
     await loadData();
   }
 
+  function getScoreStatusLabel(status: string | null) {
+    if (status === "pending") return "Attente";
+    if (status === "validated") return "Validé";
+    if (status === "refused") return "Refusé";
+    return "Aucun";
+  }
+
+  function getScoreStatusClass(status: string | null) {
+    if (status === "pending") {
+      return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
+    }
+
+    if (status === "validated") {
+      return "border-green-400/40 bg-green-500/15 text-green-300";
+    }
+
+    if (status === "refused") {
+      return "border-red-400/40 bg-red-500/15 text-red-300";
+    }
+
+    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+  }
+
+  const matchTableRows = useMemo<AdminCompetitionMatchTableRow[]>(() => {
+    return filteredMatches.map((match) => {
+      const home = getParticipantLabel(match.home_competition_player_id);
+      const away = getParticipantLabel(match.away_competition_player_id);
+
+      const hasScore = match.home_score !== null && match.away_score !== null;
+
+      const hasSubmittedScore =
+        match.submitted_home_score !== null &&
+        match.submitted_away_score !== null &&
+        match.score_status !== "validated";
+
+      const isPending = match.score_status === "pending";
+      const isOpen = openMatchId === match.id;
+      const isSavingScore = savingScoreMatchId === match.id;
+      const isResetting = resettingMatchId === match.id;
+      const isReviewing = reviewingMatchId === match.id;
+
+      return {
+        id: match.id,
+        dateLabel: formatDate(match.match_date),
+        homeTitle: home.title,
+        homeSubtitle: home.subtitle,
+        awayTitle: away.title,
+        awaySubtitle: away.subtitle,
+        scoreLabel: hasScore ? `${match.home_score} - ${match.away_score}` : "VS",
+        matchStatusLabel: getStatusLabel(match.status),
+        matchStatusClassName: getStatusClass(match.status),
+        scoreStatusLabel: getScoreStatusLabel(match.score_status),
+        scoreStatusClassName: getScoreStatusClass(match.score_status),
+        submittedScoreLabel: hasSubmittedScore
+          ? `${match.submitted_home_score} - ${match.submitted_away_score}`
+          : "-",
+        actionNode: (
+          <button
+            type="button"
+            onClick={() => setOpenMatchId(isOpen ? null : match.id)}
+            className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#160A12]"
+          >
+            {isOpen ? "Fermer" : "Gérer"}
+          </button>
+        ),
+        expandedNode: isOpen ? (
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
+              <p className="mb-3 text-sm font-black text-[#F2D27A]">
+                Saisie score admin
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                    {home.title}
+                  </label>
+
+                  <input
+                    value={scoreForms[match.id]?.home ?? ""}
+                    onChange={(event) =>
+                      updateScoreForm(match.id, "home", event.target.value)
+                    }
+                    inputMode="numeric"
+                    className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                    {away.title}
+                  </label>
+
+                  <input
+                    value={scoreForms[match.id]?.away ?? ""}
+                    onChange={(event) =>
+                      updateScoreForm(match.id, "away", event.target.value)
+                    }
+                    inputMode="numeric"
+                    className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    placeholder="0"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSavingScore}
+                  onClick={() => saveAdminScore(match)}
+                  className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingScore ? "..." : "Enregistrer"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isResetting || !hasScore}
+                  onClick={() => resetAdminScore(match)}
+                  className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {isResetting ? "..." : "Reset"}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-orange-400/20 bg-orange-950/20 p-4">
+              <p className="mb-3 text-sm font-black text-orange-300">
+                Score proposé membre
+              </p>
+
+              {hasSubmittedScore ? (
+                <>
+                  <p className="text-2xl font-black text-[#F2D27A]">
+                    {match.submitted_home_score} - {match.submitted_away_score}
+                  </p>
+
+                  {match.score_submitted_at && (
+                    <p className="mt-2 text-xs text-[#D8C7A0]">
+                      Envoyé le {formatSubmittedAt(match.score_submitted_at)}
+                    </p>
+                  )}
+
+                  {isPending && (
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        disabled={isReviewing}
+                        onClick={() => reviewScore(match, "validate")}
+                        className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isReviewing ? "..." : "Valider"}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isReviewing}
+                        onClick={() => reviewScore(match, "reject")}
+                        className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isReviewing ? "..." : "Refuser"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-[#D8C7A0]">
+                  Aucun score proposé pour ce match.
+                </p>
+              )}
+            </div>
+          </div>
+        ) : null,
+      };
+    });
+  }, [
+    filteredMatches,
+    openMatchId,
+    scoreForms,
+    savingScoreMatchId,
+    resettingMatchId,
+    reviewingMatchId,
+  ]);
+
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -731,222 +945,21 @@ export default function AdminCompetitionPage() {
           onChanged={loadData}
         />
 
-        <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
-                Matchs de la compétition
-              </h2>
-
-              <p className="mt-2 text-sm text-[#D8C7A0]">
-                Gestion des scores, reset et programmation des dates de match.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <MiniCounter label="À venir" value={plannedMatches.length} />
-              <MiniCounter label="Terminés" value={completedMatches.length} />
-            </div>
-          </div>
-
-          {matches.length === 0 ? (
-            <EmptyState text="Aucun match généré pour le moment." />
-          ) : (
-            <div className="space-y-4">
-              {matches.map((match) => {
-                const home = getParticipantLabel(
-                  match.home_competition_player_id
-                );
-                const away = getParticipantLabel(
-                  match.away_competition_player_id
-                );
-
-                const hasScore =
-                  match.home_score !== null && match.away_score !== null;
-
-                const hasSubmittedScore =
-                  match.submitted_home_score !== null &&
-                  match.submitted_away_score !== null &&
-                  match.score_status !== "validated";
-
-                const isSavingScore = savingScoreMatchId === match.id;
-                const isResetting = resettingMatchId === match.id;
-                const isSavingDate = savingDateMatchId === match.id;
-
-                return (
-                  <article
-                    key={match.id}
-                    className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4"
-                  >
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm text-[#8F7B5C]">
-                        {formatDate(match.match_date)}
-                      </p>
-
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClass(
-                          match.status
-                        )}`}
-                      >
-                        {getStatusLabel(match.status)}
-                      </span>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
-                      <div>
-                        <p className="font-black text-[#F7E9C5]">
-                          {home.title}
-                        </p>
-                        <p className="mt-1 text-sm text-[#8F7B5C]">
-                          {home.subtitle}
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl border border-[#D9A441]/25 bg-[#160A12] px-6 py-4 text-center">
-                        {hasScore ? (
-                          <p className="text-3xl font-black text-[#F2D27A]">
-                            {match.home_score} - {match.away_score}
-                          </p>
-                        ) : (
-                          <p className="text-sm font-black uppercase tracking-widest text-[#F2D27A]">
-                            VS
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="md:text-right">
-                        <p className="font-black text-[#F7E9C5]">
-                          {away.title}
-                        </p>
-                        <p className="mt-1 text-sm text-[#8F7B5C]">
-                          {away.subtitle}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr]">
-                      <div className="rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
-                        <p className="mb-3 text-sm font-semibold text-[#F2D27A]">
-                          Score admin
-                        </p>
-
-                        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
-                              Domicile
-                            </label>
-
-                            <input
-                              value={scoreForms[match.id]?.home ?? ""}
-                              onChange={(event) =>
-                                updateScoreForm(
-                                  match.id,
-                                  "home",
-                                  event.target.value
-                                )
-                              }
-                              inputMode="numeric"
-                              className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                              placeholder="0"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
-                              Extérieur
-                            </label>
-
-                            <input
-                              value={scoreForms[match.id]?.away ?? ""}
-                              onChange={(event) =>
-                                updateScoreForm(
-                                  match.id,
-                                  "away",
-                                  event.target.value
-                                )
-                              }
-                              inputMode="numeric"
-                              className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                              placeholder="0"
-                            />
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={isSavingScore}
-                            onClick={() => saveAdminScore(match)}
-                            className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isSavingScore ? "..." : "Enregistrer"}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isResetting || !hasScore}
-                            onClick={() => resetAdminScore(match)}
-                            className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610] disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {isResetting ? "..." : "Reset"}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
-                        <p className="mb-3 text-sm font-semibold text-[#F2D27A]">
-                          Programmation
-                        </p>
-
-                        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
-                              Date / heure
-                            </label>
-
-                            <input
-                              type="datetime-local"
-                              value={dateForms[match.id] ?? ""}
-                              onChange={(event) =>
-                                updateDateForm(match.id, event.target.value)
-                              }
-                              className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
-                            />
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={isSavingDate}
-                            onClick={() => saveMatchDate(match)}
-                            className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isSavingDate ? "..." : "Programmer"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {hasSubmittedScore && (
-                      <div className="mt-4 rounded-xl border border-orange-400/20 bg-orange-950/20 p-4">
-                        <p className="text-sm font-semibold text-orange-300">
-                          Score proposé : {match.submitted_home_score} -{" "}
-                          {match.submitted_away_score}
-                        </p>
-
-                        <p className="mt-1 text-xs text-[#D8C7A0]">
-                          Statut : {match.score_status || "none"}
-                          {match.score_submitted_at
-                            ? ` · proposé le ${formatSubmittedAt(
-                                match.score_submitted_at
-                              )}`
-                            : ""}
-                        </p>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        <AdminCompetitionMatchesTable
+          title="Matchs de la compétition"
+          description="Vue synthétique des matchs avec filtres et actions rapides."
+          filters={[
+            { key: "all", label: "Tous", count: matches.length },
+            { key: "planned", label: "À planifier", count: onlyPlannedMatches.length },
+            { key: "scheduled", label: "Programmés", count: scheduledMatches.length },
+            { key: "completed", label: "Terminés", count: completedMatches.length },
+            { key: "pending", label: "Scores à valider", count: pendingScoreMatches.length },
+          ]}
+          activeFilter={matchFilter}
+          onFilterChange={(nextFilter) => setMatchFilter(nextFilter as AdminMatchFilter)}
+          rows={matchTableRows}
+          emptyText="Aucun match pour ce filtre."
+        />
 
         <section className="mt-8 rounded-2xl border border-orange-400/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
