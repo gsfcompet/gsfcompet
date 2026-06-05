@@ -193,6 +193,7 @@ export default function HomePage() {
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [selectedGazette, setSelectedGazette] = useState<Gazette | null>(null);
 
   const isAdmin = profile?.role === "admin";
 
@@ -536,7 +537,7 @@ export default function HomePage() {
           <div className="mt-8 grid gap-8">
             <QuickAccessPanel isAdmin={isAdmin} />
 
-            <LatestGazetteCard gazette={latestGazette} />
+            <LatestGazetteCard gazette={latestGazette} onOpenPdf={setSelectedGazette} />
 
             <MatchActivityPanel
               latestResults={latestResults}
@@ -550,6 +551,59 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+        {selectedGazette && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-3 py-4 backdrop-blur-sm">
+            <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-[#D9A441]/30 bg-[#0B0610] shadow-2xl shadow-black">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D9A441]/20 bg-[#160A12] px-4 py-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-[#F2D27A]">
+                    Gazette PDF
+                  </p>
+
+                  <h2 className="mt-1 truncate text-xl font-black text-[#F7E9C5]">
+                    {selectedGazette.title}
+                  </h2>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={selectedGazette.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                  >
+                    Nouvel onglet
+                  </a>
+
+                  <a
+                    href={selectedGazette.file_url}
+                    download
+                    className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                  >
+                    Télécharger
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGazette(null)}
+                    className="rounded-lg bg-[#A61E22] px-4 py-2 text-xs font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 bg-black">
+                <iframe
+                  src={selectedGazette.file_url}
+                  title={selectedGazette.title}
+                  className="h-full w-full border-0"
+                />
+              </div>
+            </div>
+          </div>
+        )}
     </main>
   );
 }
@@ -676,7 +730,13 @@ function QuickAccessPanel({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
-function LatestGazetteCard({ gazette }: { gazette: Gazette | null }) {
+function LatestGazetteCard({
+  gazette,
+  onOpenPdf,
+}: {
+  gazette: Gazette | null;
+  onOpenPdf: (gazette: Gazette) => void;
+}) {
   return (
     <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
@@ -761,14 +821,13 @@ function LatestGazetteCard({ gazette }: { gazette: Gazette | null }) {
 
                 <td className="px-4 py-4 text-right">
                   <div className="flex flex-wrap justify-end gap-2">
-                    <a
-                      href={gazette.file_url}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => onOpenPdf(gazette)}
                       className="rounded-lg bg-[#A61E22] px-3 py-2 text-xs font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
                     >
                       Lire le PDF
-                    </a>
+                    </button>
 
                     <Link
                       href="/gazette"
