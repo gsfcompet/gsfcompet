@@ -198,10 +198,23 @@ export default function AdminPage() {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
     const payload = {
+      action: editingId ? "update" : "create",
+      competition_id: editingId,
       name: form.name.trim(),
       type: form.type,
       season: form.season.trim() || null,
@@ -209,34 +222,32 @@ export default function AdminPage() {
       participant_type: form.participant_type,
     };
 
-    if (editingId) {
-      const updateResult = await supabase
-        .from("competitions")
-        .update(payload)
-        .eq("id", editingId);
+    const response = await fetch("/api/admin/competitions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-      if (updateResult.error) {
-        setSaving(false);
-        setMessage(`Erreur modification : ${updateResult.error.message}`);
-        return;
-      }
+    const result = await response.json();
 
-      setMessage("Compétition modifiée ✅");
-    } else {
-      const insertResult = await supabase.from("competitions").insert(payload);
-
-      if (insertResult.error) {
-        setSaving(false);
-        setMessage(`Erreur création : ${insertResult.error.message}`);
-        return;
-      }
-
-      setMessage("Compétition créée ✅");
+    if (!response.ok) {
+      setSaving(false);
+      setMessage(
+        result.error ||
+          (editingId
+            ? "Erreur modification compétition."
+            : "Erreur création compétition.")
+      );
+      return;
     }
 
     setSaving(false);
     setEditingId(null);
     setForm(emptyForm);
+    setMessage(result.message || "Compétition enregistrée ✅");
 
     await loadData();
   }
@@ -253,22 +264,42 @@ export default function AdminPage() {
 
     if (!confirmed) return;
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setDeletingId(competition.id);
     setMessage("");
 
-    const deleteResult = await supabase
-      .from("competitions")
-      .delete()
-      .eq("id", competition.id);
+    const response = await fetch("/api/admin/competitions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "delete",
+        competition_id: competition.id,
+      }),
+    });
 
-    if (deleteResult.error) {
+    const result = await response.json();
+
+    if (!response.ok) {
       setDeletingId(null);
-      setMessage(`Erreur suppression : ${deleteResult.error.message}`);
+      setMessage(result.error || "Erreur suppression compétition.");
       return;
     }
 
     setDeletingId(null);
-    setMessage("Compétition supprimée ✅");
+    setMessage(result.message || "Compétition supprimée ✅");
 
     await loadData();
   }
