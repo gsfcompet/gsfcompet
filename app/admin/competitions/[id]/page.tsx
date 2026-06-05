@@ -8,9 +8,9 @@ import AdminCompetitionParticipantsManager from "@/components/AdminCompetitionPa
 import AdminCompetitionTeamsManager from "@/components/AdminCompetitionTeamsManager";
 import AdminMatchesScheduler from "@/components/AdminMatchesScheduler";
 import AdminCompetitionMatchesTable, {
-import { canManageCompetitions, canManageScores, canManageTeams, type AppRole } from "@/lib/roles";
   type AdminCompetitionMatchTableRow,
 } from "@/components/AdminCompetitionMatchesTable";
+import { canManageCompetitions, canManageScores, canManageTeams, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
