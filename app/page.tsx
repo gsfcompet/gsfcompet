@@ -52,6 +52,19 @@ type Team = {
   name: string;
 };
 
+type Gazette = {
+  id: string;
+  title: string;
+  description: string | null;
+  month: string | null;
+  year: number | null;
+  period_date: string | null;
+  file_url: string;
+  status: "draft" | "published" | "archived";
+  published_at: string | null;
+  created_at: string | null;
+};
+
 const homeHeroImage = "/banniere-gsf-v2.png";
 
 function getCompetitionTypeLabel(type: string) {
@@ -127,6 +140,44 @@ function formatFullDate(value: string | null | undefined) {
   }).format(date);
 }
 
+function formatShortDate(value: string | null | undefined) {
+  if (!value) return "Date non définie";
+
+  const datePart = value.split("T")[0];
+  const parts = datePart.split("-");
+
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${day}/${month}/${year.slice(-2)}`;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Date invalide";
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
+}
+
+function formatGazettePeriod(gazette: Gazette) {
+  if (gazette.period_date) {
+    return formatShortDate(gazette.period_date);
+  }
+
+  if (gazette.month && gazette.year) {
+    return `${gazette.month} ${gazette.year}`;
+  }
+
+  if (gazette.year) {
+    return String(gazette.year);
+  }
+
+  return "Période non définie";
+}
+
 export default function HomePage() {
   const supabase = useMemo(() => createClient(), []);
 
@@ -138,6 +189,7 @@ export default function HomePage() {
   >([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [gazettes, setGazettes] = useState<Gazette[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -188,6 +240,20 @@ export default function HomePage() {
 
     if (matchesResult.error) {
       setMessage(`Erreur matchs : ${matchesResult.error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    const gazettesResult = await supabase
+      .from("gazettes")
+      .select("*")
+      .in("status", ["published", "archived"])
+      .order("period_date", { ascending: false, nullsFirst: false })
+      .order("published_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+
+    if (gazettesResult.error) {
+      setMessage(`Erreur gazette : ${gazettesResult.error.message}`);
       setLoading(false);
       return;
     }
@@ -264,6 +330,7 @@ export default function HomePage() {
 
     setCompetitions(loadedCompetitions);
     setMatches(loadedMatches);
+    setGazettes((gazettesResult.data ?? []) as Gazette[]);
     setCompetitionPlayers(loadedCompetitionPlayers);
     setPlayers(loadedPlayers);
     setTeams(loadedTeams);
@@ -271,7 +338,9 @@ export default function HomePage() {
   }
 
   const competitionById = useMemo(() => {
-    return new Map(competitions.map((competition) => [competition.id, competition]));
+    return new Map(
+      competitions.map((competition) => [competition.id, competition])
+    );
   }, [competitions]);
 
   const registrationById = useMemo(() => {
@@ -291,6 +360,11 @@ export default function HomePage() {
   const upcomingMatches = useMemo(() => {
     return matches
       .filter((match) => match.status !== "completed")
+      .sort((a, b) => {
+        const aDate = a.match_date ? new Date(a.match_date).getTime() : Infinity;
+        const bDate = b.match_date ? new Date(b.match_date).getTime() : Infinity;
+        return aDate - bDate;
+      })
       .slice(0, 6);
   }, [matches]);
 
@@ -302,12 +376,21 @@ export default function HomePage() {
           match.home_score !== null &&
           match.away_score !== null
       )
+      .sort((a, b) => {
+        const aDate = a.match_date || a.created_at || "";
+        const bDate = b.match_date || b.created_at || "";
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      })
       .slice(0, 6);
   }, [matches]);
 
   const latestCompetitions = useMemo(() => {
     return competitions.slice(0, 6);
   }, [competitions]);
+
+  const latestGazette = useMemo(() => {
+    return gazettes[0] ?? null;
+  }, [gazettes]);
 
   const activeCompetitionsCount = competitions.filter(
     (competition) =>
@@ -431,7 +514,10 @@ export default function HomePage() {
               <SummaryTile label="Compétitions" value={competitions.length} />
               <SummaryTile label="Actives" value={activeCompetitionsCount} />
               <SummaryTile label="Teams esport" value={teamsCompetitionsCount} />
-              <SummaryTile label="Matchs terminés" value={completedMatchesCount} />
+              <SummaryTile
+                label="Matchs terminés"
+                value={completedMatchesCount}
+              />
             </div>
           </div>
         </section>
@@ -447,266 +533,583 @@ export default function HomePage() {
             Chargement du dashboard...
           </section>
         ) : (
-          <div className="mt-8 grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-            <div className="grid gap-8">
-              <DashboardTable
-                title="Prochaines rencontres"
-                description="Les matchs à venir ou à planifier."
-                count={upcomingMatches.length}
-                emptyText="Aucune rencontre à venir."
-              >
-                <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
-                  <tr>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3">
-                      Date
-                    </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3">
-                      Match
-                    </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3">
-                      Compétition
-                    </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
+          <div className="mt-8 grid gap-8">
+            <QuickAccessPanel isAdmin={isAdmin} />
 
-                <tbody>
-                  {upcomingMatches.map((match) => (
-                    <tr
-                      key={match.id}
-                      className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
-                    >
-                      <td className="px-4 py-4 text-[#D8C7A0]">
-                        {formatDate(match.match_date)}
-                      </td>
+            <LatestGazetteCard gazette={latestGazette} />
 
-                      <td className="px-4 py-4">
-                        <p className="truncate font-black text-[#F7E9C5]">
-                          {getHomeName(match)}
-                        </p>
-                        <p className="my-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#F2D27A]">
-                          vs
-                        </p>
-                        <p className="truncate font-black text-[#F7E9C5]">
-                          {getAwayName(match)}
-                        </p>
-                      </td>
+            <MatchActivityPanel
+              latestResults={latestResults}
+              upcomingMatches={upcomingMatches}
+              getHomeName={getHomeName}
+              getAwayName={getAwayName}
+              getCompetitionLabel={getCompetitionLabel}
+            />
 
-                      <td className="px-4 py-4 text-[#D8C7A0]">
-                        <p className="truncate">
-                          {getCompetitionLabel(match.competition_id)}
-                        </p>
-                      </td>
-
-                      <td className="px-4 py-4 text-right">
-                        <Link
-                          href={`/competitions/${match.competition_id}/matchs`}
-                          className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
-                        >
-                          Voir
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DashboardTable>
-
-              <DashboardTable
-                title="Derniers résultats"
-                description="Les matchs terminés récemment."
-                count={latestResults.length}
-                emptyText="Aucun résultat pour le moment."
-              >
-                <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
-                  <tr>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3">
-                      Match
-                    </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
-                      Score
-                    </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3">
-                      Compétition
-                    </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {latestResults.map((match) => (
-                    <tr
-                      key={match.id}
-                      className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
-                    >
-                      <td className="px-4 py-4">
-                        <p className="truncate font-black text-[#F7E9C5]">
-                          {getHomeName(match)}
-                        </p>
-                        <p className="my-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#F2D27A]">
-                          vs
-                        </p>
-                        <p className="truncate font-black text-[#F7E9C5]">
-                          {getAwayName(match)}
-                        </p>
-                      </td>
-
-                      <td className="px-4 py-4 text-center">
-                        <span className="inline-flex min-w-16 justify-center rounded-xl border border-[#D9A441]/30 bg-black/35 px-3 py-2 text-sm font-black text-[#F2D27A]">
-                          {match.home_score} - {match.away_score}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-4 text-[#D8C7A0]">
-                        <p className="truncate">
-                          {getCompetitionLabel(match.competition_id)}
-                        </p>
-                      </td>
-
-                      <td className="px-4 py-4 text-right">
-                        <Link
-                          href={`/competitions/${match.competition_id}/classement`}
-                          className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
-                        >
-                          Classement
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </DashboardTable>
-            </div>
-
-            <div className="grid gap-8">
-              <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
-                <h2 className="text-2xl font-black text-[#F7E9C5]">
-                  Accès rapide
-                </h2>
-
-                <div className="mt-5 grid gap-3">
-                  <QuickLink
-                    href="/competitions"
-                    title="Compétitions"
-                    text="Voir toutes les compétitions joueurs et teams esport."
-                  />
-
-                  <QuickLink
-                    href="/membre"
-                    title="Espace membre"
-                    text="Voir tes compétitions, tes matchs et proposer un score."
-                  />
-
-                  <QuickLink
-                    href="/equipes"
-                    title="Équipes & participants"
-                    text="Consulter les joueurs et teams inscrits."
-                  />
-
-                  {isAdmin && (
-                    <>
-                      <QuickLink
-                        href="/admin"
-                        title="Administration"
-                        text="Créer et gérer les compétitions."
-                      />
-
-                      <QuickLink
-                        href="/admin/teams"
-                        title="Teams esport"
-                        text="Créer les teams et les inscrire aux compétitions."
-                      />
-
-                      <QuickLink
-                        href="/admin/membres"
-                        title="Gestion membres"
-                        text="Modifier les rôles et gérer les comptes."
-                      />
-                    </>
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-[#F7E9C5]">
-                      Dernières compétitions
-                    </h2>
-
-                    <p className="mt-2 text-sm text-[#D8C7A0]">
-                      Les compétitions les plus récentes.
-                    </p>
-                  </div>
-
-                  <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/30 px-3 text-sm font-black text-[#F2D27A]">
-                    {latestCompetitions.length}
-                  </span>
-                </div>
-
-                <div className="grid gap-3">
-                  {latestCompetitions.length === 0 ? (
-                    <EmptyState text="Aucune compétition créée." />
-                  ) : (
-                    latestCompetitions.map((competition) => (
-                      <article
-                        key={competition.id}
-                        className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-4 transition hover:bg-[#D9A441]/5"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <h3 className="truncate text-lg font-black text-[#F7E9C5]">
-                              {competition.name}
-                            </h3>
-
-                            <p className="mt-1 text-sm text-[#D8C7A0]">
-                              {getCompetitionTypeLabel(competition.type)}
-                              {competition.season
-                                ? ` · ${competition.season}`
-                                : ""}
-                            </p>
-
-                            <p className="mt-1 text-xs text-[#8F7B5C]">
-                              Créée le {formatFullDate(competition.created_at)}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${getStatusClass(
-                              competition.status
-                            )}`}
-                          >
-                            {getStatusLabel(competition.status)}
-                          </span>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Link
-                            href={`/competitions/${competition.id}/matchs`}
-                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
-                          >
-                            Matchs
-                          </Link>
-
-                          <Link
-                            href={`/competitions/${competition.id}/classement`}
-                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
-                          >
-                            Classement
-                          </Link>
-                        </div>
-                      </article>
-                    ))
-                  )}
-                </div>
-              </section>
-            </div>
+            <LatestCompetitionsPanel competitions={latestCompetitions} />
           </div>
         )}
       </section>
     </main>
+  );
+}
+
+function QuickAccessPanel({ isAdmin }: { isAdmin: boolean }) {
+  return (
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-[#F2D27A]">
+            Navigation
+          </p>
+
+          <h2 className="mt-2 text-2xl font-black text-[#F7E9C5]">
+            Accès rapide
+          </h2>
+
+          <p className="mt-2 text-sm text-[#D8C7A0]">
+            Les raccourcis importants du site, organisés par usage.
+          </p>
+        </div>
+
+        <span className="rounded-full border border-[#D9A441]/30 bg-black/30 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#F2D27A]">
+          {isAdmin ? "Admin" : "Membre"}
+        </span>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <div className="rounded-2xl border border-[#D9A441]/15 bg-black/20 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-black uppercase tracking-[0.22em] text-[#F2D27A]">
+              Public
+            </h3>
+
+            <span className="rounded-full border border-[#D9A441]/25 px-3 py-1 text-[10px] font-black uppercase text-[#8F7B5C]">
+              Site
+            </span>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <QuickLink
+              href="/competitions"
+              badge="CP"
+              title="Compétitions"
+              text="Voir les compétitions joueurs et teams esport."
+              tone="gold"
+            />
+
+            <QuickLink
+              href="/membre"
+              badge="EM"
+              title="Espace membre"
+              text="Tes matchs, compétitions et propositions de score."
+              tone="red"
+            />
+
+            <QuickLink
+              href="/equipes"
+              badge="EQ"
+              title="Équipes"
+              text="Joueurs, participants et teams inscrites."
+              tone="gold"
+            />
+
+            <QuickLink
+              href="/gazette"
+              badge="GZ"
+              title="Gazette"
+              text="Lire la dernière gazette Guardian's Family."
+              tone="green"
+            />
+          </div>
+        </div>
+
+        {isAdmin && (
+          <div className="rounded-2xl border border-red-400/15 bg-red-950/10 p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-black uppercase tracking-[0.22em] text-red-300">
+                Administration
+              </h3>
+
+              <span className="rounded-full border border-red-400/25 px-3 py-1 text-[10px] font-black uppercase text-red-200">
+                Gestion
+              </span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <QuickLink
+                href="/admin"
+                badge="AD"
+                title="Admin"
+                text="Créer et gérer les compétitions."
+                tone="red"
+              />
+
+              <QuickLink
+                href="/admin/teams"
+                badge="TE"
+                title="Teams esport"
+                text="Créer les teams et gérer leurs inscriptions."
+                tone="blue"
+              />
+
+              <QuickLink
+                href="/admin/membres"
+                badge="MB"
+                title="Membres"
+                text="Modifier les rôles et gérer les comptes."
+                tone="green"
+              />
+
+              <QuickLink
+                href="/admin/gazette"
+                badge="PDF"
+                title="Gazette"
+                text="Publier, archiver ou supprimer les PDF."
+                tone="gold"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function LatestGazetteCard({ gazette }: { gazette: Gazette | null }) {
+  return (
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-[#F2D27A]">
+            Gazette
+          </p>
+
+          <h2 className="mt-2 text-2xl font-black text-[#F7E9C5]">
+            Dernière gazette
+          </h2>
+
+          <p className="mt-2 text-sm text-[#D8C7A0]">
+            Le dernier PDF Guardian&apos;s Family publié.
+          </p>
+        </div>
+
+        <Link
+          href="/gazette"
+          className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+        >
+          Toutes
+        </Link>
+      </div>
+
+      {!gazette ? (
+        <EmptyState text="Aucune gazette publiée pour le moment." />
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/20">
+          <table className="w-full table-fixed border-collapse text-left text-sm">
+            <colgroup>
+              <col className="w-[15%]" />
+              <col className="w-[43%]" />
+              <col className="w-[14%]" />
+              <col className="w-[28%]" />
+            </colgroup>
+
+            <thead className="bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+              <tr>
+                <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  Période
+                </th>
+
+                <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  Gazette
+                </th>
+
+                <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  Statut
+                </th>
+
+                <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                  Action
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr className="transition hover:bg-[#D9A441]/5">
+                <td className="px-4 py-4">
+                  <span className="inline-flex rounded-full border border-[#D9A441]/35 bg-[#D9A441]/10 px-3 py-1 text-xs font-black text-[#F2D27A]">
+                    {formatGazettePeriod(gazette)}
+                  </span>
+                </td>
+
+                <td className="px-4 py-4">
+                  <p className="truncate font-black text-[#F7E9C5]">
+                    {gazette.title}
+                  </p>
+
+                  <p className="mt-1 line-clamp-1 text-xs text-[#8F7B5C]">
+                    {gazette.description ||
+                      "Gazette Guardian's Family au format PDF."}
+                  </p>
+                </td>
+
+                <td className="px-4 py-4">
+                  <span className="inline-flex rounded-full border border-green-400/40 bg-green-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-300">
+                    Publiée
+                  </span>
+                </td>
+
+                <td className="px-4 py-4 text-right">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <a
+                      href={gazette.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg bg-[#A61E22] px-3 py-2 text-xs font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+                    >
+                      Lire le PDF
+                    </a>
+
+                    <Link
+                      href="/gazette"
+                      className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                    >
+                      Voir toutes
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MatchActivityPanel({
+  latestResults,
+  upcomingMatches,
+  getHomeName,
+  getAwayName,
+  getCompetitionLabel,
+}: {
+  latestResults: Match[];
+  upcomingMatches: Match[];
+  getHomeName: (match: Match) => string;
+  getAwayName: (match: Match) => string;
+  getCompetitionLabel: (competitionId: string) => string;
+}) {
+  return (
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.32em] text-[#F2D27A]">
+            Matchs
+          </p>
+
+          <h2 className="mt-2 text-2xl font-black text-[#F7E9C5]">
+            Activité des matchs
+          </h2>
+
+          <p className="mt-2 text-sm text-[#D8C7A0]">
+            Les derniers résultats validés et les prochaines rencontres à jouer.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <MiniCount label="Résultats" value={latestResults.length} />
+          <MiniCount label="À venir" value={upcomingMatches.length} />
+        </div>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-2xl border border-[#D9A441]/20 bg-black/20 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-black text-[#F7E9C5]">
+                Derniers résultats
+              </h3>
+
+              <p className="mt-1 text-xs text-[#8F7B5C]">
+                Les matchs terminés récemment.
+              </p>
+            </div>
+
+            <span className="flex h-9 min-w-9 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/35 px-3 text-sm font-black text-[#F2D27A]">
+              {latestResults.length}
+            </span>
+          </div>
+
+          {latestResults.length === 0 ? (
+            <EmptyState text="Aucun résultat pour le moment." />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/25">
+              <div className="max-h-[360px] overflow-y-auto">
+                <table className="w-full table-fixed border-collapse text-left text-sm">
+                  <colgroup>
+                    <col className="w-[40%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[29%]" />
+                    <col className="w-[16%]" />
+                  </colgroup>
+
+                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                    <tr>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Match
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                        Score
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Compétition
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {latestResults.map((match) => (
+                      <tr
+                        key={match.id}
+                        className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
+                      >
+                        <td className="px-4 py-4">
+                          <CompactMatchLabel
+                            home={getHomeName(match)}
+                            away={getAwayName(match)}
+                          />
+                        </td>
+
+                        <td className="px-4 py-4 text-center">
+                          <span className="inline-flex min-w-16 justify-center rounded-xl border border-green-400/35 bg-green-500/10 px-3 py-2 text-sm font-black text-green-300">
+                            {match.home_score} - {match.away_score}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <p className="truncate text-[#D8C7A0]">
+                            {getCompetitionLabel(match.competition_id)}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4 text-right">
+                          <Link
+                            href={`/competitions/${match.competition_id}/classement`}
+                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                          >
+                            Voir
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-[#D9A441]/20 bg-black/20 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-black text-[#F7E9C5]">
+                Prochaines rencontres
+              </h3>
+
+              <p className="mt-1 text-xs text-[#8F7B5C]">
+                Les matchs à venir ou à planifier.
+              </p>
+            </div>
+
+            <span className="flex h-9 min-w-9 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/35 px-3 text-sm font-black text-[#F2D27A]">
+              {upcomingMatches.length}
+            </span>
+          </div>
+
+          {upcomingMatches.length === 0 ? (
+            <EmptyState text="Aucune rencontre à venir." />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/25">
+              <div className="max-h-[360px] overflow-y-auto">
+                <table className="w-full table-fixed border-collapse text-left text-sm">
+                  <colgroup>
+                    <col className="w-[18%]" />
+                    <col className="w-[41%]" />
+                    <col className="w-[27%]" />
+                    <col className="w-[14%]" />
+                  </colgroup>
+
+                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                    <tr>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Date
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Match
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                        Compétition
+                      </th>
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {upcomingMatches.map((match) => (
+                      <tr
+                        key={match.id}
+                        className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
+                      >
+                        <td className="px-4 py-4 text-[#D8C7A0]">
+                          {formatDate(match.match_date)}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <CompactMatchLabel
+                            home={getHomeName(match)}
+                            away={getAwayName(match)}
+                          />
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <p className="truncate text-[#D8C7A0]">
+                            {getCompetitionLabel(match.competition_id)}
+                          </p>
+                        </td>
+
+                        <td className="px-4 py-4 text-right">
+                          <Link
+                            href={`/competitions/${match.competition_id}/matchs`}
+                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                          >
+                            Voir
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function CompactMatchLabel({ home, away }: { home: string; away: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <p className="min-w-0 flex-1 truncate font-black text-[#F7E9C5]">
+        {home}
+      </p>
+
+      <span className="shrink-0 rounded-lg border border-[#D9A441]/25 bg-[#0B0610] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#F2D27A]">
+        VS
+      </span>
+
+      <p className="min-w-0 flex-1 truncate font-black text-[#F7E9C5]">
+        {away}
+      </p>
+    </div>
+  );
+}
+
+function MiniCount({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-4 py-3 text-center">
+      <p className="text-xl font-black text-[#F2D27A]">{value}</p>
+      <p className="text-[10px] uppercase tracking-widest text-[#8F7B5C]">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function LatestCompetitionsPanel({
+  competitions,
+}: {
+  competitions: Competition[];
+}) {
+  return (
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-[#F7E9C5]">
+            Dernières compétitions
+          </h2>
+
+          <p className="mt-2 text-sm text-[#D8C7A0]">
+            Les compétitions les plus récentes.
+          </p>
+        </div>
+
+        <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/30 px-3 text-sm font-black text-[#F2D27A]">
+          {competitions.length}
+        </span>
+      </div>
+
+      {competitions.length === 0 ? (
+        <EmptyState text="Aucune compétition créée." />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {competitions.map((competition) => (
+            <article
+              key={competition.id}
+              className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-4 transition hover:bg-[#D9A441]/5"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="truncate text-lg font-black text-[#F7E9C5]">
+                    {competition.name}
+                  </h3>
+
+                  <p className="mt-1 text-sm text-[#D8C7A0]">
+                    {getCompetitionTypeLabel(competition.type)}
+                    {competition.season ? ` · ${competition.season}` : ""}
+                  </p>
+
+                  <p className="mt-1 text-xs text-[#8F7B5C]">
+                    Créée le {formatFullDate(competition.created_at)}
+                  </p>
+                </div>
+
+                <span
+                  className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${getStatusClass(
+                    competition.status
+                  )}`}
+                >
+                  {getStatusLabel(competition.status)}
+                </span>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href={`/competitions/${competition.id}/matchs`}
+                  className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                >
+                  Matchs
+                </Link>
+
+                <Link
+                  href={`/competitions/${competition.id}/classement`}
+                  className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                >
+                  Classement
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -772,20 +1175,47 @@ function EmptyState({ text }: { text: string }) {
 
 function QuickLink({
   href,
+  badge,
   title,
   text,
+  tone = "gold",
 }: {
   href: string;
+  badge: string;
   title: string;
   text: string;
+  tone?: "gold" | "red" | "green" | "blue";
 }) {
+  const toneClass =
+    tone === "red"
+      ? "border-red-400/35 bg-red-500/10 text-red-200"
+      : tone === "green"
+        ? "border-green-400/35 bg-green-500/10 text-green-200"
+        : tone === "blue"
+          ? "border-blue-400/35 bg-blue-500/10 text-blue-200"
+          : "border-[#D9A441]/35 bg-[#D9A441]/10 text-[#F2D27A]";
+
   return (
     <Link
       href={href}
-      className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-4 transition hover:border-[#D9A441]/45 hover:bg-[#D9A441]/5"
+      className="group rounded-2xl border border-[#D9A441]/20 bg-black/25 p-4 transition hover:border-[#D9A441]/50 hover:bg-[#D9A441]/5"
     >
-      <p className="font-black text-[#F7E9C5]">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-[#D8C7A0]">{text}</p>
+      <div className="flex items-start gap-4">
+        <span
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xs font-black uppercase tracking-wider transition group-hover:scale-105 ${toneClass}`}
+        >
+          {badge}
+        </span>
+
+        <div className="min-w-0">
+          <p className="truncate font-black text-[#F7E9C5]">{title}</p>
+
+          <p className="mt-1 line-clamp-2 text-sm leading-5 text-[#D8C7A0]">
+            {text}
+          </p>
+        </div>
+      </div>
     </Link>
   );
 }
+
