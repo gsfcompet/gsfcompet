@@ -468,13 +468,13 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#07000d]/95 via-[#12040d]/80 to-black/35" />
           <div className="absolute inset-0 bg-black/10" />
 
-          <div className="relative z-10 grid min-h-[420px] gap-8 p-6 lg:grid-cols-[1.05fr_0.95fr] lg:p-8 xl:min-h-[480px]">
+          <div className="relative z-10 grid gap-6 p-5 sm:p-6 lg:min-h-[420px] lg:grid-cols-[1.05fr_0.95fr] lg:p-8 xl:min-h-[480px]">
             <div className="flex flex-col justify-center">
               <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
                 Guardian&apos;s Family
               </p>
 
-              <h1 className="mt-4 max-w-2xl text-4xl font-black leading-tight text-[#F7E9C5] drop-shadow md:text-6xl">
+              <h1 className="mt-4 max-w-2xl text-3xl font-black leading-tight text-[#F7E9C5] drop-shadow sm:text-4xl md:text-6xl">
                 GSF Compet
               </h1>
 
@@ -484,7 +484,7 @@ export default function HomePage() {
                 l’administration.
               </p>
 
-              <div className="mt-7 flex flex-wrap gap-3">
+              <div className="mt-7 grid gap-3 sm:flex sm:flex-wrap">
                 <Link
                   href="/competitions"
                   className="rounded-xl bg-[#F2C300] px-5 py-3 text-sm font-black text-black shadow-lg shadow-yellow-950/30 transition hover:bg-yellow-300"
@@ -510,7 +510,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="grid content-center gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 content-center gap-3">
               <SummaryTile label="Compétitions" value={competitions.length} />
               <SummaryTile label="Actives" value={activeCompetitionsCount} />
               <SummaryTile label="Teams esport" value={teamsCompetitionsCount} />
@@ -1115,8 +1115,8 @@ function LatestCompetitionsPanel({
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-5 py-4 text-center">
-      <p className="text-2xl font-black text-[#F2D27A]">{value}</p>
+    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-3 py-3 text-center sm:px-5 sm:py-4">
+      <p className="text-xl font-black text-[#F2D27A] sm:text-2xl">{value}</p>
       <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
         {label}
       </p>
