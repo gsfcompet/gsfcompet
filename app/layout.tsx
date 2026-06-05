@@ -12,6 +12,7 @@ const navItems = [
   { label: "Accueil", href: "/" },
   { label: "Compétitions", href: "/competitions" },
   { label: "Équipes", href: "/equipes" },
+  { label: "Gazette", href: "/gazette" },
   { label: "Espace membre", href: "/membre" },
   { label: "Admin", href: "/admin" },
 ];
