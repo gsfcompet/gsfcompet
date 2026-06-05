@@ -296,6 +296,17 @@ export default function AdminGazettePage() {
       return;
     }
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
@@ -312,68 +323,49 @@ export default function AdminGazettePage() {
 
         filePath = uploaded.filePath;
         fileUrl = uploaded.fileUrl;
-
-        if (editingGazette?.file_path) {
-          await supabase.storage
-            .from("gazettes")
-            .remove([editingGazette.file_path]);
-        }
       }
 
-      const status = form.status;
+      const response = await fetch("/api/admin/gazettes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: editingGazette ? "update" : "create",
+          id: editingGazette?.id,
+          title: form.title.trim(),
+          description: form.description.trim() || null,
+          periodDate: form.periodDate,
+          status: form.status,
+          fileUrl,
+          filePath,
+        }),
+      });
 
-      const publishedAt =
-        status === "published"
-          ? editingGazette?.published_at || new Date().toISOString()
-          : editingGazette?.published_at || null;
+      const result = await response.json();
 
-      const payload = {
-        title: form.title.trim(),
-        description: form.description.trim() || null,
-        month: getMonthNameFromPeriodDate(form.periodDate),
-        year: getYearFromPeriodDate(form.periodDate),
-        period_date: form.periodDate,
-        status,
-        file_url: fileUrl,
-        file_path: filePath,
-        published_at: publishedAt,
-      };
-
-      if (editingGazette) {
-        const updateResult = await supabase
-          .from("gazettes")
-          .update(payload)
-          .eq("id", editingGazette.id);
-
-        if (updateResult.error) {
-          throw new Error(updateResult.error.message);
-        }
-
-        setMessage("Gazette modifiée ✅");
-      } else {
-        const insertResult = await supabase.from("gazettes").insert(payload);
-
-        if (insertResult.error) {
-          throw new Error(insertResult.error.message);
-        }
-
-        setMessage("Gazette ajoutée ✅");
+      if (!response.ok) {
+        setSaving(false);
+        setMessage(result.error || "Erreur enregistrement gazette.");
+        return;
       }
 
+      setSaving(false);
       setForm(emptyForm);
       setSelectedFile(null);
       setEditingGazette(null);
+      setMessage(result.message || "Gazette enregistrée ✅");
 
       await loadData();
     } catch (error) {
+      setSaving(false);
       setMessage(
         error instanceof Error
           ? `Erreur : ${error.message}`
           : "Erreur inconnue."
       );
     }
-
-    setSaving(false);
   }
 
   async function updateStatus(gazette: Gazette, status: GazetteStatus) {
@@ -382,23 +374,38 @@ export default function AdminGazettePage() {
       return;
     }
 
-    const updateResult = await supabase
-      .from("gazettes")
-      .update({
-        status,
-        published_at:
-          status === "published"
-            ? gazette.published_at || new Date().toISOString()
-            : gazette.published_at,
-      })
-      .eq("id", gazette.id);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (updateResult.error) {
-      setMessage(`Erreur statut : ${updateResult.error.message}`);
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
       return;
     }
 
-    setMessage("Statut modifié ✅");
+    const response = await fetch("/api/admin/gazettes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "status",
+        id: gazette.id,
+        status,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setMessage(result.error || "Erreur statut gazette.");
+      return;
+    }
+
+    setMessage(result.message || "Statut modifié ✅");
     await loadData();
   }
 
@@ -414,26 +421,42 @@ export default function AdminGazettePage() {
 
     if (!confirmed) return;
 
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
     setDeletingId(gazette.id);
     setMessage("");
 
-    if (gazette.file_path) {
-      await supabase.storage.from("gazettes").remove([gazette.file_path]);
-    }
+    const response = await fetch("/api/admin/gazettes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        action: "delete",
+        id: gazette.id,
+      }),
+    });
 
-    const deleteResult = await supabase
-      .from("gazettes")
-      .delete()
-      .eq("id", gazette.id);
+    const result = await response.json();
 
-    if (deleteResult.error) {
+    if (!response.ok) {
       setDeletingId(null);
-      setMessage(`Erreur suppression : ${deleteResult.error.message}`);
+      setMessage(result.error || "Erreur suppression gazette.");
       return;
     }
 
     setDeletingId(null);
-    setMessage("Gazette supprimée ✅");
+    setMessage(result.message || "Gazette supprimée ✅");
 
     await loadData();
   }
