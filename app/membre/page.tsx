@@ -608,10 +608,7 @@ export default function MembrePage() {
 
     return {
       pseudo: cardPseudo,
-      role:
-        profile?.role?.toLowerCase() === "admin"
-          ? "ADMIN"
-          : profile?.role?.toUpperCase() || "MEMBRE",
+      role: profile?.role || "member",
       note: profile?.numero_maillot ?? 0,
       numero_maillot: profile?.numero_maillot ?? 0,
       numeroMaillot: profile?.numero_maillot ?? 0,
