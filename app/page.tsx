@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { canAccessAdminModule, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
-  role: "member" | "admin";
+  role: AppRole;
   username: string | null;
 };
 
@@ -195,7 +196,7 @@ export default function HomePage() {
   const [message, setMessage] = useState("");
   const [selectedGazette, setSelectedGazette] = useState<Gazette | null>(null);
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = canAccessAdminModule(profile?.role, "admin");
 
   useEffect(() => {
     loadData();

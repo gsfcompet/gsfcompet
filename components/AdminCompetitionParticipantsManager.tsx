@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { canManageTeams, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
   email: string | null;
   username: string | null;
-  role: "member" | "admin";
+  role: AppRole;
   pays?: string | null;
 };
 

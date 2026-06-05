@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canManageMembers, canManageRoles, normalizeRole, type AppRole } from "@/lib/roles";
 
-type MemberRole = "member" | "admin";
+type MemberRole = "owner" | "admin" | "manager" | "moderator" | "member";
 
 type MemberBody = {
   action?: "create" | "update";
@@ -26,7 +27,9 @@ function cleanText(value: unknown) {
 }
 
 function cleanRole(value: unknown): MemberRole {
-  return value === "admin" ? "admin" : "member";
+  if (typeof value !== "string") return "member";
+
+  return normalizeRole(value);
 }
 
 function cleanNumber(value: unknown) {
@@ -82,7 +85,7 @@ async function requireAdmin(request: Request) {
     };
   }
 
-  if (profileResult.data.role !== "admin") {
+  if (!canManageMembers(profileResult.data.role)) {
     return {
       ok: false as const,
       status: 403,
@@ -94,6 +97,7 @@ async function requireAdmin(request: Request) {
   return {
     ok: true as const,
     supabase,
+    profile: profileResult.data,
   };
 }
 
@@ -216,6 +220,13 @@ export async function POST(request: Request) {
     const cleanPlatform = cleanText(body.platform);
     const cleanNumeroMaillot = cleanNumber(body.numero_maillot);
     const cleanMemberRole = cleanRole(body.role);
+
+    if (cleanMemberRole === "owner" && !canManageRoles(auth.profile.role)) {
+      return NextResponse.json(
+        { error: "Seul un owner peut attribuer le rôle owner." },
+        { status: 403 }
+      );
+    }
 
     if (action === "create") {
       const cleanEmail = cleanText(body.email)?.toLowerCase();

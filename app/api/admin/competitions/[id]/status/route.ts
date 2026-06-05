@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { canManageCompetitions } from "@/lib/roles";
 
 const allowedStatuses = ["draft", "planned", "active", "completed", "archived"];
 
@@ -74,7 +75,7 @@ export async function PATCH(
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profileResult.error || profileResult.data?.role !== "admin") {
+  if (profileResult.error || !canManageCompetitions(profileResult.data?.role)) {
     return NextResponse.json(
       { error: "Action réservée aux admins." },
       { status: 403 }

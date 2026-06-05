@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AvatarUploader from "@/components/AvatarUploader";
 import { createClient } from "@/lib/supabase/client";
+import { roleLabels, normalizeRole, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
   email: string;
   username: string | null;
   pays: string | null;
-  role: "member" | "admin";
+  role: AppRole;
   avatar_url: string | null;
   avatar_path: string | null;
   numero_maillot: number | null;
@@ -453,7 +454,7 @@ export default function MemberProfilePage() {
                 <p>
                   Rôle :{" "}
                   <span className="font-semibold text-[#F2D27A]">
-                    {profile.role === "admin" ? "Admin" : "Membre"}
+                    {roleLabels[normalizeRole(profile.role)]}
                   </span>
                 </p>
 

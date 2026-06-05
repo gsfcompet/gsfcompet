@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { canManageScores, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
-  role: "member" | "admin";
+  role: AppRole;
 };
 
 type Competition = {
@@ -104,7 +105,7 @@ export default function CompetitionMatchesPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = canManageScores(profile?.role);
 
   async function getAccessToken() {
     const sessionResult = await supabase.auth.getSession();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canManageCompetitions } from "@/lib/roles";
 
 type Competition = {
   id: string;
@@ -71,7 +72,7 @@ async function requireAdmin(request: Request) {
     };
   }
 
-  if (profileResult.data.role !== "admin") {
+  if (!canManageCompetitions(profileResult.data.role)) {
     return {
       ok: false as const,
       status: 403,

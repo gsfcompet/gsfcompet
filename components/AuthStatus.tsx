@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { roleLabels, normalizeRole, type AppRole } from "@/lib/roles";
 
 type Profile = {
   username: string | null;
   email: string;
-  role: "member" | "admin";
+  role: AppRole;
 };
 
 export default function AuthStatus() {
@@ -121,7 +122,7 @@ export default function AuthStatus() {
         </p>
 
         <p className="text-[#8F7B5C]">
-          {profile.role === "admin" ? "Admin" : "Membre"}
+          {roleLabels[normalizeRole(profile.role)]}
         </p>
       </div>
 

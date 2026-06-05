@@ -5,12 +5,13 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { canManageTeams, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
   email: string;
   username: string | null;
-  role: "member" | "admin";
+  role: AppRole;
 };
 
 type Player = {
@@ -71,7 +72,7 @@ export default function CompetitionInscriptionPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = canManageTeams(profile?.role);
 
   async function loadData() {
     if (!competitionId) return;

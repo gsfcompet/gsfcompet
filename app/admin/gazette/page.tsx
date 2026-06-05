@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { canManageGazette, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
-  role: "member" | "admin";
+  role: AppRole;
 };
 
 type GazetteStatus = "draft" | "published" | "archived";
@@ -149,7 +150,7 @@ export default function AdminGazettePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = canManageGazette(profile?.role);
 
   useEffect(() => {
     loadData();
@@ -186,7 +187,7 @@ export default function AdminGazettePage() {
     const loadedProfile = profileResult.data as Profile;
     setProfile(loadedProfile);
 
-    if (loadedProfile.role !== "admin") {
+    if (!canManageGazette(loadedProfile.role)) {
       setLoading(false);
       return;
     }

@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { canManageRoles, normalizeRole, roleLabels, roleOptions, type AppRole } from "@/lib/roles";
 
-type MemberRole = "member" | "admin";
+type MemberRole = AppRole;
+type RoleFilter = "all" | AppRole;
 
 type Player = {
   id: string;
@@ -68,6 +70,8 @@ function memberToForm(member: Member): MemberForm {
 }
 
 export default function AdminMembersPage() {
+  const currentUserRole = "owner";
+
   const supabase = useMemo(() => createClient(), []);
 
   const [members, setMembers] = useState<Member[]>([]);
@@ -86,7 +90,7 @@ export default function AdminMembersPage() {
   );
 
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | MemberRole>("all");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -164,7 +168,9 @@ export default function AdminMembersPage() {
     });
   }, [members, roleFilter, search]);
 
-  const adminCount = members.filter((member) => member.role === "admin").length;
+  const adminCount = members.filter((member) =>
+    ["owner", "admin", "manager", "moderator"].includes(normalizeRole(member.role))
+  ).length;
   const memberCount = members.filter((member) => member.role === "member").length;
 
   const editModalMember = useMemo(() => {
@@ -502,12 +508,23 @@ export default function AdminMembersPage() {
             <select
               value={createForm.role}
               onChange={(event) =>
-                updateCreateForm("role", event.target.value as MemberRole)
+                updateCreateForm("role", event.target.value as AppRole)
               }
               className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
             >
-              <option value="member">Membre</option>
-              <option value="admin">Admin</option>
+              {roleOptions
+                .filter((option) => {
+                  if (option.value === "owner") {
+                    return canManageRoles(currentUserRole);
+                  }
+
+                  return true;
+                })
+                .map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
             </select>
 
             <input
@@ -594,13 +611,25 @@ export default function AdminMembersPage() {
               <select
                 value={roleFilter}
                 onChange={(event) =>
-                  setRoleFilter(event.target.value as "all" | MemberRole)
+                  setRoleFilter(event.target.value as RoleFilter)
                 }
                 className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
               >
                 <option value="all">Tous les rôles</option>
-                <option value="admin">Admins</option>
-                <option value="member">Membres</option>
+
+                {roleOptions
+                  .filter((option) => {
+                    if (option.value === "owner") {
+                      return canManageRoles(currentUserRole);
+                    }
+
+                    return true;
+                  })
+                  .map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>
@@ -693,23 +722,34 @@ export default function AdminMembersPage() {
                                     updateEditForm(
                                       member.id,
                                       "role",
-                                      event.target.value as MemberRole
+                                      event.target.value as AppRole
                                     )
                                   }
                                   className="w-full rounded-lg border border-yellow-700/30 bg-black px-3 py-2 text-yellow-100"
                                 >
-                                  <option value="member">Membre</option>
-                                  <option value="admin">Admin</option>
+                                  {roleOptions
+                                    .filter((option) => {
+                                      if (option.value === "owner") {
+                                        return canManageRoles(currentUserRole);
+                                      }
+
+                                      return true;
+                                    })
+                                    .map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
                                 </select>
                               ) : (
                                 <span
                                   className={
-                                    member.role === "admin"
+                                    normalizeRole(member.role) !== "member"
                                       ? "rounded-full border border-green-400/40 bg-green-500/15 px-3 py-1 text-xs font-black uppercase text-green-300"
                                       : "rounded-full border border-blue-400/40 bg-blue-500/15 px-3 py-1 text-xs font-black uppercase text-blue-300"
                                   }
                                 >
-                                  {member.role === "admin" ? "Admin" : "Membre"}
+                                  {roleLabels[normalizeRole(member.role)]}
                                 </span>
                               )}
                             </td>
@@ -1031,13 +1071,24 @@ export default function AdminMembersPage() {
                             updateEditForm(
                               editModalMember.id,
                               "role",
-                              event.target.value as MemberRole
+                              event.target.value as AppRole
                             )
                           }
                           className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
                         >
-                          <option value="member">Membre</option>
-                          <option value="admin">Admin</option>
+                          {roleOptions
+                            .filter((option) => {
+                              if (option.value === "owner") {
+                                return canManageRoles(currentUserRole);
+                              }
+
+                              return true;
+                            })
+                            .map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
                         </select>
                       </label>
 

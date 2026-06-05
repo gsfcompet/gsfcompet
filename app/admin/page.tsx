@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { canManageCompetitions, canAccessAdminModule, type AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
-  role: "member" | "admin";
+  role: AppRole;
 };
 
 type ParticipantType = "players" | "teams";
@@ -98,7 +99,7 @@ export default function AdminPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = canManageCompetitions(profile?.role);
 
   useEffect(() => {
     loadData();
@@ -135,7 +136,7 @@ export default function AdminPage() {
     const loadedProfile = profileResult.data as Profile;
     setProfile(loadedProfile);
 
-    if (loadedProfile.role !== "admin") {
+    if (!canAccessAdminModule(loadedProfile.role, "admin")) {
       setLoading(false);
       return;
     }

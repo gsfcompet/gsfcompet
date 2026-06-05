@@ -8,12 +8,13 @@ import AdminCompetitionParticipantsManager from "@/components/AdminCompetitionPa
 import AdminCompetitionTeamsManager from "@/components/AdminCompetitionTeamsManager";
 import AdminMatchesScheduler from "@/components/AdminMatchesScheduler";
 import AdminCompetitionMatchesTable, {
+import { canManageCompetitions, canManageScores, canManageTeams, type AppRole } from "@/lib/roles";
   type AdminCompetitionMatchTableRow,
 } from "@/components/AdminCompetitionMatchesTable";
 
 type Profile = {
   id: string;
-  role: "member" | "admin";
+  role: AppRole;
 };
 
 type Competition = {
@@ -119,7 +120,7 @@ export default function AdminCompetitionPage() {
     null
   );
 
-  const isAdmin = profile?.role === "admin";
+  const isAdmin = canManageCompetitions(profile?.role);
 
   const pendingScoreMatches = useMemo(() => {
     return matches.filter((match) => match.score_status === "pending");
@@ -193,7 +194,7 @@ export default function AdminCompetitionPage() {
     const loadedProfile = profileResult.data as Profile;
     setProfile(loadedProfile);
 
-    if (loadedProfile.role !== "admin") {
+    if (!canManageCompetitions(loadedProfile.role) && !canManageScores(loadedProfile.role) && !canManageTeams(loadedProfile.role)) {
       setLoading(false);
       return;
     }

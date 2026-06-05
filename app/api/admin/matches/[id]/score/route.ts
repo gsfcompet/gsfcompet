@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canManageScores } from "@/lib/roles";
 
 type RequestBody = {
   action?: "save" | "reset";
@@ -48,7 +49,7 @@ async function requireAdmin(request: Request) {
     };
   }
 
-  if (profileResult.data.role !== "admin") {
+  if (!canManageScores(profileResult.data.role)) {
     return {
       ok: false as const,
       status: 403,

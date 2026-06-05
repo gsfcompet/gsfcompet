@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { ReactNode } from "react";
+import { roleLabels, normalizeRole } from "@/lib/roles";
 
 type FutMemberCardProps = {
   pseudo: string;
@@ -62,10 +63,8 @@ function getCountryCode(country?: string) {
   return "GB";
 }
 
-function getRoleLabel(role?: string) {
-  if (!role) return "MEMBRE";
-
-  return role.toLowerCase() === "admin" ? "ADMIN" : "MEMBRE";
+function getRoleLabel(role?: string | null) {
+  return roleLabels[normalizeRole(role)].toUpperCase();
 }
 
 function formatGA(value: number) {

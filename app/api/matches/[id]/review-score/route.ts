@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canManageScores } from "@/lib/roles";
 
 type Profile = {
   id: string;
-  role: "member" | "admin";
+  role: string;
 };
 
 type Match = {
@@ -95,7 +96,7 @@ export async function POST(
 
     const profile = profileResult.data as Profile | null;
 
-    if (!profile || profile.role !== "admin") {
+    if (!profile || !canManageScores(profile.role)) {
       return NextResponse.json(
         { error: "Action réservée aux admins." },
         { status: 403 }
