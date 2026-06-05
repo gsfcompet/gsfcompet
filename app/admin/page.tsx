@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -9,14 +9,16 @@ type Profile = {
   role: "member" | "admin";
 };
 
+type ParticipantType = "players" | "teams";
+
 type Competition = {
   id: string;
   name: string;
   type: string;
   season: string | null;
   status: string;
-  participant_type: "teams" | "players";
-  created_at?: string;
+  participant_type: ParticipantType;
+  created_at?: string | null;
 };
 
 type CompetitionForm = {
@@ -24,7 +26,7 @@ type CompetitionForm = {
   type: string;
   season: string;
   status: string;
-  participant_type: "teams" | "players";
+  participant_type: ParticipantType;
 };
 
 const emptyForm: CompetitionForm = {
@@ -35,8 +37,55 @@ const emptyForm: CompetitionForm = {
   participant_type: "players",
 };
 
+function getCompetitionTypeLabel(type: string) {
+  if (type === "league") return "Championnat";
+  if (type === "cup") return "Coupe";
+  if (type === "tournament") return "Tournoi";
+
+  return type;
+}
+
+function getStatusLabel(status: string) {
+  if (status === "draft") return "Brouillon";
+  if (status === "planned") return "Planifiée";
+  if (status === "active") return "Active";
+  if (status === "completed") return "Terminée";
+  if (status === "archived") return "Archivée";
+
+  return status;
+}
+
+function getStatusClass(status: string) {
+  if (status === "active") {
+    return "border-green-400/40 bg-green-500/15 text-green-300";
+  }
+
+  if (status === "planned") {
+    return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
+  }
+
+  if (status === "draft") {
+    return "border-orange-400/40 bg-orange-500/15 text-orange-300";
+  }
+
+  if (status === "completed") {
+    return "border-blue-400/40 bg-blue-500/15 text-blue-300";
+  }
+
+  if (status === "archived") {
+    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+  }
+
+  return "border-[#D9A441]/30 bg-black/30 text-[#F2D27A]";
+}
+
+function getParticipantTypeLabel(type: ParticipantType) {
+  if (type === "teams") return "Équipes";
+  return "Joueurs";
+}
+
 export default function AdminPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
@@ -51,10 +100,10 @@ export default function AdminPage() {
 
   const isAdmin = profile?.role === "admin";
 
-  async function getAccessToken() {
-    const sessionResult = await supabase.auth.getSession();
-    return sessionResult.data.session?.access_token ?? null;
-  }
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function loadData() {
     setLoading(true);
@@ -106,11 +155,6 @@ export default function AdminPage() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   function updateForm<K extends keyof CompetitionForm>(
     key: K,
     value: CompetitionForm[K]
@@ -153,19 +197,10 @@ export default function AdminPage() {
       return;
     }
 
-    const accessToken = await getAccessToken();
-
-    if (!accessToken) {
-      setMessage("Session admin introuvable. Reconnecte-toi.");
-      return;
-    }
-
     setSaving(true);
     setMessage("");
 
     const payload = {
-      action: editingId ? "update" : "create",
-      competition_id: editingId,
       name: form.name.trim(),
       type: form.type,
       season: form.season.trim() || null,
@@ -173,27 +208,34 @@ export default function AdminPage() {
       participant_type: form.participant_type,
     };
 
-    const response = await fetch("/api/admin/competitions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    if (editingId) {
+      const updateResult = await supabase
+        .from("competitions")
+        .update(payload)
+        .eq("id", editingId);
 
-    const result = await response.json();
+      if (updateResult.error) {
+        setSaving(false);
+        setMessage(`Erreur modification : ${updateResult.error.message}`);
+        return;
+      }
 
-    if (!response.ok) {
-      setSaving(false);
-      setMessage(result.error || "Erreur création / modification compétition.");
-      return;
+      setMessage("Compétition modifiée ✅");
+    } else {
+      const insertResult = await supabase.from("competitions").insert(payload);
+
+      if (insertResult.error) {
+        setSaving(false);
+        setMessage(`Erreur création : ${insertResult.error.message}`);
+        return;
+      }
+
+      setMessage("Compétition créée ✅");
     }
 
     setSaving(false);
     setEditingId(null);
     setForm(emptyForm);
-    setMessage(result.message || "Action compétition effectuée ✅");
 
     await loadData();
   }
@@ -210,53 +252,24 @@ export default function AdminPage() {
 
     if (!confirmed) return;
 
-    const accessToken = await getAccessToken();
-
-    if (!accessToken) {
-      setMessage("Session admin introuvable. Reconnecte-toi.");
-      return;
-    }
-
     setDeletingId(competition.id);
     setMessage("");
 
-    const response = await fetch("/api/admin/competitions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        action: "delete",
-        competition_id: competition.id,
-      }),
-    });
+    const deleteResult = await supabase
+      .from("competitions")
+      .delete()
+      .eq("id", competition.id);
 
-    const result = await response.json();
-
-    if (!response.ok) {
+    if (deleteResult.error) {
       setDeletingId(null);
-      setMessage(result.error || "Erreur suppression compétition.");
+      setMessage(`Erreur suppression : ${deleteResult.error.message}`);
       return;
     }
 
     setDeletingId(null);
-    setMessage(result.message || "Compétition supprimée ✅");
+    setMessage("Compétition supprimée ✅");
 
     await loadData();
-  }
-
-  function getCompetitionTypeLabel(type: string) {
-    if (type === "league") return "Championnat";
-    if (type === "cup") return "Coupe";
-    if (type === "tournament") return "Tournoi";
-
-    return type;
-  }
-
-  function getParticipantTypeLabel(type: "teams" | "players") {
-    if (type === "players") return "Joueurs";
-    return "Équipes";
   }
 
   if (loading) {
@@ -288,119 +301,135 @@ export default function AdminPage() {
         title="Accès refusé"
         text="Cette page est réservée aux administrateurs."
         linkHref="/"
-        linkText="Retour à l’accueil"
+        linkText="Retour accueil"
       />
     );
   }
 
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="mb-10">
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+      <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
+        <div className="mb-8">
+          <p className="inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-black text-[#F2D27A]">
             Administration Guardian&apos;s Family
           </p>
 
-          <h1 className="text-4xl font-black md:text-5xl">
+          <h1 className="mt-5 text-4xl font-black text-[#F7E9C5] md:text-5xl">
             Panneau admin
           </h1>
 
-          <p className="mt-3 max-w-3xl text-[#D8C7A0]">
+          <p className="mt-3 text-[#D8C7A0]">
             Crée, modifie et gère les compétitions du site.
           </p>
+        </div>
 
-          {isAdmin && (
-          <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Link
-              href="/admin/teams"
-              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
-            >
-              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
-                Teams esport
+        <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#F2D27A]">
+                Navigation admin
               </p>
 
-              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
-                Gestion des teams
+              <h2 className="mt-2 text-2xl font-black text-[#F7E9C5]">
+                Accès admin
               </h2>
 
-              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
-                Créer les teams, rattacher les membres et inscrire les teams aux compétitions dédiées.
+              <p className="mt-2 text-sm text-[#D8C7A0]">
+                Accède rapidement aux modules d’administration du site.
               </p>
-            </Link>
+            </div>
 
-            <Link
-              href="/admin/membres"
-              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
-            >
-              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
-                Membres
-              </p>
+            <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/30 px-3 text-sm font-black text-[#F2D27A]">
+              5
+            </span>
+          </div>
 
-              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
-                Gestion des membres
-              </h2>
+          <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/20">
+            <table className="w-full table-fixed border-collapse text-left text-sm">
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[58%]" />
+                <col className="w-[20%]" />
+              </colgroup>
 
-              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
-                Créer et modifier les membres, rôles, fiches joueur,
-                plateformes, pays et numéros de maillot.
-              </p>
-            </Link>
+              <thead className="bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                <tr>
+                  <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                    Module
+                  </th>
 
-            <Link
-              href="/admin"
-              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
-            >
-              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
-                Compétitions
-              </p>
+                  <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                    Description
+                  </th>
 
-              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
-                Gestion des compétitions
-              </h2>
+                  <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                    Action
+                  </th>
+                </tr>
+              </thead>
 
-              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
-                Créer les compétitions, gérer les participants, matchs,
-                scores et programmations.
-              </p>
-            </Link>
+              <tbody>
+                <AdminAccessRow
+                  badge="TE"
+                  title="Teams esport"
+                  description="Créer les teams, rattacher les membres et inscrire les teams aux compétitions."
+                  href="/admin/teams"
+                  tone="blue"
+                />
 
-            <Link
-              href="/membre"
-              className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30 transition hover:border-[#D9A441]/50 hover:bg-[#21070b]"
-            >
-              <p className="text-sm font-black uppercase tracking-[0.25em] text-[#F2D27A]">
-                Vue membre
-              </p>
+                <AdminAccessRow
+                  badge="MB"
+                  title="Membres"
+                  description="Créer et modifier les membres, rôles, fiches joueur, plateformes, pays et numéros de maillot."
+                  href="/admin/membres"
+                  tone="green"
+                />
 
-              <h2 className="mt-3 text-2xl font-black text-[#F7E9C5]">
-                Espace membre
-              </h2>
+                <AdminAccessRow
+                  badge="CP"
+                  title="Compétitions"
+                  description="Créer les compétitions, gérer les participants, matchs, scores et programmations."
+                  href="/admin"
+                  tone="gold"
+                />
 
-              <p className="mt-3 text-sm leading-6 text-[#D8C7A0]">
-                Vérifier la carte membre, les matchs à jouer et les résultats.
-              </p>
-            </Link>
+                <AdminAccessRow
+                  badge="PDF"
+                  title="Gazette"
+                  description="Publier, archiver et supprimer les PDF de la gazette mensuelle."
+                  href="/admin/gazette"
+                  tone="red"
+                />
+
+                <AdminAccessRow
+                  badge="EM"
+                  title="Vue membre"
+                  description="Vérifier la carte membre, les matchs à jouer et les résultats."
+                  href="/membre"
+                  tone="gold"
+                />
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {message && (
+          <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
+            {message}
           </div>
         )}
 
-        {message && (
-            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
-              {message}
-            </div>
-          )}
-        </div>
-
-        <div className="grid gap-8 xl:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <section className="mt-8 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+          <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
             <h2 className="text-2xl font-black text-[#F7E9C5]">
-              {editingId ? "Modifier la compétition" : "Créer une compétition"}
+              {editingId ? "Modifier une compétition" : "Créer une compétition"}
             </h2>
 
-            <form onSubmit={handleSubmit} className="mt-6 grid gap-5">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+            <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                   Nom
-                </label>
+                </span>
 
                 <input
                   value={form.name}
@@ -408,12 +437,12 @@ export default function AdminPage() {
                   className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
                   placeholder="Ex : GSF League"
                 />
-              </div>
+              </label>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                   Saison
-                </label>
+                </span>
 
                 <input
                   value={form.season}
@@ -421,13 +450,13 @@ export default function AdminPage() {
                   className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
                   placeholder="Ex : Saison 1"
                 />
-              </div>
+              </label>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                     Type
-                  </label>
+                  </span>
 
                   <select
                     value={form.type}
@@ -438,19 +467,19 @@ export default function AdminPage() {
                     <option value="cup">Coupe</option>
                     <option value="tournament">Tournoi</option>
                   </select>
-                </div>
+                </label>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                     Format
-                  </label>
+                  </span>
 
                   <select
                     value={form.participant_type}
                     onChange={(event) =>
                       updateForm(
                         "participant_type",
-                        event.target.value as "teams" | "players"
+                        event.target.value as ParticipantType
                       )
                     }
                     className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
@@ -458,30 +487,32 @@ export default function AdminPage() {
                     <option value="players">Joueurs</option>
                     <option value="teams">Équipes</option>
                   </select>
-                </div>
+                </label>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                   Statut
-                </label>
+                </span>
 
                 <select
                   value={form.status}
                   onChange={(event) => updateForm("status", event.target.value)}
                   className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
                 >
-                  <option value="active">Active</option>
                   <option value="draft">Brouillon</option>
-                  <option value="closed">Clôturée</option>
+                  <option value="planned">Planifiée</option>
+                  <option value="active">Active</option>
+                  <option value="completed">Terminée</option>
+                  <option value="archived">Archivée</option>
                 </select>
-              </div>
+              </label>
 
               <div className="flex flex-wrap gap-3">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-[#A61E22] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving
                     ? "Enregistrement..."
@@ -494,7 +525,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                    className="rounded-xl border border-[#D9A441]/30 px-6 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
                   >
                     Annuler
                   </button>
@@ -503,8 +534,8 @@ export default function AdminPage() {
             </form>
           </section>
 
-          <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+          <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-black text-[#F7E9C5]">
                   Compétitions
@@ -515,92 +546,145 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-5 py-3 text-center">
-                <p className="text-2xl font-black text-[#F2D27A]">
-                  {competitions.length}
-                </p>
-                <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
-                  total
-                </p>
-              </div>
+              <span className="inline-flex h-14 min-w-14 items-center justify-center rounded-2xl border border-[#D9A441]/35 bg-black/30 px-4 text-center text-lg font-black text-[#F2D27A]">
+                {competitions.length}
+              </span>
             </div>
 
             {competitions.length === 0 ? (
-              <EmptyState text="Aucune compétition créée pour le moment." />
+              <div className="rounded-xl border border-dashed border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+                Aucune compétition créée pour le moment.
+              </div>
             ) : (
               <div className="space-y-4">
                 {competitions.map((competition) => (
                   <article
                     key={competition.id}
-                    className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4"
+                    className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-5"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-xl font-black text-[#F7E9C5]">
+                      <div>
+                        <h3 className="text-xl font-black text-[#F7E9C5]">
                           {competition.name}
                         </h3>
 
                         <p className="mt-2 text-sm text-[#D8C7A0]">
                           {competition.season || "Saison non définie"} ·{" "}
                           {getCompetitionTypeLabel(competition.type)} ·{" "}
-                          {getParticipantTypeLabel(
-                            competition.participant_type
-                          )}
+                          {getParticipantTypeLabel(competition.participant_type)}
                         </p>
 
                         <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
-                          Statut : {competition.status}
+                          Statut : {getStatusLabel(competition.status)}
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <Link
-                          href={`/admin/competitions/${competition.id}`}
-                          className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C]"
-                        >
-                          Gérer
-                        </Link>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${getStatusClass(
+                          competition.status
+                        )}`}
+                      >
+                        {getStatusLabel(competition.status)}
+                      </span>
+                    </div>
 
-                        <Link
-                          href={`/competitions/${competition.id}/matchs`}
-                          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-                        >
-                          Matchs
-                        </Link>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <Link
+                        href={`/admin/competitions/${competition.id}`}
+                        className="rounded-lg bg-[#A61E22] px-4 py-2 text-xs font-black text-white transition hover:bg-[#8E171C]"
+                      >
+                        Gérer
+                      </Link>
 
-                        <Link
-                          href={`/competitions/${competition.id}/classement`}
-                          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-                        >
-                          Classement
-                        </Link>
+                      <Link
+                        href={`/admin/competitions/${competition.id}`}
+                        className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                      >
+                        Matchs
+                      </Link>
 
-                        <button
-                          type="button"
-                          onClick={() => startEdit(competition)}
-                          className="rounded-lg border border-blue-400/30 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-950/30"
-                        >
-                          Modifier
-                        </button>
+                      <Link
+                        href={`/competitions/${competition.id}/classement`}
+                        className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                      >
+                        Classement
+                      </Link>
 
-                        <button
-                          type="button"
-                          disabled={deletingId === competition.id}
-                          onClick={() => deleteCompetition(competition)}
-                          className="rounded-lg border border-red-400/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingId === competition.id ? "..." : "Supprimer"}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(competition)}
+                        className="rounded-lg border border-blue-400/35 bg-blue-500/10 px-4 py-2 text-xs font-black text-blue-300 transition hover:bg-blue-500/20"
+                      >
+                        Modifier
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={deletingId === competition.id}
+                        onClick={() => deleteCompetition(competition)}
+                        className="rounded-lg border border-red-400/35 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                      >
+                        {deletingId === competition.id ? "..." : "Supprimer"}
+                      </button>
                     </div>
                   </article>
                 ))}
               </div>
             )}
           </section>
-        </div>
+        </section>
       </section>
     </main>
+  );
+}
+
+function AdminAccessRow({
+  badge,
+  title,
+  description,
+  href,
+  tone = "gold",
+}: {
+  badge: string;
+  title: string;
+  description: string;
+  href: string;
+  tone?: "gold" | "red" | "green" | "blue";
+}) {
+  const toneClass =
+    tone === "red"
+      ? "border-red-400/35 bg-red-500/10 text-red-200"
+      : tone === "green"
+        ? "border-green-400/35 bg-green-500/10 text-green-200"
+        : tone === "blue"
+          ? "border-blue-400/35 bg-blue-500/10 text-blue-200"
+          : "border-[#D9A441]/35 bg-[#D9A441]/10 text-[#F2D27A]";
+
+  return (
+    <tr className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5">
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xs font-black uppercase tracking-wider ${toneClass}`}
+          >
+            {badge}
+          </span>
+
+          <span className="font-black text-[#F7E9C5]">{title}</span>
+        </div>
+      </td>
+
+      <td className="px-4 py-4 text-[#D8C7A0]">{description}</td>
+
+      <td className="px-4 py-4 text-right">
+        <Link
+          href={href}
+          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+        >
+          Ouvrir
+        </Link>
+      </td>
+    </tr>
   );
 }
 
@@ -625,20 +709,12 @@ function AccessCard({
 
           <Link
             href={linkHref}
-            className="mt-6 inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+            className="mt-6 inline-flex rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
           >
             {linkText}
           </Link>
         </div>
       </section>
     </main>
-  );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
-      {text}
-    </p>
   );
 }
