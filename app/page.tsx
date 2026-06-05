@@ -52,6 +52,8 @@ type Team = {
   name: string;
 };
 
+const homeHeroImage = "/banniere-gsf-v2.png";
+
 function getCompetitionTypeLabel(type: string) {
   if (type === "league") return "Championnat";
   if (type === "cup") return "Coupe";
@@ -373,15 +375,24 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
       <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
-        <section className="overflow-hidden rounded-[32px] border border-[#D9A441]/25 bg-gradient-to-br from-[#26070b] via-[#12040d] to-black shadow-2xl shadow-black/60">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-8">
-            <div>
+        <section className="relative overflow-hidden rounded-[32px] border border-[#D9A441]/25 bg-black shadow-2xl shadow-black/60">
+          <img
+            src={homeHeroImage}
+            alt="Guardian's Family"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+
+          <div className="absolute inset-0 bg-gradient-to-r from-[#07000d]/95 via-[#12040d]/80 to-black/35" />
+          <div className="absolute inset-0 bg-black/10" />
+
+          <div className="relative z-10 grid min-h-[420px] gap-8 p-6 lg:grid-cols-[1.05fr_0.95fr] lg:p-8 xl:min-h-[480px]">
+            <div className="flex flex-col justify-center">
               <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
                 Guardian&apos;s Family
               </p>
 
-              <h1 className="mt-4 text-4xl font-black leading-tight text-[#F7E9C5] md:text-6xl">
-                Dashboard GSF Compet
+              <h1 className="mt-4 max-w-2xl text-4xl font-black leading-tight text-[#F7E9C5] drop-shadow md:text-6xl">
+                GSF Compet
               </h1>
 
               <p className="mt-5 max-w-3xl text-sm leading-7 text-[#D8C7A0] md:text-base">
@@ -400,7 +411,7 @@ export default function HomePage() {
 
                 <Link
                   href="/membre"
-                  className="rounded-xl border border-[#D9A441]/35 px-5 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#D9A441]/35 bg-black/35 px-5 py-3 text-sm font-black text-[#F2D27A] backdrop-blur transition hover:bg-[#160A12]"
                 >
                   Espace membre
                 </Link>
@@ -416,7 +427,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid content-center gap-3 sm:grid-cols-2">
               <SummaryTile label="Compétitions" value={competitions.length} />
               <SummaryTile label="Actives" value={activeCompetitionsCount} />
               <SummaryTile label="Teams esport" value={teamsCompetitionsCount} />
@@ -571,6 +582,54 @@ export default function HomePage() {
 
             <div className="grid gap-8">
               <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+                <h2 className="text-2xl font-black text-[#F7E9C5]">
+                  Accès rapide
+                </h2>
+
+                <div className="mt-5 grid gap-3">
+                  <QuickLink
+                    href="/competitions"
+                    title="Compétitions"
+                    text="Voir toutes les compétitions joueurs et teams esport."
+                  />
+
+                  <QuickLink
+                    href="/membre"
+                    title="Espace membre"
+                    text="Voir tes compétitions, tes matchs et proposer un score."
+                  />
+
+                  <QuickLink
+                    href="/equipes"
+                    title="Équipes & participants"
+                    text="Consulter les joueurs et teams inscrits."
+                  />
+
+                  {isAdmin && (
+                    <>
+                      <QuickLink
+                        href="/admin"
+                        title="Administration"
+                        text="Créer et gérer les compétitions."
+                      />
+
+                      <QuickLink
+                        href="/admin/teams"
+                        title="Teams esport"
+                        text="Créer les teams et les inscrire aux compétitions."
+                      />
+
+                      <QuickLink
+                        href="/admin/membres"
+                        title="Gestion membres"
+                        text="Modifier les rôles et gérer les comptes."
+                      />
+                    </>
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
                   <div>
                     <h2 className="text-2xl font-black text-[#F7E9C5]">
@@ -640,54 +699,6 @@ export default function HomePage() {
                         </div>
                       </article>
                     ))
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
-                <h2 className="text-2xl font-black text-[#F7E9C5]">
-                  Accès rapide
-                </h2>
-
-                <div className="mt-5 grid gap-3">
-                  <QuickLink
-                    href="/competitions"
-                    title="Compétitions"
-                    text="Voir toutes les compétitions joueurs et teams esport."
-                  />
-
-                  <QuickLink
-                    href="/membre"
-                    title="Espace membre"
-                    text="Voir tes compétitions, tes matchs et proposer un score."
-                  />
-
-                  <QuickLink
-                    href="/equipes"
-                    title="Équipes & participants"
-                    text="Consulter les joueurs et teams inscrits."
-                  />
-
-                  {isAdmin && (
-                    <>
-                      <QuickLink
-                        href="/admin"
-                        title="Administration"
-                        text="Créer et gérer les compétitions."
-                      />
-
-                      <QuickLink
-                        href="/admin/teams"
-                        title="Teams esport"
-                        text="Créer les teams et les inscrire aux compétitions."
-                      />
-
-                      <QuickLink
-                        href="/admin/membres"
-                        title="Gestion membres"
-                        text="Modifier les rôles et gérer les comptes."
-                      />
-                    </>
                   )}
                 </div>
               </section>
