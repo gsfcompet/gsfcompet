@@ -167,10 +167,10 @@ export default function MembrePage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((event) => {
       if (!mounted) return;
 
-      if (event === "SIGNED_OUT" || !session?.user) {
+      if (event === "SIGNED_OUT") {
         hasLoadedMemberDataRef.current = false;
         setLoading(false);
         router.replace("/login");
