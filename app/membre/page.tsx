@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import FutMemberCard from "@/components/FutMemberCard";
@@ -108,6 +108,7 @@ type Match = {
 
 export default function MembrePage() {
   const router = useRouter();
+  const hasLoadedMemberDataRef = useRef(false);
   const FutCard = FutMemberCard as ComponentType<any>;
 
   const [loading, setLoading] = useState(true);
@@ -141,9 +142,7 @@ export default function MembrePage() {
         error,
       } = await supabase.auth.getSession();
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       if (error) {
         console.error(error);
@@ -154,20 +153,27 @@ export default function MembrePage() {
 
       if (!session?.user) {
         setLoading(false);
-        router.push("/login");
+        router.replace("/login");
         return;
       }
 
-      await loadMemberData();
+      if (!hasLoadedMemberDataRef.current) {
+        hasLoadedMemberDataRef.current = true;
+        await loadMemberData();
+      }
     }
 
     initSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) {
-        router.push("/login");
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if (event === "SIGNED_OUT" || !session?.user) {
+        hasLoadedMemberDataRef.current = false;
+        setLoading(false);
+        router.replace("/login");
       }
     });
 
@@ -195,7 +201,7 @@ export default function MembrePage() {
 
     if (!user) {
       setLoading(false);
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -233,7 +239,6 @@ export default function MembrePage() {
 
     if (!loadedPlayer) {
       setRegistrations([]);
-      setAllCompetitionPlayers([]);
       setAllCompetitionPlayers([]);
       setCompetitions([]);
       setMatches([]);
