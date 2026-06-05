@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
 import FutMemberCard from "@/components/FutMemberCard";
 import ScoreStatusBadge from "@/components/ScoreStatusBadge";
 import MemberMatchesTable, {
@@ -108,6 +108,7 @@ type Match = {
 
 export default function MembrePage() {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const hasLoadedMemberDataRef = useRef(false);
   const FutCard = FutMemberCard as ComponentType<any>;
 
@@ -151,61 +152,56 @@ export default function MembrePage() {
         return;
       }
 
-      if (!session?.user) {
+      if (!session?.user?.id) {
         setLoading(false);
-        router.replace("/login");
+        router.replace("/login?redirect=/membre");
         return;
       }
 
-      if (!hasLoadedMemberDataRef.current) {
-        hasLoadedMemberDataRef.current = true;
-        await loadMemberData();
+      if (hasLoadedMemberDataRef.current) {
+        setLoading(false);
+        return;
       }
+
+      hasLoadedMemberDataRef.current = true;
+      await loadMemberData(session.user.id);
     }
 
     initSession();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (!mounted) return;
-
-      if (event === "SIGNED_OUT") {
-        hasLoadedMemberDataRef.current = false;
-        setLoading(false);
-        router.replace("/login");
-      }
-    });
-
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, supabase]);
 
-  async function loadMemberData() {
+  async function loadMemberData(preloadedUserId?: string) {
     setLoading(true);
     setMessage(null);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    let currentUserId = preloadedUserId ?? null;
 
-    if (userError) {
-      console.error(userError);
-      setMessage("Erreur lors de la récupération de l'utilisateur.");
+    if (!currentUserId) {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        console.error(sessionError);
+        setMessage("Erreur lors de la récupération de la session.");
+        setLoading(false);
+        return;
+      }
+
+      currentUserId = session?.user?.id ?? null;
+    }
+
+    if (!currentUserId) {
+      setMessage("Session introuvable. Merci de te reconnecter.");
       setLoading(false);
       return;
     }
 
-    if (!user) {
-      setLoading(false);
-      router.replace("/login");
-      return;
-    }
-
-    const currentUserId = user.id;
     setUserId(currentUserId);
 
     const profileResult = await supabase
