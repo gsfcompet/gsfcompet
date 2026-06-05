@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,44 +11,54 @@ type Profile = {
 };
 
 export default function AuthStatus() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const mountedRef = useRef(true);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadUser() {
-    setLoading(true);
+  const loadUser = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) {
+        setLoading(true);
+      }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      setProfile(null);
+      if (!mountedRef.current) return;
+
+      if (!user) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, email, role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!mountedRef.current) return;
+
+      if (data && !error) {
+        setProfile(data as Profile);
+        setLoading(false);
+        return;
+      }
+
+      setProfile({
+        username: user.user_metadata?.username || null,
+        email: user.email || "Compte connecté",
+        role: "member",
+      });
+
       setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("username, email, role")
-      .eq("id", user.id)
-      .single();
-
-    if (data && !error) {
-      setProfile(data as Profile);
-      setLoading(false);
-      return;
-    }
-
-    setProfile({
-      username: user.user_metadata?.username || null,
-      email: user.email || "Compte connecté",
-      role: "member",
-    });
-
-    setLoading(false);
-  }
+    },
+    [supabase]
+  );
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -57,18 +67,27 @@ export default function AuthStatus() {
   }
 
   useEffect(() => {
-    loadUser();
+    mountedRef.current = true;
+
+    loadUser(true);
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (
+        event === "SIGNED_IN" ||
+        event === "SIGNED_OUT" ||
+        event === "USER_UPDATED"
+      ) {
+        loadUser(false);
+      }
     });
 
     return () => {
+      mountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadUser, supabase]);
 
   if (loading) {
     return <div className="text-xs text-[#8F7B5C]">Vérification...</div>;
