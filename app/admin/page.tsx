@@ -272,6 +272,71 @@ export default function AdminPage() {
     await loadData();
   }
 
+  async function updateCompetitionStatus(
+    competition: Competition,
+    nextStatus: string
+  ) {
+    if (!isAdmin) {
+      setMessage("Action réservée aux admins.");
+      return;
+    }
+
+    const label =
+      nextStatus === "archived"
+        ? "archiver"
+        : nextStatus === "active"
+          ? "réactiver"
+          : "modifier";
+
+    const confirmed = window.confirm(
+      `Confirmer : ${label} la compétition "${competition.name}" ?`
+    );
+
+    if (!confirmed) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const accessToken = session?.access_token;
+
+    if (!accessToken) {
+      setMessage("Session admin introuvable. Reconnecte-toi.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const response = await fetch(
+      `/api/admin/competitions/${competition.id}/status`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          status: nextStatus,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setSaving(false);
+      setMessage(result.error || "Erreur lors du changement de statut.");
+      return;
+    }
+
+    setSaving(false);
+    setMessage(result.message || "Statut modifié ✅");
+
+    await loadData();
+  }
+
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
@@ -617,6 +682,30 @@ export default function AdminPage() {
                       >
                         Modifier
                       </button>
+
+                      {competition.status === "archived" ? (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() =>
+                            updateCompetitionStatus(competition, "active")
+                          }
+                          className="rounded-lg border border-green-400/35 bg-green-500/10 px-4 py-2 text-xs font-black text-green-300 transition hover:bg-green-500/20 disabled:opacity-50"
+                        >
+                          Réactiver
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() =>
+                            updateCompetitionStatus(competition, "archived")
+                          }
+                          className="rounded-lg border border-slate-400/35 bg-slate-500/10 px-4 py-2 text-xs font-black text-slate-300 transition hover:bg-slate-500/20 disabled:opacity-50"
+                        >
+                          Archiver
+                        </button>
+                      )}
 
                       <button
                         type="button"
