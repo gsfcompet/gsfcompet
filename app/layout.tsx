@@ -4,7 +4,8 @@ import Header from "@/components/Header";
 
 export const metadata: Metadata = {
   title: "GSF Compet",
-  description: "Site officiel Guardian's Family pour gérer les compétitions EA FC.",
+  description:
+    "Site officiel Guardian's Family pour gérer les compétitions EA FC.",
 };
 
 export default function RootLayout({
