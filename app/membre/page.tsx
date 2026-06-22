@@ -195,7 +195,20 @@ export default function MembrePage() {
 
         <section className="grid w-full items-start gap-8 lg:grid-cols-[380px_minmax(0,1fr)]">
 
-          <MemberCard profile={safeProfile} />
+          <MemberCard
+            profile={{
+              ...safeProfile,
+              pays_membre: profile?.pays,
+              paysMembre: profile?.pays,
+              memberCountry: profile?.pays,
+              countryMember: profile?.pays,
+              nationality: profile?.pays,
+            }}
+            player={player}
+            stats={stats}
+            registrations={registrations}
+            eaTeams={eaTeams}
+          />
 
           <div className="flex min-w-0 flex-col gap-6">
 
