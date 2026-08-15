@@ -152,7 +152,15 @@ export default function AdminTeamsPage() {
       },
     });
 
-    const result = await response.json();
+    const result: {
+      error?: string;
+      message?: string;
+      teams?: Team[];
+      members?: MemberOption[];
+      team_members?: TeamMember[];
+      competition_teams?: CompetitionTeam[];
+      competitions?: Competition[];
+    } = await response.json();
 
     if (!response.ok) {
       setMessage(result.error || "Erreur chargement teams esport.");
@@ -300,7 +308,7 @@ export default function AdminTeamsPage() {
       }),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSavingAction("");

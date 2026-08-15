@@ -121,7 +121,11 @@ export default function AdminMembersPage() {
       },
     });
 
-    const result = await response.json();
+    const result: {
+      error?: string;
+      message?: string;
+      members?: Member[];
+    } = await response.json();
 
     if (!response.ok) {
       setMessage(result.error || "Erreur chargement membres.");
@@ -235,7 +239,7 @@ export default function AdminMembersPage() {
       }),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setCreating(false);
@@ -281,7 +285,7 @@ export default function AdminMembersPage() {
       }),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSavingMemberId(null);
@@ -325,7 +329,7 @@ export default function AdminMembersPage() {
       }),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setActionMemberId(null);

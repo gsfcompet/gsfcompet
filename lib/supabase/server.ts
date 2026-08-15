@@ -23,7 +23,6 @@ export async function createClient() {
           });
         } catch {
           // Peut être appelé depuis un Server Component.
-          // Le middleware se charge aussi de rafraîchir les sessions.
         }
       },
     },

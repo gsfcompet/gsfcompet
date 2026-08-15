@@ -427,7 +427,11 @@ export default function CompetitionInscriptionPage() {
       }
     );
 
-    const generateMatchesData = await generateMatchesResult.json();
+    const generateMatchesData = (await generateMatchesResult.json()) as {
+      error?: string;
+      message?: string;
+      created?: number;
+    };
 
     if (!generateMatchesResult.ok) {
       setSaving(false);
@@ -441,7 +445,7 @@ export default function CompetitionInscriptionPage() {
 
     setSaving(false);
     setMessage(
-      generateMatchesData.created > 0
+      (generateMatchesData.created ?? 0) > 0
         ? `Inscription enregistrée ✅ ${generateMatchesData.created} match(s) créé(s).`
         : "Inscription enregistrée ✅ Les matchs étaient déjà à jour."
     );

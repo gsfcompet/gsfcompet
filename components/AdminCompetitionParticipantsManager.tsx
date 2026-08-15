@@ -315,7 +315,7 @@ export default function AdminCompetitionParticipantsManager({
       }
     );
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSaving(false);
@@ -397,7 +397,7 @@ export default function AdminCompetitionParticipantsManager({
       }
     );
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setRemovingRegistrationId(null);

@@ -146,7 +146,10 @@ export default function MembrePage() {
       }),
     });
 
-    const json = await res.json();
+    const json = (await res.json()) as {
+      error?: string;
+      message?: string;
+    };
 
     if (!res.ok) {
       setMessage(json.error || "Erreur lors de l'envoi du score.");

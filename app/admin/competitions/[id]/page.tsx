@@ -521,7 +521,7 @@ export default function AdminCompetitionPage() {
       }
     );
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setGenerating(false);
@@ -579,7 +579,7 @@ export default function AdminCompetitionPage() {
       }),
     });
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSavingScoreMatchId(null);
@@ -619,7 +619,7 @@ export default function AdminCompetitionPage() {
       }),
     });
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setResettingMatchId(null);
@@ -659,7 +659,7 @@ export default function AdminCompetitionPage() {
       }),
     });
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSavingDateMatchId(null);
@@ -693,7 +693,7 @@ export default function AdminCompetitionPage() {
       body: JSON.stringify({ action }),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setReviewingMatchId(null);

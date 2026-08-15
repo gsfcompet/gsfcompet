@@ -84,7 +84,13 @@ export default function AdminCompetitionTeamsManager({
       },
     });
 
-    const result = await response.json();
+    const result: {
+      error?: string;
+      message?: string;
+      teams?: Team[];
+      competition_teams?: CompetitionTeam[];
+      team_members?: TeamMember[];
+    } = await response.json();
 
     if (!response.ok) {
       setMessage(result.error || "Erreur chargement teams esport.");
@@ -155,7 +161,7 @@ export default function AdminCompetitionTeamsManager({
       }),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSavingAction("");

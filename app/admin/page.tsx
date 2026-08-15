@@ -231,7 +231,7 @@ export default function AdminPage() {
       body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSaving(false);
@@ -290,7 +290,7 @@ export default function AdminPage() {
       }),
     });
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setDeletingId(null);
@@ -354,7 +354,7 @@ export default function AdminPage() {
       }
     );
 
-    const result = await response.json();
+    const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setSaving(false);

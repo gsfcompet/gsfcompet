@@ -223,7 +223,7 @@ export default function MemberProfilePage() {
       method: "DELETE",
     });
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setDeleting(false);

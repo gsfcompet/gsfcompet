@@ -55,8 +55,10 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
-    const action = body.action as "validate" | "reject" | undefined;
+    const body = (await request.json()) as {
+      action?: "validate" | "reject";
+    };
+    const action = body.action;
 
     if (action !== "validate" && action !== "reject") {
       return NextResponse.json(

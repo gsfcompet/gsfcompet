@@ -67,7 +67,10 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as {
+      homeScore?: number | string;
+      awayScore?: number | string;
+    };
 
     const homeScore = Number(body.homeScore);
     const awayScore = Number(body.awayScore);

@@ -343,7 +343,7 @@ export default function AdminGazettePage() {
         }),
       });
 
-      const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
       if (!response.ok) {
         setSaving(false);
@@ -398,7 +398,7 @@ export default function AdminGazettePage() {
       }),
     });
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setMessage(result.error || "Erreur statut gazette.");
@@ -447,7 +447,7 @@ export default function AdminGazettePage() {
       }),
     });
 
-    const result = await response.json();
+const result: { error?: string; message?: string } = await response.json();
 
     if (!response.ok) {
       setDeletingId(null);

@@ -33,7 +33,9 @@ export async function PATCH(
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const body = (await request.json().catch(() => null)) as {
+    status?: string;
+  } | null;
   const nextStatus = body?.status;
 
   if (!nextStatus || !allowedStatuses.includes(nextStatus)) {
