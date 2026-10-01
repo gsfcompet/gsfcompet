@@ -106,7 +106,7 @@ function getStatusClass(status: string) {
   }
 
   if (status === "archived") {
-    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+    return "border-[#8F7B5C]/30 bg-[#8F7B5C]/10 text-[#D8C7A0]";
   }
 
   return "border-yellow-500/30 bg-black/30 text-yellow-200";
@@ -458,7 +458,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[#080D18] text-[#F7E9C5]">
       <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
         <section className="relative overflow-hidden rounded-[32px] border border-[#D9A441]/25 bg-black shadow-2xl shadow-black/60">
           <img
@@ -496,7 +496,7 @@ export default function HomePage() {
 
                 <Link
                   href="/membre"
-                  className="rounded-xl border border-[#D9A441]/35 bg-black/35 px-5 py-3 text-sm font-black text-[#F2D27A] backdrop-blur transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#D9A441]/35 bg-black/35 px-5 py-3 text-sm font-black text-[#F2D27A] backdrop-blur transition hover:bg-[#111827]"
                 >
                   Espace membre
                 </Link>
@@ -525,13 +525,13 @@ export default function HomePage() {
         </section>
 
         {message && (
-          <div className="mt-6 rounded-2xl border border-[#D9A441]/30 bg-[#160A12] px-4 py-3 text-sm font-black text-[#F2D27A]">
+          <div className="mt-6 rounded-2xl border border-[#D9A441]/30 bg-[#111827] px-4 py-3 text-sm font-black text-[#F2D27A]">
             {message}
           </div>
         )}
 
         {loading ? (
-          <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 text-[#D8C7A0] shadow-2xl shadow-black/40">
+          <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 text-[#D8C7A0] shadow-2xl shadow-black/40">
             Chargement du dashboard...
           </section>
         ) : (
@@ -555,8 +555,8 @@ export default function HomePage() {
 
         {selectedGazette && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-3 py-4 backdrop-blur-sm">
-            <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-[#D9A441]/30 bg-[#0B0610] shadow-2xl shadow-black">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D9A441]/20 bg-[#160A12] px-4 py-4">
+            <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-[#D9A441]/30 bg-[#080D18] shadow-2xl shadow-black">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#D9A441]/20 bg-[#111827] px-4 py-4">
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.28em] text-[#F2D27A]">
                     Gazette PDF
@@ -572,7 +572,7 @@ export default function HomePage() {
                     href={selectedGazette.file_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                    className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
                   >
                     Nouvel onglet
                   </a>
@@ -580,7 +580,7 @@ export default function HomePage() {
                   <a
                     href={selectedGazette.file_url}
                     download
-                    className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                    className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
                   >
                     Télécharger
                   </a>
@@ -611,7 +611,7 @@ export default function HomePage() {
 
 function QuickAccessPanel({ isAdmin }: { isAdmin: boolean }) {
   return (
-    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/40">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.32em] text-[#F2D27A]">
@@ -739,7 +739,7 @@ function LatestGazetteCard({
   onOpenPdf: (gazette: Gazette) => void;
 }) {
   return (
-    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/40">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.32em] text-[#F2D27A]">
@@ -757,7 +757,7 @@ function LatestGazetteCard({
 
         <Link
           href="/gazette"
-          className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+          className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
         >
           Toutes
         </Link>
@@ -775,7 +775,7 @@ function LatestGazetteCard({
               <col className="w-[28%]" />
             </colgroup>
 
-            <thead className="bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+            <thead className="bg-[#1B2638] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
               <tr>
                 <th className="border-b border-[#D9A441]/20 px-4 py-3">
                   Période
@@ -815,7 +815,7 @@ function LatestGazetteCard({
                 </td>
 
                 <td className="px-4 py-4">
-                  <span className="inline-flex rounded-full border border-green-400/40 bg-green-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-300">
+                  <span className="inline-flex rounded-full border border-[#D9A441]/40 bg-[#D9A441]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#F2D27A]">
                     Publiée
                   </span>
                 </td>
@@ -832,7 +832,7 @@ function LatestGazetteCard({
 
                     <Link
                       href="/gazette"
-                      className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                      className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
                     >
                       Voir toutes
                     </Link>
@@ -861,7 +861,7 @@ function MatchActivityPanel({
   getCompetitionLabel: (competitionId: string) => string;
 }) {
   return (
-    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/40">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.32em] text-[#F2D27A]">
@@ -914,7 +914,7 @@ function MatchActivityPanel({
                     <col className="w-[16%]" />
                   </colgroup>
 
-                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                  <thead className="sticky top-0 z-10 bg-[#1B2638] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
                     <tr>
                       <th className="border-b border-[#D9A441]/20 px-4 py-3">
                         Match
@@ -959,7 +959,7 @@ function MatchActivityPanel({
                         <td className="px-4 py-4 text-right">
                           <Link
                             href={`/competitions/${match.competition_id}/classement`}
-                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
                           >
                             Voir
                           </Link>
@@ -1003,7 +1003,7 @@ function MatchActivityPanel({
                     <col className="w-[14%]" />
                   </colgroup>
 
-                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                  <thead className="sticky top-0 z-10 bg-[#1B2638] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
                     <tr>
                       <th className="border-b border-[#D9A441]/20 px-4 py-3">
                         Date
@@ -1046,7 +1046,7 @@ function MatchActivityPanel({
                         <td className="px-4 py-4 text-right">
                           <Link
                             href={`/competitions/${match.competition_id}/matchs`}
-                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
                           >
                             Voir
                           </Link>
@@ -1071,7 +1071,7 @@ function CompactMatchLabel({ home, away }: { home: string; away: string }) {
         {home}
       </p>
 
-      <span className="shrink-0 rounded-lg border border-[#D9A441]/25 bg-[#0B0610] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#F2D27A]">
+      <span className="shrink-0 rounded-lg border border-[#D9A441]/25 bg-[#080D18] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#F2D27A]">
         VS
       </span>
 
@@ -1099,7 +1099,7 @@ function LatestCompetitionsPanel({
   competitions: Competition[];
 }) {
   return (
-    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/40">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[#F7E9C5]">
@@ -1153,14 +1153,14 @@ function LatestCompetitionsPanel({
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
                   href={`/competitions/${competition.id}/matchs`}
-                  className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                  className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
                 >
                   Matchs
                 </Link>
 
                 <Link
                   href={`/competitions/${competition.id}/classement`}
-                  className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                  className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#080D18]"
                 >
                   Classement
                 </Link>
@@ -1198,7 +1198,7 @@ function DashboardTable({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+    <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/40">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[#F7E9C5]">{title}</h2>
