@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export function useMemberSession() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [sessionLoading, setLoading] = useState(true);
@@ -26,16 +26,19 @@ export function useMemberSession() {
         return;
       }
 
-      if (!data.session?.user?.id) {
+      const id = data.session?.user?.id;
+
+      if (!id) {
         router.replace("/login?redirect=/membre");
         return;
       }
 
-      setUserId(data.session.user.id);
+      setUserId(id);
       setLoading(false);
     }
 
-    init();
+    void init();
+
     return () => {
       mounted = false;
     };

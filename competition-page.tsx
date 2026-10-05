@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import CompetitionActivity from "./CompetitionActivity";
+import CompetitionActivity from "./app/competitions/CompetitionActivity";
 
 type ParticipantType = "players" | "teams";
 type FormatFilter = "all" | "players" | "teams";
@@ -88,34 +88,34 @@ function getStatusLabel(status: string) {
 
 function getStatusClass(status: string) {
   if (status === "active") {
-    return "border-[#2EC4B6]/40 bg-[#2EC4B6]/10 text-[#2EC4B6]";
+    return "border-green-400/40 bg-green-500/15 text-green-300";
   }
 
   if (status === "planned" || status === "scheduled") {
-    return "border-[#C39B55]/50 bg-[#C39B55]/10 text-[#DBC399]";
+    return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
   }
 
   if (status === "draft") {
-    return "border-[#A9647A]/40 bg-[#A9647A]/10 text-[#cfc6ab]";
+    return "border-orange-400/40 bg-orange-500/15 text-orange-300";
   }
 
   if (status === "completed") {
-    return "border-[#cfc6ab]/30 bg-[#cfc6ab]/10 text-[#cfc6ab]";
+    return "border-blue-400/40 bg-blue-500/15 text-blue-300";
   }
 
   if (status === "archived") {
-    return "border-[rgba(241,233,210,0.14)] bg-[#0B1B33] text-[#cfc6ab]/60";
+    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
   }
 
-  return "border-[rgba(241,233,210,0.14)] bg-[#0B1B33] text-[#cfc6ab]";
+  return "border-yellow-500/30 bg-black/30 text-yellow-200";
 }
 
 function getFormatClass(type: ParticipantType) {
   if (type === "teams") {
-    return "border-[#A9647A]/40 bg-[#A9647A]/10 text-[#cfc6ab]";
+    return "border-red-400/35 bg-red-500/10 text-red-200";
   }
 
-  return "border-[#C39B55]/40 bg-[#C39B55]/10 text-[#DBC399]";
+  return "border-yellow-400/35 bg-yellow-500/10 text-yellow-200";
 }
 
 export default function CompetitionsPage() {
@@ -198,6 +198,7 @@ export default function CompetitionsPage() {
           .filter(Boolean)
       )
     );
+
     const teamIds = Array.from(
       new Set(
         (competitionTeamsResult.data ?? [])
@@ -208,7 +209,10 @@ export default function CompetitionsPage() {
 
     const [playersResult, teamsResult] = await Promise.all([
       playerIds.length
-        ? supabase.from("players").select("id, name, ea_name").in("id", playerIds)
+        ? supabase
+            .from("players")
+            .select("id, name, ea_name")
+            .in("id", playerIds)
         : Promise.resolve({ data: [], error: null }),
       teamIds.length
         ? supabase.from("teams").select("id, name").in("id", teamIds)
@@ -267,7 +271,9 @@ export default function CompetitionsPage() {
 
   function getCompetitionLabel(competitionId: string) {
     const competition = competitions.find((item) => item.id === competitionId);
+
     if (!competition) return "Compétition";
+
     return competition.season
       ? `${competition.name} · ${competition.season}`
       : competition.name;
@@ -285,6 +291,7 @@ export default function CompetitionsPage() {
       const registration = competitionPlayers.find(
         (item) => item.id === registrationId
       );
+
       if (!registration) return "Joueur inconnu";
 
       const player = players.find((item) => item.id === registration.player_id);
@@ -361,29 +368,29 @@ export default function CompetitionsPage() {
   ).length;
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(1200px_700px_at_10%_-10%,#12274A_0%,#0B1B33_60%)] text-[#cfc6ab]">
+    <main className="min-h-screen bg-[#071222] text-[#F7E9C5]">
       <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
-        <section className="rounded-[28px] border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 shadow-2xl shadow-black/50">
+        <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/50">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#DBC399]">
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
                 Compétitions
               </p>
 
-              <h1 className="mt-3 text-4xl font-black text-[#cfc6ab] md:text-5xl">
+              <h1 className="mt-3 text-4xl font-black text-[#F7E9C5] md:text-5xl">
                 Compétitions Guardian's
               </h1>
 
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#cfc6ab]/75">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#D8C7A0]">
                 Vue tableur des compétitions joueurs et teams esport, avec
                 suivi des participants, matchs et classements.
               </p>
 
               <Link
-                href="/equipes"
-                className="mt-5 inline-flex rounded-xl bg-[#C39B55] px-5 py-3 text-sm font-black text-[#0B1B33] shadow-lg shadow-black/20 transition hover:bg-[#DBC399]"
+                href="https://gsfcompet.gsfcompet.workers.dev/equipes"
+                className="mt-4 inline-flex items-center justify-center rounded-xl border border-[#D9A441]/40 bg-[#071222] px-5 py-3 text-sm font-black text-[#F2D27A] transition hover:border-[#F2D27A] hover:bg-[#172337]"
               >
-                Voir les équipes
+                Accéder aux équipes →
               </Link>
             </div>
 
@@ -396,27 +403,27 @@ export default function CompetitionsPage() {
           </div>
         </section>
 
-        <section className="mt-8 rounded-[28px] border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 shadow-2xl shadow-black/40">
+        <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/40">
           <div className="grid gap-4 xl:grid-cols-[1fr_auto_auto] xl:items-end">
             <label className="block">
-              <span className="mb-2 block text-sm font-black text-[#DBC399]">
+              <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                 Rechercher une compétition
               </span>
 
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="w-full rounded-xl border border-[rgba(241,233,210,0.14)] bg-[#0B1B33] px-4 py-3 text-[#cfc6ab] outline-none transition placeholder:text-[#cfc6ab]/50 focus:border-[#C39B55]"
+                className="w-full rounded-xl border border-[#D9A441]/25 bg-black px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/70"
                 placeholder="Nom, saison, format..."
               />
             </label>
 
             <div>
-              <span className="mb-2 block text-sm font-black text-[#DBC399]">
+              <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                 Format
               </span>
 
-              <div className="flex rounded-xl border border-[rgba(241,233,210,0.14)] bg-[#0B1B33] p-1">
+              <div className="flex rounded-xl border border-[#D9A441]/25 bg-black p-1">
                 <FilterButton
                   active={formatFilter === "all"}
                   onClick={() => setFormatFilter("all")}
@@ -441,7 +448,7 @@ export default function CompetitionsPage() {
             </div>
 
             <label className="block">
-              <span className="mb-2 block text-sm font-black text-[#DBC399]">
+              <span className="mb-2 block text-sm font-black text-[#F2D27A]">
                 Statut
               </span>
 
@@ -450,7 +457,7 @@ export default function CompetitionsPage() {
                 onChange={(event) =>
                   setStatusFilter(event.target.value as StatusFilter)
                 }
-                className="w-full rounded-xl border border-[rgba(241,233,210,0.14)] bg-[#0B1B33] px-4 py-3 text-[#cfc6ab] outline-none transition focus:border-[#C39B55] xl:w-56"
+                className="w-full rounded-xl border border-[#D9A441]/25 bg-black px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/70 xl:w-56"
               >
                 <option value="all">Tous les statuts</option>
                 <option value="draft">Brouillon</option>
@@ -473,39 +480,39 @@ export default function CompetitionsPage() {
         )}
 
         {message && (
-          <div className="mt-6 rounded-2xl border border-[rgba(241,233,210,0.14)] bg-[#12274A] px-4 py-3 text-sm font-black text-[#DBC399]">
+          <div className="mt-6 rounded-2xl border border-[#D9A441]/30 bg-[#111827] px-4 py-3 text-sm font-black text-[#F2D27A]">
             {message}
           </div>
         )}
 
         {loading ? (
-          <section className="mt-8 rounded-[28px] border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 text-[#cfc6ab]/75 shadow-2xl shadow-black/40">
+          <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 text-[#D8C7A0] shadow-2xl shadow-black/40">
             Chargement des compétitions...
           </section>
         ) : filteredCompetitions.length === 0 ? (
-          <section className="mt-8 rounded-[28px] border border-dashed border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 text-[#cfc6ab]/75 shadow-2xl shadow-black/40">
+          <section className="mt-8 rounded-[28px] border border-dashed border-[#D9A441]/25 bg-[#111827]/90 p-6 text-[#D8C7A0] shadow-2xl shadow-black/40">
             Aucune compétition ne correspond aux filtres.
           </section>
         ) : (
-          <section className="mt-8 rounded-[28px] border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 shadow-2xl shadow-black/40">
+          <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#111827]/90 p-6 shadow-2xl shadow-black/40">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black text-[#cfc6ab]">
+                <h2 className="text-2xl font-black text-[#F7E9C5]">
                   Liste des compétitions
                 </h2>
 
-                <p className="mt-2 text-sm text-[#cfc6ab]/75">
+                <p className="mt-2 text-sm text-[#D8C7A0]">
                   Affichage compact pour suivre rapidement les compétitions,
                   participants et matchs.
                 </p>
               </div>
 
-              <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-[#C39B55]/40 bg-[#0B1B33] px-3 text-sm font-black text-[#DBC399]">
+              <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/30 px-3 text-sm font-black text-[#F2D27A]">
                 {filteredCompetitions.length}
               </span>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-[rgba(241,233,210,0.14)] bg-[#0B1B33]/50">
+            <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/20">
               <div className="max-h-[680px] overflow-y-auto">
                 <table className="w-full table-fixed border-collapse text-left text-sm">
                   <colgroup>
@@ -519,30 +526,30 @@ export default function CompetitionsPage() {
                     <col className="w-[15%]" />
                   </colgroup>
 
-                  <thead className="sticky top-0 z-10 bg-[#0B1B33] text-[10px] uppercase tracking-[0.18em] text-[#DBC399]">
+                  <thead className="sticky top-0 z-10 bg-[#071222] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
                     <tr>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
                         Compétition
                       </th>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
                         Type
                       </th>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
                         Format
                       </th>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
                         Statut
                       </th>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
                         Participants
                       </th>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
                         Matchs
                       </th>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
                         Terminés
                       </th>
-                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-right">
+                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
                         Actions
                       </th>
                     </tr>
@@ -550,7 +557,8 @@ export default function CompetitionsPage() {
 
                   <tbody>
                     {filteredCompetitions.map((competition) => {
-                      const participantsCount = getParticipantsCount(competition);
+                      const participantsCount =
+                        getParticipantsCount(competition);
                       const matchesCount = getMatchesCount(competition.id);
                       const completedMatchesCount =
                         getCompletedMatchesCount(competition.id);
@@ -558,19 +566,19 @@ export default function CompetitionsPage() {
                       return (
                         <tr
                           key={competition.id}
-                          className="border-b border-[rgba(241,233,210,0.08)] transition hover:bg-[#C39B55]/5"
+                          className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
                         >
                           <td className="px-4 py-4">
-                            <p className="truncate font-black text-[#cfc6ab]">
+                            <p className="truncate font-black text-[#F7E9C5]">
                               {competition.name}
                             </p>
 
-                            <p className="mt-1 truncate text-xs text-[#cfc6ab]/60">
+                            <p className="mt-1 truncate text-xs text-[#D8C7A0]/70">
                               {competition.season || "Saison non définie"}
                             </p>
                           </td>
 
-                          <td className="px-4 py-4 text-[#cfc6ab]/75">
+                          <td className="px-4 py-4 text-[#D8C7A0]">
                             {getCompetitionTypeLabel(competition.type)}
                           </td>
 
@@ -612,21 +620,21 @@ export default function CompetitionsPage() {
                             <div className="flex flex-wrap justify-end gap-2">
                               <Link
                                 href={`/competitions/${competition.id}/matchs`}
-                                className="rounded-lg border border-[#C39B55]/35 px-3 py-2 text-xs font-black text-[#DBC399] transition hover:bg-[#C39B55]/10"
+                                className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
                               >
                                 Matchs
                               </Link>
 
                               <Link
                                 href={`/competitions/${competition.id}/classement`}
-                                className="rounded-lg border border-[#C39B55]/35 px-3 py-2 text-xs font-black text-[#DBC399] transition hover:bg-[#C39B55]/10"
+                                className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
                               >
                                 Classement
                               </Link>
 
                               <Link
                                 href={`/competitions/${competition.id}/inscription`}
-                                className="rounded-lg bg-[#C39B55] px-3 py-2 text-xs font-black text-[#0B1B33] shadow-lg shadow-black/20 transition hover:bg-[#DBC399]"
+                                className="rounded-lg bg-[#A61E22] px-3 py-2 text-xs font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
                               >
                                 {competition.participant_type === "teams"
                                   ? "Inscrire team"
@@ -650,9 +658,9 @@ export default function CompetitionsPage() {
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-[rgba(241,233,210,0.14)] bg-[#0B1B33] px-5 py-4 text-center">
-      <p className="text-2xl font-black text-[#DBC399]">{value}</p>
-      <p className="text-xs uppercase tracking-widest text-[#cfc6ab]/60">
+    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-5 py-4 text-center">
+      <p className="text-2xl font-black text-[#F2D27A]">{value}</p>
+      <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
         {label}
       </p>
     </div>
@@ -674,8 +682,8 @@ function FilterButton({
       onClick={onClick}
       className={
         active
-          ? "rounded-lg bg-[#C39B55] px-4 py-2 text-sm font-black text-[#0B1B33]"
-          : "rounded-lg px-4 py-2 text-sm font-black text-[#DBC399] transition hover:bg-[#12274A]"
+          ? "rounded-lg bg-[#F2C300] px-4 py-2 text-sm font-black text-black"
+          : "rounded-lg px-4 py-2 text-sm font-black text-[#F2D27A] transition hover:bg-[#111827]"
       }
     >
       {children}
@@ -685,7 +693,7 @@ function FilterButton({
 
 function StatPill({ value }: { value: number }) {
   return (
-    <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#C39B55]/40 bg-[#0B1B33] px-2 text-sm font-black text-[#DBC399]">
+    <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/40 px-2 text-sm font-black text-[#F2D27A]">
       {value}
     </span>
   );

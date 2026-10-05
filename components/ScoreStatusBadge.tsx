@@ -7,8 +7,8 @@ type ScoreStatusBadgeProps = {
 export default function ScoreStatusBadge({ status }: ScoreStatusBadgeProps) {
   if (status === "pending") {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full border border-yellow-400/40 bg-yellow-500/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-yellow-300 shadow-lg shadow-yellow-950/20">
-        <span className="h-2 w-2 rounded-full bg-yellow-300 shadow-[0_0_10px_rgba(250,204,21,0.9)] animate-pulse" />
+      <div className="inline-flex items-center gap-2 rounded-full border border-[#C39B55]/40 bg-[#C39B55]/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#DBC399] shadow-lg shadow-black/20">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-[#DBC399] shadow-[0_0_10px_rgba(219,195,153,0.8)]" />
         Score en attente
       </div>
     );
@@ -16,8 +16,8 @@ export default function ScoreStatusBadge({ status }: ScoreStatusBadgeProps) {
 
   if (status === "validated") {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full border border-green-400/40 bg-green-500/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-green-300 shadow-lg shadow-green-950/20">
-        <span className="h-2 w-2 rounded-full bg-green-300 shadow-[0_0_10px_rgba(74,222,128,0.9)]" />
+      <div className="inline-flex items-center gap-2 rounded-full border border-[#2EC4B6]/40 bg-[#2EC4B6]/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#2EC4B6] shadow-lg shadow-black/20">
+        <span className="h-2 w-2 rounded-full bg-[#2EC4B6] shadow-[0_0_10px_rgba(46,196,182,0.8)]" />
         Score validé
       </div>
     );
@@ -25,16 +25,16 @@ export default function ScoreStatusBadge({ status }: ScoreStatusBadgeProps) {
 
   if (status === "refused") {
     return (
-      <div className="inline-flex items-center gap-2 rounded-full border border-red-400/40 bg-red-500/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-red-300 shadow-lg shadow-red-950/20">
-        <span className="h-2 w-2 rounded-full bg-red-300 shadow-[0_0_10px_rgba(248,113,113,0.9)]" />
+      <div className="inline-flex items-center gap-2 rounded-full border border-[#C45A62]/40 bg-[#371015]/40 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#E58A8F] shadow-lg shadow-black/20">
+        <span className="h-2 w-2 rounded-full bg-[#E58A8F] shadow-[0_0_10px_rgba(229,138,143,0.8)]" />
         Score refusé
       </div>
     );
   }
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-slate-500/40 bg-slate-500/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-slate-300">
-      <span className="h-2 w-2 rounded-full bg-slate-400" />
+    <div className="inline-flex items-center gap-2 rounded-full border border-[#7189AA]/40 bg-[#7189AA]/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#A7B5C9]">
+      <span className="h-2 w-2 rounded-full bg-[#A7B5C9]" />
       Aucun score
     </div>
   );

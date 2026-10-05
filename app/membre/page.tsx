@@ -60,28 +60,23 @@ export default function MembrePage() {
     allCompetitionPlayers
   );
 
-  // Gestion erreurs session
   useEffect(() => {
     if (sessionError) setMessage(sessionError);
   }, [sessionError]);
 
-  // Chargement initial
   useEffect(() => {
     if (userId) loadMemberData(userId);
   }, [userId, loadMemberData]);
 
-  // Gestion erreurs data
   useEffect(() => {
     if (errorMessage) setMessage(errorMessage);
   }, [errorMessage]);
 
-  // Profil sécurisé
   const safeProfile = useMemo(
     () => buildSafeProfile(profile, player, registrations, eaTeams, stats),
     [profile, player, registrations, eaTeams, stats]
   );
 
-  // Reset du formulaire
   function resetScoreForm() {
     setOpenScoreMatchId(null);
     setScoreHome("");
@@ -89,19 +84,21 @@ export default function MembrePage() {
     setSubmittingMatchId(null);
   }
 
-  // Ouverture du formulaire
   function openScoreForm(match: Match) {
     setOpenScoreMatchId(match.id);
     setScoreHome(
-      match.submitted_home_score != null ? String(match.submitted_home_score) : ""
+      match.submitted_home_score != null
+        ? String(match.submitted_home_score)
+        : ""
     );
     setScoreAway(
-      match.submitted_away_score != null ? String(match.submitted_away_score) : ""
+      match.submitted_away_score != null
+        ? String(match.submitted_away_score)
+        : ""
     );
     setMessage(null);
   }
 
-  // Soumission du score
   async function submitScore(matchId: string) {
     if (!userId) {
       setMessage("Session introuvable. Merci de te reconnecter.");
@@ -160,7 +157,6 @@ export default function MembrePage() {
     setMessage(json.message || "Score proposé. En attente de validation.");
     resetScoreForm();
 
-    // Invalidation du cache
     cacheInvalidate("matches:");
     cacheInvalidate("regs:");
     cacheInvalidate("allRegs:");
@@ -172,10 +168,10 @@ export default function MembrePage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-[#07000d] px-4 py-10 text-[#fff2c6]">
+      <main className="min-h-screen bg-[#09182D] px-4 py-10 text-[#DBC399]">
         <div className="mx-auto max-w-6xl">
-          <div className="rounded-3xl border border-yellow-700/30 bg-[#140711] p-8 text-center shadow-2xl shadow-black/40">
-            <p className="text-lg font-black text-yellow-100">
+          <div className="rounded-3xl border border-[#C39B55]/20 bg-[#0B1B33]/70 p-8 text-center shadow-2xl shadow-black/40">
+            <p className="text-lg font-black text-[#DBC399]">
               Chargement de ton espace membre...
             </p>
           </div>
@@ -185,19 +181,17 @@ export default function MembrePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#07000d] px-4 py-8 text-[#fff2c6]">
+    <main className="min-h-screen bg-[#09182D] px-4 py-8 text-[#DBC399]">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-8">
-
         <MemberHeader />
 
         {message && (
-          <div className="rounded-2xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm font-black text-yellow-200 shadow-lg shadow-black/30">
+          <div className="rounded-2xl border border-[#C39B55]/40 bg-[#C39B55]/10 px-4 py-3 text-sm font-black text-[#DBC399] shadow-lg shadow-black/30">
             {message}
           </div>
         )}
 
         <section className="grid w-full items-start gap-8 lg:grid-cols-[380px_minmax(0,1fr)]">
-
           <MemberCard
             profile={{
               ...safeProfile,
@@ -214,7 +208,6 @@ export default function MembrePage() {
           />
 
           <div className="flex min-w-0 flex-col gap-6">
-
             <MemberCompetitions
               competitions={competitions}
               registrations={registrations}
@@ -249,13 +242,13 @@ export default function MembrePage() {
                       const match = matches.find((m) => m.id === row.id);
                       if (match) openScoreForm(match);
                     }}
-                    className="rounded-lg border border-yellow-400/50 bg-yellow-400 px-3 py-2 text-xs font-black text-black shadow-lg shadow-yellow-950/30 transition hover:bg-yellow-300"
+                    className="rounded-lg border border-[#C39B55]/40 bg-[#C39B55] px-3 py-2 text-xs font-black text-[#09182D] shadow-lg shadow-black/30 transition hover:bg-[#DBC399]"
                   >
                     {row.scoreStatus === "pending"
                       ? "Modifier"
                       : row.scoreStatus === "refused"
-                      ? "Reproposer"
-                      : "Proposer"}
+                        ? "Reproposer"
+                        : "Proposer"}
                   </button>
                 ),
               }))}
@@ -269,7 +262,6 @@ export default function MembrePage() {
               rows={finishedMatchRows}
               emptyText="Aucun match terminé pour le moment."
             />
-
           </div>
         </section>
       </div>

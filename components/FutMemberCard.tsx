@@ -212,7 +212,7 @@ function CardText({
 }) {
   return (
     <div
-      className={`absolute z-20 flex items-center justify-center text-center font-black uppercase leading-none text-[#F7E9C5] drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] ${className}`}
+      className={`absolute z-20 flex items-center justify-center text-center font-black uppercase leading-none text-[#CFC6AB] drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] ${className}`}
     >
       {children}
     </div>
@@ -222,12 +222,12 @@ function CardText({
 function StatValue({ item }: { item: StatItem }) {
   const toneClass =
     item.tone === "green"
-      ? "text-[#4ADE80] drop-shadow-[0_0_8px_rgba(74,222,128,0.58)]"
+      ? "text-[#2EC4B6] drop-shadow-[0_0_8px_rgba(46,196,182,0.58)]"
       : item.tone === "red"
-        ? "text-[#FB7185] drop-shadow-[0_0_8px_rgba(251,113,133,0.58)]"
+        ? "text-[#E58A8F] drop-shadow-[0_0_8px_rgba(229,138,143,0.58)]"
         : item.tone === "orange"
-          ? "text-[#F59E0B] drop-shadow-[0_0_8px_rgba(245,158,11,0.55)]"
-          : "text-[#F7D56D] drop-shadow-[0_0_8px_rgba(247,213,109,0.55)]";
+          ? "text-[#C39B55] drop-shadow-[0_0_8px_rgba(195,155,85,0.55)]"
+          : "text-[#DBC399] drop-shadow-[0_0_8px_rgba(219,195,153,0.55)]";
 
   return (
     <span
@@ -244,7 +244,7 @@ function FlagImage({ countryCode }: { countryCode: string }) {
 
   if (hasError || !code) {
     return (
-      <span className="text-[0.72rem] font-black tracking-[0.12em] text-[#F7D56D]">
+      <span className="text-[0.72rem] font-black tracking-[0.12em] text-[#DBC399]">
         {countryCode}
       </span>
     );
@@ -254,7 +254,7 @@ function FlagImage({ countryCode }: { countryCode: string }) {
     <img
       src={`/flags/${code}.png`}
       alt={countryCode}
-      className="h-[18px] w-[28px] rounded-[2px] border border-[#D9A441]/50 object-cover shadow-[0_0_7px_rgba(0,0,0,0.9)]"
+      className="h-[18px] w-[28px] rounded-[2px] border border-[#C39B55]/50 object-cover shadow-[0_0_7px_rgba(0,0,0,0.9)]"
       draggable={false}
       onError={() => setHasError(true)}
     />
@@ -580,7 +580,7 @@ export default function FutMemberCard({
         />
 
         {/* Avatar membre */}
-        <div className="absolute left-[50%] top-[47%] z-10 h-[27%] w-[40%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border border-[#D9A441]/35 bg-black/35 shadow-[0_0_28px_rgba(217,164,65,0.28)]">
+        <div className="absolute left-[50%] top-[47%] z-10 h-[27%] w-[40%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border border-[#C39B55]/35 bg-[#0B1B33]/35 shadow-[0_0_28px_rgba(195,155,85,0.28)]">
           <img
             src={avatarUrl}
             alt={username}
@@ -592,17 +592,17 @@ export default function FutMemberCard({
         </div>
 
         {/* N° maillot */}
-        <CardText className="left-[8.3%] top-[12%] w-[21%] justify-start text-[3.4rem] tracking-[-0.06em] text-[#F7D56D]">
+        <CardText className="left-[8.3%] top-[12%] w-[21%] justify-start text-[3.4rem] tracking-[-0.06em] text-[#DBC399]">
           {number}
         </CardText>
 
         {/* Rôle */}
-        <CardText className="left-[63%] top-[13.5%] w-[17.5%] justify-start text-[0.68rem] tracking-[0.12em] text-[#F7E9C5]">
+        <CardText className="left-[63%] top-[13.5%] w-[17.5%] justify-start text-[0.68rem] tracking-[0.12em]">
           <span className="truncate">{truncateText(roleLabel, 8)}</span>
         </CardText>
 
         {/* Plateforme */}
-        <CardText className="left-[63.5%] top-[22.5%] w-[13%] justify-start text-[0.72rem] tracking-[0.12em] text-[#F7D56D]">
+        <CardText className="left-[63.5%] top-[22.5%] w-[13%] justify-start text-[0.72rem] tracking-[0.12em] text-[#DBC399]">
           <span className="truncate">{truncateText(platform, 5)}</span>
         </CardText>
 
@@ -612,19 +612,19 @@ export default function FutMemberCard({
         </div>
 
         {/* Pseudo */}
-        <CardText className="left-[16.5%] top-[59%] w-[67%] text-[1.2rem] tracking-[0.17em] text-[#F7E9C5]">
+        <CardText className="left-[16.5%] top-[59%] w-[67%] text-[1.2rem] tracking-[0.17em]">
           <span className="truncate">{truncateText(username, 14)}</span>
         </CardText>
 
         {/* Championnat */}
-        <CardText className="left-[36%] top-[65%] w-[45%] justify-start text-[0.8rem] tracking-[0.08em] text-[#F7E9C5]">
+        <CardText className="left-[36%] top-[65%] w-[45%] justify-start text-[0.8rem] tracking-[0.08em]">
           <span className="w-full truncate text-left">
             {truncateText(championshipName, 18)}
           </span>
         </CardText>
 
         {/* Équipe */}
-        <CardText className="left-[36%] top-[71%] w-[47%] justify-start text-[0.84rem] tracking-[0.08em] text-[#F7E9C5]">
+        <CardText className="left-[36%] top-[71%] w-[47%] justify-start text-[0.84rem] tracking-[0.08em]">
           <span className="w-full truncate text-left">
             {truncateText(eaTeamName, 18)}
           </span>

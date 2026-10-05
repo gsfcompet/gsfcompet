@@ -71,19 +71,6 @@ type StandingRow = {
   pts: number;
 };
 
-function getCompetitionTypeLabel(type: string) {
-  if (type === "league") return "Championnat";
-  if (type === "cup") return "Coupe";
-  if (type === "tournament") return "Tournoi";
-
-  return type;
-}
-
-function getParticipantTypeLabel(type: ParticipantType) {
-  if (type === "teams") return "Teams esport";
-  return "Joueurs EA FC";
-}
-
 function getStatusLabel(status: string) {
   if (status === "draft") return "Brouillon";
   if (status === "planned") return "Planifiée";
@@ -97,26 +84,26 @@ function getStatusLabel(status: string) {
 
 function getStatusClass(status: string) {
   if (status === "active") {
-    return "border-green-400/40 bg-green-500/15 text-green-300";
+    return "border-[#2EC4B6]/40 bg-[#2EC4B6]/10 text-[#2EC4B6]";
   }
 
   if (status === "planned" || status === "scheduled") {
-    return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
+    return "border-[#C39B55]/50 bg-[#C39B55]/10 text-[#DBC399]";
   }
 
   if (status === "draft") {
-    return "border-orange-400/40 bg-orange-500/15 text-orange-300";
+    return "border-[#A9647A]/40 bg-[#A9647A]/10 text-[#cfc6ab]";
   }
 
   if (status === "completed") {
-    return "border-blue-400/40 bg-blue-500/15 text-blue-300";
+    return "border-[#cfc6ab]/30 bg-[#cfc6ab]/10 text-[#cfc6ab]";
   }
 
   if (status === "archived") {
-    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+    return "border-[rgba(241,233,210,0.14)] bg-[#0B1B33] text-[#cfc6ab]/60";
   }
 
-  return "border-yellow-500/30 bg-black/30 text-yellow-200";
+  return "border-[rgba(241,233,210,0.14)] bg-[#0B1B33] text-[#DBC399]";
 }
 
 export default function CompetitionClassementPage() {
@@ -295,7 +282,11 @@ export default function CompetitionClassementPage() {
     return teams.find((team) => team.id === teamId) ?? null;
   }
 
-  function createEmptyRow(id: string, name: string, subLabel: string): StandingRow {
+  function createEmptyRow(
+    id: string,
+    name: string,
+    subLabel: string
+  ): StandingRow {
     return {
       id,
       name,
@@ -360,7 +351,9 @@ export default function CompetitionClassementPage() {
       ]);
 
       const teamIds = Array.from(
-        new Set([...registeredTeamIds, ...matchTeamIds].filter(Boolean) as string[])
+        new Set(
+          [...registeredTeamIds, ...matchTeamIds].filter(Boolean) as string[]
+        )
       );
 
       for (const teamId of teamIds) {
@@ -419,16 +412,18 @@ export default function CompetitionClassementPage() {
           match.away_score !== null
       )
       .reduce((total, match) => {
-        return total + Number(match.home_score ?? 0) + Number(match.away_score ?? 0);
+        return (
+          total + Number(match.home_score ?? 0) + Number(match.away_score ?? 0)
+        );
       }, 0);
   }, [matches]);
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <main className="min-h-screen bg-[radial-gradient(1200px_700px_at_10%_-10%,#12274A_0%,#0B1B33_60%)] text-[#cfc6ab]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="text-[#D8C7A0]">Chargement du classement...</p>
+          <div className="w-full rounded-2xl border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 text-center shadow-lg shadow-black/30">
+            <p className="text-[#cfc6ab]/75">Chargement du classement...</p>
           </div>
         </section>
       </main>
@@ -437,16 +432,18 @@ export default function CompetitionClassementPage() {
 
   if (!competition) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <main className="min-h-screen bg-[radial-gradient(1200px_700px_at_10%_-10%,#12274A_0%,#0B1B33_60%)] text-[#cfc6ab]">
         <section className="mx-auto flex min-h-screen max-w-2xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+          <div className="w-full rounded-2xl border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 text-center shadow-lg shadow-black/30">
             <h1 className="text-3xl font-black">Compétition introuvable</h1>
 
-            {message && <p className="mt-3 text-[#D8C7A0]">{message}</p>}
+            {message && (
+              <p className="mt-3 text-[#cfc6ab]/75">{message}</p>
+            )}
 
             <Link
               href="/competitions"
-              className="mt-6 inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+              className="mt-6 inline-flex rounded-xl border border-[#C39B55]/35 px-5 py-2.5 text-sm font-semibold text-[#DBC399] transition hover:bg-[#0B1B33]"
             >
               Retour aux compétitions
             </Link>
@@ -461,43 +458,43 @@ export default function CompetitionClassementPage() {
     : competition.name;
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[radial-gradient(1200px_700px_at_10%_-10%,#12274A_0%,#0B1B33_60%)] text-[#cfc6ab]">
       <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
-        <section className="rounded-[28px] border border-[#D9A441]/25 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+        <section className="rounded-[28px] border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 shadow-2xl shadow-black/50">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-5 flex flex-wrap gap-3">
                 <Link
                   href="/competitions"
-                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#C39B55]/35 px-4 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#0B1B33]"
                 >
                   ← Retour aux compétitions
                 </Link>
 
                 <Link
                   href={`/competitions/${competition.id}/matchs`}
-                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#C39B55]/35 px-4 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#0B1B33]"
                 >
                   Matchs
                 </Link>
 
                 <Link
                   href={`/competitions/${competition.id}/inscription`}
-                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#C39B55]/35 px-4 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#0B1B33]"
                 >
                   Inscription
                 </Link>
               </div>
 
-              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#DBC399]">
                 Classement de la compétition
               </p>
 
-              <h1 className="mt-3 text-4xl font-black text-[#F7E9C5] md:text-5xl">
+              <h1 className="mt-3 text-4xl font-black text-[#cfc6ab] md:text-5xl">
                 {competitionLabel}
               </h1>
 
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#D8C7A0]">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#cfc6ab]/75">
                 Classement calculé uniquement avec les matchs terminés.
               </p>
             </div>
@@ -519,19 +516,19 @@ export default function CompetitionClassementPage() {
         </section>
 
         {message && (
-          <div className="mt-6 rounded-2xl border border-red-400/30 bg-[#160A12] px-4 py-3 text-sm font-black text-red-300">
+          <div className="mt-6 rounded-2xl border border-[#A9647A]/40 bg-[#12274A] px-4 py-3 text-sm font-black text-[#cfc6ab]">
             {message}
           </div>
         )}
 
-        <section className="mt-8 rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+        <section className="mt-8 rounded-[28px] border border-[rgba(241,233,210,0.14)] bg-[#12274A] p-6 shadow-2xl shadow-black/40">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
+              <h2 className="text-2xl font-black text-[#cfc6ab]">
                 Classement
               </h2>
 
-              <p className="mt-2 text-sm text-[#D8C7A0]">
+              <p className="mt-2 text-sm text-[#cfc6ab]/75">
                 Tri : points, goal average, buts pour, buts contre.
               </p>
             </div>
@@ -546,11 +543,11 @@ export default function CompetitionClassementPage() {
           </div>
 
           {classement.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+            <p className="rounded-xl border border-dashed border-[rgba(241,233,210,0.14)] bg-[#0B1B33] p-4 text-sm text-[#cfc6ab]/75">
               Aucun participant dans le classement pour le moment.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/20">
+            <div className="overflow-hidden rounded-2xl border border-[rgba(241,233,210,0.14)] bg-[#0B1B33]">
               <div className="max-h-[680px] overflow-y-auto">
                 <table className="w-full table-fixed border-collapse text-left text-sm">
                   <colgroup>
@@ -566,36 +563,36 @@ export default function CompetitionClassementPage() {
                     <col className="w-[10%]" />
                   </colgroup>
 
-                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                  <thead className="sticky top-0 z-10 bg-[#0B1B33] text-[10px] uppercase tracking-[0.18em] text-[#DBC399]">
                     <tr>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3">
                         #
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3">
                         Participant
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center">
                         MJ
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-green-300">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center text-[#2EC4B6]">
                         V
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-orange-300">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center text-[#DBC399]">
                         N
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-red-300">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center text-[#A9647A]">
                         P
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-green-300">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center text-[#2EC4B6]">
                         BP
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center text-red-300">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center text-[#A9647A]">
                         BC
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center">
                         GA
                       </th>
-                      <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                      <th className="border-b border-[rgba(241,233,210,0.14)] px-4 py-3 text-center">
                         PTS
                       </th>
                     </tr>
@@ -605,29 +602,29 @@ export default function CompetitionClassementPage() {
                     {classement.map((row, index) => (
                       <tr
                         key={row.id}
-                        className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
+                        className="border-b border-[rgba(241,233,210,0.08)] transition hover:bg-[#C39B55]/5"
                       >
                         <td className="px-4 py-4">
-                          <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/40 px-2 text-sm font-black text-[#F2D27A]">
+                          <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#C39B55]/35 bg-[#0B1B33] px-2 text-sm font-black text-[#DBC399]">
                             {index + 1}
                           </span>
                         </td>
 
                         <td className="px-4 py-4">
-                          <p className="truncate font-black text-[#F7E9C5]">
+                          <p className="truncate font-black text-[#cfc6ab]">
                             {row.name}
                           </p>
-                          <p className="mt-1 truncate text-xs text-[#8F7B5C]">
+                          <p className="mt-1 truncate text-xs text-[#cfc6ab]/60">
                             {row.subLabel}
                           </p>
                         </td>
 
                         <TableStat value={row.mj} />
                         <TableStat value={row.v} tone="green" />
-                        <TableStat value={row.n} tone="orange" />
-                        <TableStat value={row.p} tone="red" />
+                        <TableStat value={row.n} tone="gold" />
+                        <TableStat value={row.p} tone="rose" />
                         <TableStat value={row.bp} tone="green" />
-                        <TableStat value={row.bc} tone="red" />
+                        <TableStat value={row.bc} tone="rose" />
                         <TableStat value={row.ga > 0 ? `+${row.ga}` : row.ga} />
                         <TableStat value={row.pts} strong />
                       </tr>
@@ -668,9 +665,9 @@ function SummaryTile({
   value: string | number;
 }) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-5 py-4">
-      <p className="text-2xl font-black text-[#F2D27A]">{value}</p>
-      <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+    <div className="rounded-2xl border border-[rgba(241,233,210,0.14)] bg-[#0B1B33] px-5 py-4">
+      <p className="text-2xl font-black text-[#DBC399]">{value}</p>
+      <p className="text-xs uppercase tracking-widest text-[#cfc6ab]/60">
         {label}
       </p>
     </div>
@@ -683,17 +680,15 @@ function TableStat({
   strong = false,
 }: {
   value: string | number;
-  tone?: "gold" | "green" | "orange" | "red";
+  tone?: "gold" | "green" | "rose";
   strong?: boolean;
 }) {
   const colorClass =
     tone === "green"
-      ? "text-green-300"
-      : tone === "orange"
-        ? "text-orange-300"
-        : tone === "red"
-          ? "text-red-300"
-          : "text-[#F2D27A]";
+      ? "text-[#2EC4B6]"
+      : tone === "rose"
+        ? "text-[#A9647A]"
+        : "text-[#DBC399]";
 
   return (
     <td

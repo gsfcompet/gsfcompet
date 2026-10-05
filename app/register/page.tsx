@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -15,10 +15,10 @@ export default function RegisterPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!username || !email || !password) {
+    if (!username.trim() || !email.trim() || !password) {
       setMessage("Merci de remplir tous les champs.");
       return;
     }
@@ -32,11 +32,11 @@ export default function RegisterPage() {
     setMessage("");
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
-          username,
+          username: username.trim(),
         },
       },
     });
@@ -58,60 +58,62 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[#09182D] text-[#DBC399]">
       <section className="mx-auto flex min-h-screen max-w-md items-center px-6 py-12">
-        <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+        <div className="w-full rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
+          <p className="mb-3 inline-flex rounded-full border border-[#C39B55]/30 bg-[#071326] px-4 py-2 text-sm font-semibold text-[#DBC399]">
             Inscription
           </p>
 
-          <h1 className="text-3xl font-black">Créer un compte</h1>
+          <h1 className="text-3xl font-black text-[#DBC399]">
+            Créer un compte
+          </h1>
 
-          <p className="mt-2 text-[#D8C7A0]">
-            Crée ton compte membre Guardian&apos;s Family.
+          <p className="mt-2 text-[#CFC6AB]">
+            Crée ton compte membre Guardian's Family.
           </p>
 
           <form onSubmit={handleRegister} className="mt-8 grid gap-5">
             {message && (
-              <div className="rounded-xl border border-[#D9A441]/30 bg-[#0B0610] px-4 py-3 text-sm text-[#F2D27A]">
+              <div className="rounded-xl border border-[#C39B55]/30 bg-[#071326] px-4 py-3 text-sm text-[#DBC399]">
                 {message}
               </div>
             )}
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+              <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                 Pseudo
               </label>
               <input
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
-                className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-[#C39B55]/60"
                 placeholder="Ex : Greg"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+              <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                 Email
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-[#C39B55]/60"
                 placeholder="ton@email.com"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+              <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                 Mot de passe
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-[#C39B55]/60"
                 placeholder="6 caractères minimum"
               />
             </div>
@@ -119,15 +121,18 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl border border-[#C39B55]/40 bg-[#C39B55] px-6 py-3 font-semibold text-[#09182D] shadow-lg shadow-[#C39B55]/15 transition hover:bg-[#DBC399] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Création..." : "Créer mon compte"}
             </button>
           </form>
 
-          <p className="mt-6 text-sm text-[#D8C7A0]">
+          <p className="mt-6 text-sm text-[#CFC6AB]">
             Déjà un compte ?{" "}
-            <Link href="/login" className="font-semibold text-[#F2D27A]">
+            <Link
+              href="/login"
+              className="font-semibold text-[#DBC399] hover:underline"
+            >
               Se connecter
             </Link>
           </p>

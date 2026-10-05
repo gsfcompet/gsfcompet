@@ -10,7 +10,12 @@ import AdminMatchesScheduler from "@/components/AdminMatchesScheduler";
 import AdminCompetitionMatchesTable, {
   type AdminCompetitionMatchTableRow,
 } from "@/components/AdminCompetitionMatchesTable";
-import { canManageCompetitions, canManageScores, canManageTeams, type AppRole } from "@/lib/roles";
+import {
+  canManageCompetitions,
+  canManageScores,
+  canManageTeams,
+  type AppRole,
+} from "@/lib/roles";
 
 type Profile = {
   id: string;
@@ -82,7 +87,12 @@ type ScoreForm = {
   away: string;
 };
 
-type AdminMatchFilter = "all" | "planned" | "scheduled" | "completed" | "pending";
+type AdminMatchFilter =
+  | "all"
+  | "planned"
+  | "scheduled"
+  | "completed"
+  | "pending";
 
 export default function AdminCompetitionPage() {
   const params = useParams<{ id: string }>();
@@ -194,7 +204,11 @@ export default function AdminCompetitionPage() {
     const loadedProfile = profileResult.data as Profile;
     setProfile(loadedProfile);
 
-    if (!canManageCompetitions(loadedProfile.role) && !canManageScores(loadedProfile.role) && !canManageTeams(loadedProfile.role)) {
+    if (
+      !canManageCompetitions(loadedProfile.role) &&
+      !canManageScores(loadedProfile.role) &&
+      !canManageTeams(loadedProfile.role)
+    ) {
       setLoading(false);
       return;
     }
@@ -290,7 +304,9 @@ export default function AdminCompetitionPage() {
       .order("created_at", { ascending: true });
 
     if (competitionTeamsResult.error) {
-      setMessage(`Erreur teams compétition : ${competitionTeamsResult.error.message}`);
+      setMessage(
+        `Erreur teams compétition : ${competitionTeamsResult.error.message}`
+      );
       setLoading(false);
       return;
     }
@@ -423,18 +439,18 @@ export default function AdminCompetitionPage() {
 
   function getStatusClass(status: string) {
     if (status === "completed") {
-      return "border-green-400/30 text-green-300";
+      return "border-[#2EC4B6]/35 text-[#2EC4B6]";
     }
 
     if (status === "in_progress") {
-      return "border-orange-400/30 text-orange-300";
+      return "border-[#C39B55]/40 text-[#DBC399]";
     }
 
     if (status === "scheduled") {
-      return "border-blue-400/30 text-blue-300";
+      return "border-[#6F91C2]/40 text-[#AFC5E5]";
     }
 
-    return "border-[#D9A441]/30 text-[#F2D27A]";
+    return "border-[#C39B55]/30 text-[#DBC399]";
   }
 
   function formatDate(value: string | null) {
@@ -465,12 +481,18 @@ export default function AdminCompetitionPage() {
     if (!value) return "";
 
     const date = new Date(value);
-    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    const localDate = new Date(
+      date.getTime() - date.getTimezoneOffset() * 60000
+    );
 
     return localDate.toISOString().slice(0, 16);
   }
 
-  function updateScoreForm(matchId: string, field: "home" | "away", value: string) {
+  function updateScoreForm(
+    matchId: string,
+    field: "home" | "away",
+    value: string
+  ) {
     const cleanValue = value.replace(/[^\d]/g, "");
 
     setScoreForms((current) => ({
@@ -521,7 +543,8 @@ export default function AdminCompetitionPage() {
       }
     );
 
-const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setGenerating(false);
@@ -579,7 +602,8 @@ const result: { error?: string; message?: string } = await response.json();
       }),
     });
 
-const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setSavingScoreMatchId(null);
@@ -619,7 +643,8 @@ const result: { error?: string; message?: string } = await response.json();
       }),
     });
 
-const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setResettingMatchId(null);
@@ -659,7 +684,8 @@ const result: { error?: string; message?: string } = await response.json();
       }),
     });
 
-const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setSavingDateMatchId(null);
@@ -693,7 +719,8 @@ const result: { error?: string; message?: string } = await response.json();
       body: JSON.stringify({ action }),
     });
 
-    const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setReviewingMatchId(null);
@@ -716,18 +743,18 @@ const result: { error?: string; message?: string } = await response.json();
 
   function getScoreStatusClass(status: string | null) {
     if (status === "pending") {
-      return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
+      return "border-[#C39B55]/40 bg-[#C39B55]/10 text-[#DBC399]";
     }
 
     if (status === "validated") {
-      return "border-green-400/40 bg-green-500/15 text-green-300";
+      return "border-[#2EC4B6]/35 bg-[#2EC4B6]/10 text-[#2EC4B6]";
     }
 
     if (status === "refused") {
-      return "border-red-400/40 bg-red-500/15 text-red-300";
+      return "border-red-400/35 bg-red-500/10 text-red-300";
     }
 
-    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+    return "border-[#CFC6AB]/20 bg-[#0B1B33]/60 text-[#CFC6AB]";
   }
 
   const matchTableRows = useMemo<AdminCompetitionMatchTableRow[]>(() => {
@@ -735,7 +762,8 @@ const result: { error?: string; message?: string } = await response.json();
       const home = getMatchParticipantLabel(match, "home");
       const away = getMatchParticipantLabel(match, "away");
 
-      const hasScore = match.home_score !== null && match.away_score !== null;
+      const hasScore =
+        match.home_score !== null && match.away_score !== null;
 
       const hasSubmittedScore =
         match.submitted_home_score !== null &&
@@ -755,7 +783,9 @@ const result: { error?: string; message?: string } = await response.json();
         homeSubtitle: home.subtitle,
         awayTitle: away.title,
         awaySubtitle: away.subtitle,
-        scoreLabel: hasScore ? `${match.home_score} - ${match.away_score}` : "VS",
+        scoreLabel: hasScore
+          ? `${match.home_score} - ${match.away_score}`
+          : "VS",
         matchStatusLabel: getStatusLabel(match.status),
         matchStatusClassName: getStatusClass(match.status),
         scoreStatusLabel: getScoreStatusLabel(match.score_status),
@@ -767,21 +797,21 @@ const result: { error?: string; message?: string } = await response.json();
           <button
             type="button"
             onClick={() => setOpenMatchId(isOpen ? null : match.id)}
-            className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#160A12]"
+            className="rounded-lg border border-[#C39B55]/30 px-4 py-2 text-xs font-black text-[#DBC399] transition hover:bg-[#12274A]"
           >
             {isOpen ? "Fermer" : "Gérer"}
           </button>
         ),
         expandedNode: isOpen ? (
           <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4">
-              <p className="mb-3 text-sm font-black text-[#F2D27A]">
+            <div className="rounded-xl border border-[#C39B55]/15 bg-[#12274A]/80 p-4">
+              <p className="mb-3 text-sm font-black text-[#DBC399]">
                 Saisie score admin
               </p>
 
               <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                  <label className="mb-1 block text-xs font-semibold text-[#9F967F]">
                     {home.title}
                   </label>
 
@@ -791,13 +821,13 @@ const result: { error?: string; message?: string } = await response.json();
                       updateScoreForm(match.id, "home", event.target.value)
                     }
                     inputMode="numeric"
-                    className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    className="w-full rounded-lg border border-[#C39B55]/20 bg-[#0B1B33] px-3 py-2 text-center font-black text-[#CFC6AB] outline-none transition focus:border-[#C39B55]/60"
                     placeholder="0"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-[#8F7B5C]">
+                  <label className="mb-1 block text-xs font-semibold text-[#9F967F]">
                     {away.title}
                   </label>
 
@@ -807,7 +837,7 @@ const result: { error?: string; message?: string } = await response.json();
                       updateScoreForm(match.id, "away", event.target.value)
                     }
                     inputMode="numeric"
-                    className="w-full rounded-lg border border-[#D9A441]/20 bg-[#0B0610] px-3 py-2 text-center font-black text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    className="w-full rounded-lg border border-[#C39B55]/20 bg-[#0B1B33] px-3 py-2 text-center font-black text-[#CFC6AB] outline-none transition focus:border-[#C39B55]/60"
                     placeholder="0"
                   />
                 </div>
@@ -816,7 +846,7 @@ const result: { error?: string; message?: string } = await response.json();
                   type="button"
                   disabled={isSavingScore}
                   onClick={() => saveAdminScore(match)}
-                  className="rounded-lg bg-[#A61E22] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-lg bg-[#C39B55] px-4 py-2 text-sm font-semibold text-[#0B1B33] transition hover:bg-[#DBC399] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSavingScore ? "..." : "Enregistrer"}
                 </button>
@@ -825,26 +855,26 @@ const result: { error?: string; message?: string } = await response.json();
                   type="button"
                   disabled={isResetting || !hasScore}
                   onClick={() => resetAdminScore(match)}
-                  className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg border border-red-400/30 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-950/30 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {isResetting ? "..." : "Reset"}
                 </button>
               </div>
             </div>
 
-            <div className="rounded-xl border border-orange-400/20 bg-orange-950/20 p-4">
-              <p className="mb-3 text-sm font-black text-orange-300">
+            <div className="rounded-xl border border-[#C39B55]/20 bg-[#C39B55]/5 p-4">
+              <p className="mb-3 text-sm font-black text-[#DBC399]">
                 Score proposé membre
               </p>
 
               {hasSubmittedScore ? (
                 <>
-                  <p className="text-2xl font-black text-[#F2D27A]">
+                  <p className="text-2xl font-black text-[#DBC399]">
                     {match.submitted_home_score} - {match.submitted_away_score}
                   </p>
 
                   {match.score_submitted_at && (
-                    <p className="mt-2 text-xs text-[#D8C7A0]">
+                    <p className="mt-2 text-xs text-[#CFC6AB]">
                       Envoyé le {formatSubmittedAt(match.score_submitted_at)}
                     </p>
                   )}
@@ -855,7 +885,7 @@ const result: { error?: string; message?: string } = await response.json();
                         type="button"
                         disabled={isReviewing}
                         onClick={() => reviewScore(match, "validate")}
-                        className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-lg bg-[#2EC4B6] px-4 py-2 text-sm font-semibold text-[#0B1B33] transition hover:bg-[#55D4C8] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isReviewing ? "..." : "Valider"}
                       </button>
@@ -872,7 +902,7 @@ const result: { error?: string; message?: string } = await response.json();
                   )}
                 </>
               ) : (
-                <p className="text-sm text-[#D8C7A0]">
+                <p className="text-sm text-[#CFC6AB]">
                   Aucun score proposé pour ce match.
                 </p>
               )}
@@ -890,13 +920,12 @@ const result: { error?: string; message?: string } = await response.json();
     reviewingMatchId,
   ]);
 
-
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <main className="min-h-screen bg-[#0B1B33] text-[#CFC6AB]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="text-[#D8C7A0]">Chargement admin compétition...</p>
+          <div className="w-full rounded-2xl border border-[#C39B55]/20 bg-[#12274A]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="text-[#CFC6AB]">Chargement admin compétition...</p>
           </div>
         </section>
       </main>
@@ -941,40 +970,40 @@ const result: { error?: string; message?: string } = await response.json();
     : competition.name;
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[#0B1B33] text-[#CFC6AB]">
       <section className="mx-auto max-w-7xl px-6 py-12">
         <div className="mb-10">
           <div className="mb-6 flex flex-wrap gap-3">
             <Link
               href="/admin"
-              className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+              className="rounded-xl border border-[#C39B55]/30 px-4 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#12274A]"
             >
               ← Retour admin
             </Link>
 
             <Link
               href="/competitions"
-              className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+              className="rounded-xl border border-[#C39B55]/30 px-4 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#12274A]"
             >
               Compétitions
             </Link>
 
             <Link
               href={`/competitions/${competition.id}/matchs`}
-              className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+              className="rounded-xl border border-[#C39B55]/30 px-4 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#12274A]"
             >
               Page matchs
             </Link>
 
             <Link
               href={`/competitions/${competition.id}/classement`}
-              className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+              className="rounded-xl border border-[#C39B55]/30 px-4 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#12274A]"
             >
               Classement
             </Link>
           </div>
 
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+          <p className="mb-3 inline-flex rounded-full border border-[#C39B55]/30 bg-[#12274A] px-4 py-2 text-sm font-semibold text-[#DBC399]">
             Administration compétition
           </p>
 
@@ -982,12 +1011,12 @@ const result: { error?: string; message?: string } = await response.json();
             {competitionLabel}
           </h1>
 
-          <p className="mt-3 max-w-3xl text-[#D8C7A0]">
+          <p className="mt-3 max-w-3xl text-[#CFC6AB]">
             Tableau de bord de gestion de la compétition.
           </p>
 
           {message && (
-            <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
+            <div className="mt-6 rounded-xl border border-[#C39B55]/30 bg-[#12274A] p-4 text-sm text-[#DBC399]">
               {message}
             </div>
           )}
@@ -1018,14 +1047,14 @@ const result: { error?: string; message?: string } = await response.json();
           <StatCard label="Matchs" value={matches.length} />
         </div>
 
-        <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <section className="mt-8 rounded-2xl border border-[#C39B55]/20 bg-[#12274A]/90 p-6 shadow-lg shadow-black/30">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
+              <h2 className="text-2xl font-black text-[#CFC6AB]">
                 Actions rapides
               </h2>
 
-              <p className="mt-2 text-sm text-[#D8C7A0]">
+              <p className="mt-2 text-sm text-[#CFC6AB]">
                 Génère automatiquement les matchs manquants entre les
                 participants inscrits.
               </p>
@@ -1035,7 +1064,7 @@ const result: { error?: string; message?: string } = await response.json();
               type="button"
               disabled={generating}
               onClick={generateMatches}
-              className="rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-[#C39B55] px-5 py-3 text-sm font-semibold text-[#0B1B33] shadow-lg shadow-black/20 transition hover:bg-[#DBC399] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {generating ? "Génération..." : "Générer les matchs"}
             </button>
@@ -1064,34 +1093,52 @@ const result: { error?: string; message?: string } = await response.json();
           description="Vue synthétique des matchs avec filtres et actions rapides."
           filters={[
             { key: "all", label: "Tous", count: matches.length },
-            { key: "planned", label: "À planifier", count: onlyPlannedMatches.length },
-            { key: "scheduled", label: "Programmés", count: scheduledMatches.length },
-            { key: "completed", label: "Terminés", count: completedMatches.length },
-            { key: "pending", label: "Scores à valider", count: pendingScoreMatches.length },
+            {
+              key: "planned",
+              label: "À planifier",
+              count: onlyPlannedMatches.length,
+            },
+            {
+              key: "scheduled",
+              label: "Programmés",
+              count: scheduledMatches.length,
+            },
+            {
+              key: "completed",
+              label: "Terminés",
+              count: completedMatches.length,
+            },
+            {
+              key: "pending",
+              label: "Scores à valider",
+              count: pendingScoreMatches.length,
+            },
           ]}
           activeFilter={matchFilter}
-          onFilterChange={(nextFilter) => setMatchFilter(nextFilter as AdminMatchFilter)}
+          onFilterChange={(nextFilter) =>
+            setMatchFilter(nextFilter as AdminMatchFilter)
+          }
           rows={matchTableRows}
           emptyText="Aucun match pour ce filtre."
         />
 
-        <section className="mt-8 rounded-2xl border border-orange-400/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+        <section className="mt-8 rounded-2xl border border-[#C39B55]/20 bg-[#12274A]/90 p-6 shadow-lg shadow-black/30">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-black text-orange-300">
+              <h2 className="text-2xl font-black text-[#DBC399]">
                 Scores à valider
               </h2>
 
-              <p className="mt-2 text-sm text-[#D8C7A0]">
+              <p className="mt-2 text-sm text-[#CFC6AB]">
                 Scores proposés par les membres en attente de validation admin.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-orange-400/30 bg-orange-950/20 px-6 py-4 text-center">
-              <p className="text-3xl font-black text-orange-300">
+            <div className="rounded-2xl border border-[#C39B55]/30 bg-[#C39B55]/5 px-6 py-4 text-center">
+              <p className="text-3xl font-black text-[#DBC399]">
                 {pendingScoreMatches.length}
               </p>
-              <p className="mt-1 text-xs uppercase tracking-widest text-orange-200/80">
+              <p className="mt-1 text-xs uppercase tracking-widest text-[#CFC6AB]">
                 en attente
               </p>
             </div>
@@ -1108,43 +1155,43 @@ const result: { error?: string; message?: string } = await response.json();
                 return (
                   <article
                     key={match.id}
-                    className="rounded-xl border border-orange-400/20 bg-[#0B0610]/70 p-4"
+                    className="rounded-xl border border-[#C39B55]/20 bg-[#0B1B33]/70 p-4"
                   >
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm text-[#8F7B5C]">
+                      <p className="text-sm text-[#9F967F]">
                         Proposé le {formatSubmittedAt(match.score_submitted_at)}
                       </p>
 
-                      <span className="rounded-full border border-orange-400/30 px-3 py-1 text-xs font-semibold text-orange-300">
+                      <span className="rounded-full border border-[#C39B55]/30 px-3 py-1 text-xs font-semibold text-[#DBC399]">
                         En attente
                       </span>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
                       <div>
-                        <p className="font-black text-[#F7E9C5]">
+                        <p className="font-black text-[#CFC6AB]">
                           {home.title}
                         </p>
-                        <p className="mt-1 text-sm text-[#8F7B5C]">
+                        <p className="mt-1 text-sm text-[#9F967F]">
                           {home.subtitle}
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-orange-400/30 bg-orange-950/20 px-6 py-4 text-center">
-                        <p className="text-3xl font-black text-orange-300">
+                      <div className="rounded-xl border border-[#C39B55]/30 bg-[#C39B55]/5 px-6 py-4 text-center">
+                        <p className="text-3xl font-black text-[#DBC399]">
                           {match.submitted_home_score} -{" "}
                           {match.submitted_away_score}
                         </p>
-                        <p className="mt-1 text-xs uppercase tracking-widest text-orange-200/80">
+                        <p className="mt-1 text-xs uppercase tracking-widest text-[#CFC6AB]">
                           score proposé
                         </p>
                       </div>
 
                       <div className="md:text-right">
-                        <p className="font-black text-[#F7E9C5]">
+                        <p className="font-black text-[#CFC6AB]">
                           {away.title}
                         </p>
-                        <p className="mt-1 text-sm text-[#8F7B5C]">
+                        <p className="mt-1 text-sm text-[#9F967F]">
                           {away.subtitle}
                         </p>
                       </div>
@@ -1155,7 +1202,7 @@ const result: { error?: string; message?: string } = await response.json();
                         type="button"
                         disabled={reviewingMatchId === match.id}
                         onClick={() => reviewScore(match, "validate")}
-                        className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-lg bg-[#2EC4B6] px-4 py-2 text-sm font-semibold text-[#0B1B33] transition hover:bg-[#55D4C8] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {reviewingMatchId === match.id ? "..." : "Valider"}
                       </button>
@@ -1192,16 +1239,16 @@ function AccessCard({
   linkText: string;
 }) {
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[#0B1B33] text-[#CFC6AB]">
       <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-        <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+        <div className="w-full rounded-2xl border border-[#C39B55]/20 bg-[#12274A]/90 p-6 text-center shadow-lg shadow-black/30">
           <h1 className="text-3xl font-black">{title}</h1>
 
-          <p className="mt-3 text-[#D8C7A0]">{text}</p>
+          <p className="mt-3 text-[#CFC6AB]">{text}</p>
 
           <Link
             href={linkHref}
-            className="mt-6 inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+            className="mt-6 inline-flex rounded-xl border border-[#C39B55]/30 px-5 py-2.5 text-sm font-semibold text-[#DBC399] transition hover:bg-[#0B1B33]"
           >
             {linkText}
           </Link>
@@ -1211,20 +1258,32 @@ function AccessCard({
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-5 shadow-lg shadow-black/30">
-      <p className="text-sm text-[#8F7B5C]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-[#F2D27A]">{value}</p>
+    <div className="rounded-2xl border border-[#C39B55]/20 bg-[#12274A]/90 p-5 shadow-lg shadow-black/30">
+      <p className="text-sm text-[#9F967F]">{label}</p>
+      <p className="mt-2 text-2xl font-black text-[#DBC399]">{value}</p>
     </div>
   );
 }
 
-function MiniCounter({ label, value }: { label: string; value: number }) {
+function MiniCounter({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
   return (
-    <div className="rounded-2xl border border-[#D9A441]/25 bg-[#0B0610]/70 px-5 py-3 text-center">
-      <p className="text-2xl font-black text-[#F2D27A]">{value}</p>
-      <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
+    <div className="rounded-2xl border border-[#C39B55]/25 bg-[#0B1B33]/70 px-5 py-3 text-center">
+      <p className="text-2xl font-black text-[#DBC399]">{value}</p>
+      <p className="mt-1 text-xs uppercase tracking-widest text-[#9F967F]">
         {label}
       </p>
     </div>
@@ -1233,7 +1292,7 @@ function MiniCounter({ label, value }: { label: string; value: number }) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <p className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+    <p className="rounded-xl border border-[#C39B55]/15 bg-[#0B1B33]/70 p-4 text-sm text-[#CFC6AB]">
       {text}
     </p>
   );

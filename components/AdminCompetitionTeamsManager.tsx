@@ -57,7 +57,7 @@ export default function AdminCompetitionTeamsManager({
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    loadData();
+    void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitionId]);
 
@@ -70,38 +70,41 @@ export default function AdminCompetitionTeamsManager({
     setLoading(true);
     setMessage("");
 
-    const accessToken = await getAccessToken();
+    try {
+      const accessToken = await getAccessToken();
 
-    if (!accessToken) {
-      setMessage("Session admin introuvable. Reconnecte-toi.");
+      if (!accessToken) {
+        setMessage("Session admin introuvable. Reconnecte-toi.");
+        return;
+      }
+
+      const response = await fetch("/api/admin/teams", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const result: {
+        error?: string;
+        message?: string;
+        teams?: Team[];
+        competition_teams?: CompetitionTeam[];
+        team_members?: TeamMember[];
+      } = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || "Erreur chargement teams esport.");
+        return;
+      }
+
+      setTeams(result.teams ?? []);
+      setCompetitionTeams(result.competition_teams ?? []);
+      setTeamMembers(result.team_members ?? []);
+    } catch {
+      setMessage("Impossible de charger les teams. Réessaie.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const response = await fetch("/api/admin/teams", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    const result: {
-      error?: string;
-      message?: string;
-      teams?: Team[];
-      competition_teams?: CompetitionTeam[];
-      team_members?: TeamMember[];
-    } = await response.json();
-
-    if (!response.ok) {
-      setMessage(result.error || "Erreur chargement teams esport.");
-      setLoading(false);
-      return;
-    }
-
-    setTeams((result.teams ?? []) as Team[]);
-    setCompetitionTeams((result.competition_teams ?? []) as CompetitionTeam[]);
-    setTeamMembers((result.team_members ?? []) as TeamMember[]);
-    setLoading(false);
   }
 
   const currentCompetitionTeams = useMemo(() => {
@@ -116,15 +119,18 @@ export default function AdminCompetitionTeamsManager({
 
   const registeredTeams = useMemo(() => {
     return currentCompetitionTeams
-      .map((competitionTeam) => {
-        const team = teams.find((item) => item.id === competitionTeam.team_id);
-
-        return {
-          competitionTeam,
-          team,
-        };
-      })
-      .filter((item) => item.team);
+      .map((competitionTeam) => ({
+        competitionTeam,
+        team: teams.find((item) => item.id === competitionTeam.team_id),
+      }))
+      .filter(
+        (
+          item
+        ): item is {
+          competitionTeam: CompetitionTeam;
+          team: Team;
+        } => Boolean(item.team)
+      );
   }, [currentCompetitionTeams, teams]);
 
   const availableTeams = useMemo(() => {
@@ -149,33 +155,35 @@ export default function AdminCompetitionTeamsManager({
     setSavingAction(action);
     setMessage("");
 
-    const response = await fetch("/api/admin/teams", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        action,
-        ...payload,
-      }),
-    });
+    try {
+      const response = await fetch("/api/admin/teams", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ action, ...payload }),
+      });
 
-    const result: { error?: string; message?: string } = await response.json();
+      const result: { error?: string; message?: string } =
+        await response.json();
 
-    if (!response.ok) {
-      setSavingAction("");
-      setMessage(result.error || "Erreur action team esport.");
+      if (!response.ok) {
+        setMessage(result.error || "Erreur action team esport.");
+        return false;
+      }
+
+      setMessage(result.message || "Action effectuée ✅");
+      await loadData();
+      await onChanged?.();
+
+      return true;
+    } catch {
+      setMessage("Impossible de contacter le serveur. Réessaie.");
       return false;
+    } finally {
+      setSavingAction("");
     }
-
-    setSavingAction("");
-    setMessage(result.message || "Action effectuée ✅");
-
-    await loadData();
-    await onChanged?.();
-
-    return true;
   }
 
   async function addTeamToCompetition() {
@@ -196,7 +204,7 @@ export default function AdminCompetitionTeamsManager({
 
   async function removeTeamFromCompetition(team: Team) {
     const confirmed = window.confirm(
-      `Retirer la team "${team.name}" de cette compétition ? Les matchs liés à cette team dans cette compétition seront supprimés.`
+      `Retirer la team « ${team.name} » de cette compétition ? Les matchs liés à cette team dans cette compétition seront supprimés.`
     );
 
     if (!confirmed) return;
@@ -208,38 +216,38 @@ export default function AdminCompetitionTeamsManager({
   }
 
   return (
-    <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+    <section className="mt-8 rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#F7E9C5]">
+          <h2 className="text-2xl font-black text-[#DBC399]">
             Gestion des teams esport
           </h2>
 
-          <p className="mt-2 text-sm text-[#D8C7A0]">
+          <p className="mt-2 text-sm text-[#CFC6AB]">
             Inscris les teams à cette compétition, ou retire une team déjà
             inscrite.
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#D9A441]/25 bg-[#0B0610]/70 px-5 py-3 text-center">
-          <p className="text-2xl font-black text-[#F2D27A]">
+        <div className="rounded-xl border border-[#C39B55]/25 bg-[#071326]/80 px-5 py-3 text-center">
+          <p className="text-2xl font-black text-[#DBC399]">
             {registeredTeams.length}
           </p>
-          <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+          <p className="text-xs uppercase tracking-widest text-[#CFC6AB]/70">
             teams
           </p>
         </div>
       </div>
 
       {message && (
-        <div className="mb-5 rounded-xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-4 py-3 text-sm font-semibold text-[#F2D27A]">
+        <div className="mb-5 rounded-xl border border-[#C39B55]/30 bg-[#071326]/80 px-4 py-3 text-sm font-semibold text-[#DBC399]">
           {message}
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <section className="rounded-2xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-5">
-          <h3 className="text-lg font-black text-[#F7E9C5]">
+        <section className="rounded-2xl border border-[#C39B55]/15 bg-[#071326]/70 p-5">
+          <h3 className="text-lg font-black text-[#DBC399]">
             Ajouter une team
           </h3>
 
@@ -247,7 +255,7 @@ export default function AdminCompetitionTeamsManager({
             <select
               value={teamToAdd}
               onChange={(event) => setTeamToAdd(event.target.value)}
-              className="rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+              className="rounded-xl border border-[#C39B55]/20 bg-[#09182D] px-4 py-3 text-[#DBC399] outline-none transition focus:border-[#C39B55]/60"
             >
               <option value="">Choisir une team</option>
 
@@ -261,37 +269,39 @@ export default function AdminCompetitionTeamsManager({
 
             <button
               type="button"
-              disabled={savingAction === "register_competition"}
+              disabled={
+                savingAction === "register_competition" || !teamToAdd
+              }
               onClick={addTeamToCompetition}
-              className="rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl border border-[#C39B55]/40 bg-[#17345B] px-5 py-3 text-sm font-black text-[#DBC399] shadow-lg shadow-black/20 transition hover:bg-[#204575] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {savingAction === "register_competition" ? "..." : "Inscrire"}
             </button>
           </div>
 
-          {availableTeams.length === 0 && (
-            <p className="mt-4 rounded-xl border border-dashed border-[#D9A441]/20 bg-black/20 px-4 py-3 text-sm text-[#D8C7A0]">
+          {availableTeams.length === 0 && !loading && (
+            <p className="mt-4 rounded-xl border border-dashed border-[#C39B55]/20 bg-[#09182D] px-4 py-3 text-sm text-[#CFC6AB]">
               Toutes les teams existantes sont déjà inscrites à cette
               compétition.
             </p>
           )}
         </section>
 
-        <section className="rounded-2xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-5">
-          <h3 className="text-lg font-black text-[#F7E9C5]">
+        <section className="rounded-2xl border border-[#C39B55]/15 bg-[#071326]/70 p-5">
+          <h3 className="text-lg font-black text-[#DBC399]">
             Teams inscrites
           </h3>
 
           {loading ? (
-            <div className="mt-4 rounded-xl border border-[#D9A441]/15 bg-black/20 p-4 text-sm text-[#D8C7A0]">
+            <div className="mt-4 rounded-xl border border-[#C39B55]/15 bg-[#09182D] p-4 text-sm text-[#CFC6AB]">
               Chargement des teams...
             </div>
           ) : registeredTeams.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-[#D9A441]/20 bg-black/20 p-4 text-sm text-[#D8C7A0]">
+            <div className="mt-4 rounded-xl border border-dashed border-[#C39B55]/20 bg-[#09182D] p-4 text-sm text-[#CFC6AB]">
               Aucune team inscrite pour le moment.
             </div>
           ) : (
-            <div className="mt-4 overflow-hidden rounded-xl border border-[#D9A441]/15">
+            <div className="mt-4 overflow-hidden rounded-xl border border-[#C39B55]/15">
               <table className="w-full table-fixed border-collapse text-left text-sm">
                 <colgroup>
                   <col className="w-[44%]" />
@@ -300,67 +310,65 @@ export default function AdminCompetitionTeamsManager({
                   <col className="w-[18%]" />
                 </colgroup>
 
-                <thead className="bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+                <thead className="bg-[#102443] text-[10px] uppercase tracking-[0.18em] text-[#DBC399]">
                   <tr>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                    <th className="border-b border-[#C39B55]/20 px-4 py-3">
                       Team
                     </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                    <th className="border-b border-[#C39B55]/20 px-4 py-3">
                       Manager
                     </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                    <th className="border-b border-[#C39B55]/20 px-4 py-3 text-center">
                       Membres
                     </th>
-                    <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                    <th className="border-b border-[#C39B55]/20 px-4 py-3 text-right">
                       Action
                     </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {registeredTeams.map(({ competitionTeam, team }) => {
-                    if (!team) return null;
-
-                    return (
-                      <tr
-                        key={competitionTeam.id}
-                        className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
-                      >
-                        <td className="px-4 py-4">
-                          <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#D9A441]/35 bg-red-900/20 text-sm font-black text-[#F2D27A]">
-                              {getInitials(team.name)}
-                            </div>
-
-                            <p className="truncate font-black text-[#F7E9C5]">
-                              {team.name}
-                            </p>
+                  {registeredTeams.map(({ competitionTeam, team }) => (
+                    <tr
+                      key={competitionTeam.id}
+                      className="border-b border-[#C39B55]/10 transition hover:bg-[#C39B55]/5"
+                    >
+                      <td className="px-4 py-4">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#C39B55]/35 bg-[#17345B] text-sm font-black text-[#DBC399]">
+                            {getInitials(team.name)}
                           </div>
-                        </td>
 
-                        <td className="px-4 py-4 text-[#D8C7A0]">
-                          {team.manager || "À définir"}
-                        </td>
+                          <p className="truncate font-black text-[#DBC399]">
+                            {team.name}
+                          </p>
+                        </div>
+                      </td>
 
-                        <td className="px-4 py-4 text-center">
-                          <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/40 px-2 text-sm font-black text-[#F2D27A]">
-                            {getTeamMembersCount(team.id)}
-                          </span>
-                        </td>
+                      <td className="px-4 py-4 text-[#CFC6AB]">
+                        {team.manager || "À définir"}
+                      </td>
 
-                        <td className="px-4 py-4 text-right">
-                          <button
-                            type="button"
-                            disabled={savingAction === "unregister_competition"}
-                            onClick={() => removeTeamFromCompetition(team)}
-                            className="rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Retirer
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      <td className="px-4 py-4 text-center">
+                        <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#C39B55]/35 bg-[#09182D] px-2 text-sm font-black text-[#DBC399]">
+                          {getTeamMembersCount(team.id)}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-4 text-right">
+                        <button
+                          type="button"
+                          disabled={
+                            savingAction === "unregister_competition"
+                          }
+                          onClick={() => removeTeamFromCompetition(team)}
+                          className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-black text-rose-300 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Retirer
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

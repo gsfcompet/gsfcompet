@@ -84,21 +84,25 @@ function getStatusLabel(status: string) {
 
 function getStatusClass(status: string) {
   if (status === "completed") {
-    return "border-green-400/40 bg-green-500/15 text-green-300";
+    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
   }
 
   if (status === "scheduled") {
-    return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
+    return "border-[#C39B55]/40 bg-[#C39B55]/10 text-[#DBC399]";
   }
 
-  return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+  if (status === "in_progress") {
+    return "border-sky-400/30 bg-sky-400/10 text-sky-300";
+  }
+
+  return "border-slate-400/25 bg-slate-400/10 text-slate-300";
 }
 
 export default function AdminMatchesScheduler({
   competitionId,
   onChanged,
 }: AdminMatchesSchedulerProps) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [competitionPlayers, setCompetitionPlayers] = useState<
@@ -118,7 +122,7 @@ export default function AdminMatchesScheduler({
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    loadData();
+    void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitionId]);
 
@@ -150,7 +154,7 @@ export default function AdminMatchesScheduler({
       new Set(
         loadedMatches
           .flatMap((match) => [match.home_team_id, match.away_team_id])
-          .filter(Boolean) as string[]
+          .filter((id): id is string => Boolean(id))
       )
     );
 
@@ -178,7 +182,7 @@ export default function AdminMatchesScheduler({
             match.home_competition_player_id,
             match.away_competition_player_id,
           ])
-          .filter(Boolean) as string[]
+          .filter((id): id is string => Boolean(id))
       )
     );
 
@@ -191,7 +195,9 @@ export default function AdminMatchesScheduler({
         .in("id", registrationIds);
 
       if (registrationsResult.error) {
-        setMessage(`Erreur participants : ${registrationsResult.error.message}`);
+        setMessage(
+          `Erreur participants : ${registrationsResult.error.message}`
+        );
         setLoading(false);
         return;
       }
@@ -237,7 +243,6 @@ export default function AdminMatchesScheduler({
     setTeams(loadedTeams);
     setDateForms(nextDateForms);
     setInitialDateForms(nextDateForms);
-
     setLoading(false);
   }
 
@@ -261,11 +266,10 @@ export default function AdminMatchesScheduler({
 
   const changedMatchIds = useMemo(() => {
     return editableMatches
-      .filter((match) => {
-        return (
+      .filter(
+        (match) =>
           (dateForms[match.id] ?? "") !== (initialDateForms[match.id] ?? "")
-        );
-      })
+      )
       .map((match) => match.id);
   }, [editableMatches, dateForms, initialDateForms]);
 
@@ -277,19 +281,18 @@ export default function AdminMatchesScheduler({
     if (!registration) return "Participant inconnu";
 
     const player = playerById.get(registration.player_id);
-
     const playerName = player?.name || player?.ea_name || "Joueur";
-    const eaTeamName = registration.ea_team_name || "Équipe EA FC";
+    const eaTeamName = registration.ea_team_name || "Équipe EA";
 
     return `${playerName} · ${eaTeamName}`;
   }
 
   function getTeamName(teamId: string | null) {
-    if (!teamId) return "Team inconnue";
+    if (!teamId) return "Équipe inconnue";
 
     const team = teamById.get(teamId);
 
-    return team?.name || "Team introuvable";
+    return team?.name || "Équipe introuvable";
   }
 
   function getMatchParticipantName(match: Match, side: "home" | "away") {
@@ -326,29 +329,46 @@ export default function AdminMatchesScheduler({
     setSavingMatchId(matchId);
     setMessage("");
 
-    const response = await fetch(`/api/admin/matches/${matchId}/schedule`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        match_date: value ? new Date(value).toISOString() : null,
-      }),
-    });
+    let matchDate: string | null = null;
 
-const result: { error?: string; message?: string } = await response.json();
+    if (value) {
+      const parsedDate = new Date(value);
 
-    if (!response.ok) {
-      setSavingMatchId(null);
-      setMessage(result.error || "Erreur programmation match.");
-      return false;
+      if (Number.isNaN(parsedDate.getTime())) {
+        setSavingMatchId(null);
+        setMessage("La date saisie est invalide.");
+        return false;
+      }
+
+      matchDate = parsedDate.toISOString();
     }
 
-    setSavingMatchId(null);
-    setMessage(result.message || "Date / heure enregistrée ✅");
+    try {
+      const response = await fetch(`/api/admin/matches/${matchId}/schedule`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ match_date: matchDate }),
+      });
 
-    return true;
+      const result: { error?: string; message?: string } =
+        await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || "Erreur lors de la programmation du match.");
+        return false;
+      }
+
+      setMessage(result.message || "Date et heure enregistrées ✅");
+      return true;
+    } catch {
+      setMessage("Impossible de contacter le serveur. Réessaie.");
+      return false;
+    } finally {
+      setSavingMatchId(null);
+    }
   }
 
   async function handleSaveOne(matchId: string) {
@@ -371,47 +391,46 @@ const result: { error?: string; message?: string } = await response.json();
 
     let saved = 0;
 
-    for (const matchId of changedMatchIds) {
-      const success = await saveMatchDate(matchId);
+    try {
+      for (const matchId of changedMatchIds) {
+        const success = await saveMatchDate(matchId);
 
-      if (!success) {
-        setSavingAll(false);
-        return;
+        if (!success) return;
+
+        saved += 1;
       }
 
-      saved += 1;
+      setMessage(`${saved} programmation(s) enregistrée(s) ✅`);
+      await loadData();
+      await onChanged?.();
+    } finally {
+      setSavingAll(false);
     }
-
-    setSavingAll(false);
-    setMessage(`${saved} programmation(s) enregistrée(s) ✅`);
-
-    await loadData();
-    await onChanged?.();
   }
 
   return (
-    <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+    <section className="mt-8 rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#F2D27A]">
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#C39B55]">
             Planning
           </p>
 
-          <h2 className="mt-2 text-2xl font-black text-[#F7E9C5]">
+          <h2 className="mt-2 text-2xl font-black text-[#DBC399]">
             Programmation rapide des matchs
           </h2>
 
-          <p className="mt-2 text-sm text-[#D8C7A0]">
+          <p className="mt-2 text-sm text-[#CFC6AB]">
             Planifie les dates et heures dans un tableau compact.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <div className="rounded-xl border border-[#D9A441]/25 bg-[#0B0610]/70 px-5 py-3 text-center">
-            <p className="text-2xl font-black text-[#F2D27A]">
+          <div className="rounded-xl border border-[#C39B55]/25 bg-[#071326]/80 px-5 py-3 text-center">
+            <p className="text-2xl font-black text-[#DBC399]">
               {editableMatches.length}
             </p>
-            <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+            <p className="text-xs uppercase tracking-widest text-[#CFC6AB]/70">
               à programmer
             </p>
           </div>
@@ -420,11 +439,7 @@ const result: { error?: string; message?: string } = await response.json();
             type="button"
             disabled={savingAll || changedMatchIds.length === 0}
             onClick={handleSaveAll}
-            className={
-              savingAll || changedMatchIds.length === 0
-                ? "rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 px-5 py-3 text-sm font-semibold text-[#8F7B5C] opacity-70"
-                : "rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
-            }
+            className="rounded-xl border border-[#C39B55]/40 bg-[#17345B] px-5 py-3 text-sm font-semibold text-[#DBC399] shadow-lg shadow-black/20 transition hover:bg-[#204575] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {savingAll
               ? "Enregistrement..."
@@ -434,21 +449,21 @@ const result: { error?: string; message?: string } = await response.json();
       </div>
 
       {message && (
-        <div className="mb-5 rounded-xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-4 py-3 text-sm font-semibold text-[#F2D27A]">
+        <div className="mb-5 rounded-xl border border-[#C39B55]/30 bg-[#071326]/80 px-4 py-3 text-sm font-semibold text-[#DBC399]">
           {message}
         </div>
       )}
 
       {loading ? (
-        <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+        <div className="rounded-xl border border-[#C39B55]/15 bg-[#071326]/70 p-4 text-sm text-[#CFC6AB]">
           Chargement de la programmation...
         </div>
       ) : editableMatches.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+        <div className="rounded-xl border border-dashed border-[#C39B55]/20 bg-[#071326]/70 p-4 text-sm text-[#CFC6AB]">
           Aucun match à programmer pour cette compétition.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70">
+        <div className="overflow-hidden rounded-xl border border-[#C39B55]/15 bg-[#071326]/70">
           <div className="max-h-[460px] overflow-y-auto">
             <table className="w-full table-fixed border-collapse text-left text-sm">
               <colgroup>
@@ -459,21 +474,21 @@ const result: { error?: string; message?: string } = await response.json();
                 <col className="w-[12%]" />
               </colgroup>
 
-              <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+              <thead className="sticky top-0 z-10 bg-[#102443] text-[10px] uppercase tracking-[0.18em] text-[#DBC399]">
                 <tr>
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3">
                     Match
                   </th>
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3">
                     Date actuelle
                   </th>
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3">
                     Nouvelle programmation
                   </th>
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3 text-center">
                     Statut
                   </th>
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3 text-right">
                     Action
                   </th>
                 </tr>
@@ -490,37 +505,37 @@ const result: { error?: string; message?: string } = await response.json();
                   return (
                     <tr
                       key={match.id}
-                      className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5"
+                      className="border-b border-[#C39B55]/10 transition hover:bg-[#C39B55]/5"
                     >
                       <td className="px-4 py-4">
                         <div className="grid gap-2">
                           <div className="flex min-w-0 items-center gap-3">
-                            <span className="rounded-full border border-green-400/35 bg-green-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-green-300">
+                            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-300">
                               Domicile
                             </span>
 
-                            <p className="truncate font-black text-[#F7E9C5]">
+                            <p className="truncate font-black text-[#DBC399]">
                               {getMatchParticipantName(match, "home")}
                             </p>
                           </div>
 
-                          <div className="pl-1 text-xs font-black uppercase tracking-[0.25em] text-[#F2D27A]">
+                          <div className="pl-1 text-xs font-black uppercase tracking-[0.25em] text-[#C39B55]">
                             vs
                           </div>
 
                           <div className="flex min-w-0 items-center gap-3">
-                            <span className="rounded-full border border-blue-400/35 bg-blue-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-blue-300">
+                            <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-sky-300">
                               Extérieur
                             </span>
 
-                            <p className="truncate font-black text-[#F7E9C5]">
+                            <p className="truncate font-black text-[#DBC399]">
                               {getMatchParticipantName(match, "away")}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-4 py-4 text-[#D8C7A0]">
+                      <td className="px-4 py-4 text-[#CFC6AB]">
                         {formatDate(match.match_date)}
                       </td>
 
@@ -532,11 +547,11 @@ const result: { error?: string; message?: string } = await response.json();
                             onChange={(event) =>
                               updateDateForm(match.id, event.target.value)
                             }
-                            className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                            className="w-full rounded-xl border border-[#C39B55]/20 bg-[#09182D] px-4 py-3 text-[#DBC399] outline-none transition focus:border-[#C39B55]/60 focus:ring-2 focus:ring-[#C39B55]/10"
                           />
 
                           {isChanged && (
-                            <span className="shrink-0 rounded-full border border-yellow-400/35 bg-yellow-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-yellow-300">
+                            <span className="shrink-0 rounded-full border border-[#C39B55]/35 bg-[#C39B55]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#DBC399]">
                               Modifié
                             </span>
                           )}
@@ -545,7 +560,7 @@ const result: { error?: string; message?: string } = await response.json();
                         <button
                           type="button"
                           onClick={() => updateDateForm(match.id, "")}
-                          className="mt-2 text-xs font-semibold text-[#8F7B5C] transition hover:text-[#F2D27A]"
+                          className="mt-2 text-xs font-semibold text-[#CFC6AB]/70 transition hover:text-[#DBC399]"
                         >
                           Effacer la date
                         </button>
@@ -566,11 +581,7 @@ const result: { error?: string; message?: string } = await response.json();
                           type="button"
                           disabled={isSaving || !isChanged}
                           onClick={() => handleSaveOne(match.id)}
-                          className={
-                            isSaving || !isChanged
-                              ? "rounded-lg border border-[#D9A441]/15 px-4 py-2 text-xs font-semibold text-[#8F7B5C] opacity-60"
-                              : "rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
-                          }
+                          className="rounded-lg border border-[#C39B55]/30 px-4 py-2 text-xs font-semibold text-[#DBC399] transition hover:bg-[#17345B] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {isSaving ? "..." : "Enregistrer"}
                         </button>

@@ -91,7 +91,7 @@ export default function AuthStatus() {
   }, [loadUser, supabase]);
 
   if (loading) {
-    return <div className="text-xs text-[#8F7B5C]">Vérification...</div>;
+    return <div className="text-xs text-[#CFC6AB]">Vérification...</div>;
   }
 
   if (!profile) {
@@ -99,14 +99,14 @@ export default function AuthStatus() {
       <div className="flex items-center gap-3 text-sm">
         <Link
           href="/login"
-          className="text-[#D8C7A0] transition hover:text-[#F2D27A]"
+          className="text-[#CFC6AB] transition hover:text-[#DBC399]"
         >
           Connexion
         </Link>
 
         <Link
           href="/register"
-          className="rounded-lg border border-[#D9A441]/30 px-3 py-2 font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+          className="rounded-lg border border-[#C39B55]/40 bg-[#0B1B33]/60 px-3 py-2 font-semibold text-[#DBC399] transition hover:bg-[#12274A]"
         >
           Inscription
         </Link>
@@ -117,11 +117,11 @@ export default function AuthStatus() {
   return (
     <div className="flex items-center gap-3">
       <div className="hidden text-right text-xs sm:block">
-        <p className="font-semibold text-[#F7E9C5]">
+        <p className="font-semibold text-[#CFC6AB]">
           {profile.username || profile.email}
         </p>
 
-        <p className="text-[#8F7B5C]">
+        <p className="text-[#C39B55]">
           {roleLabels[normalizeRole(profile.role)]}
         </p>
       </div>
@@ -129,7 +129,7 @@ export default function AuthStatus() {
       <button
         type="button"
         onClick={handleLogout}
-        className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+        className="rounded-lg border border-[#C39B55]/40 bg-[#0B1B33]/60 px-3 py-2 text-sm font-semibold text-[#DBC399] transition hover:bg-[#12274A]"
       >
         Déconnexion
       </button>

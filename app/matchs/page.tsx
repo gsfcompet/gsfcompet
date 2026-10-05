@@ -144,6 +144,16 @@ export default function MatchsPage() {
     );
   }, [matches, selectedCompetitionId]);
 
+  const completedMatches = useMemo(
+    () => filteredMatches.filter(isCompleted),
+    [filteredMatches]
+  );
+
+  const upcomingMatches = useMemo(
+    () => filteredMatches.filter((match) => match.status === "scheduled"),
+    [filteredMatches]
+  );
+
   function getCompetition(match: Match) {
     return competitions.find(
       (competition) => competition.id === match.competition_id
@@ -202,7 +212,7 @@ export default function MatchsPage() {
 
       return {
         title: getPlayerName(registration.player_id),
-        subtitle: registration.ea_team_name,
+        subtitle: registration.ea_team_name || "Équipe EA FC non définie",
       };
     }
 
@@ -223,6 +233,10 @@ export default function MatchsPage() {
     if (!value) return "À planifier";
 
     const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "Date invalide";
+    }
 
     return new Intl.DateTimeFormat("fr-FR", {
       day: "2-digit",
@@ -272,11 +286,15 @@ export default function MatchsPage() {
         {!loading && !errorMessage && (
           <>
             <div className="mb-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+              <label
+                htmlFor="competition-filter"
+                className="mb-2 block text-sm font-semibold text-[#F2D27A]"
+              >
                 Filtrer par compétition
               </label>
 
               <select
+                id="competition-filter"
                 value={selectedCompetitionId}
                 onChange={(event) =>
                   setSelectedCompetitionId(event.target.value)
@@ -307,20 +325,14 @@ export default function MatchsPage() {
                 <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
                   <p className="text-sm text-[#8F7B5C]">Matchs terminés</p>
                   <p className="text-2xl font-black text-[#F2D27A]">
-                    {
-                      filteredMatches.filter((match) => isCompleted(match))
-                        .length
-                    }
+                    {completedMatches.length}
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
                   <p className="text-sm text-[#8F7B5C]">À venir</p>
                   <p className="text-2xl font-black text-[#F2D27A]">
-                    {
-                      filteredMatches.filter((match) => !isCompleted(match))
-                        .length
-                    }
+                    {upcomingMatches.length}
                   </p>
                 </div>
               </div>

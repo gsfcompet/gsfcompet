@@ -76,11 +76,6 @@ export function MemberCard({
   const activeRegistrationData = (activeRegistration ?? {}) as AnyRecord;
   const activeEaTeamData = (activeEaTeam ?? {}) as AnyRecord;
 
-  /**
-   * IMPORTANT :
-   * Cette valeur doit venir du membre, jamais du club.
-   * Donc on ne met PAS activeEaTeam.country ici.
-   */
   const memberNationality = pickString(
     profileData.pays_membre,
     profileData.paysMembre,
@@ -139,7 +134,7 @@ export function MemberCard({
   );
 
   return (
-    <div className="w-full self-start rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-4 shadow-2xl shadow-black/50">
+    <div className="w-full self-start rounded-[28px] border border-[#263449] bg-[#111B2A] p-4 shadow-2xl shadow-black/40">
       <FutMemberCard
         profile={profile}
         player={player}

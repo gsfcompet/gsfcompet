@@ -45,12 +45,11 @@ export default function AdminCompetitionMatchesTable({
   emptyText,
 }: AdminCompetitionMatchesTableProps) {
   return (
-    <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+    <section className="mt-8 rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#F7E9C5]">{title}</h2>
-
-          <p className="mt-2 text-sm text-[#D8C7A0]">{description}</p>
+          <h2 className="text-2xl font-black text-[#DBC399]">{title}</h2>
+          <p className="mt-2 text-sm text-[#CFC6AB]">{description}</p>
         </div>
       </div>
 
@@ -65,16 +64,16 @@ export default function AdminCompetitionMatchesTable({
               onClick={() => onFilterChange(filter.key)}
               className={
                 active
-                  ? "rounded-xl border border-[#D9A441]/50 bg-[#D9A441] px-4 py-2 text-sm font-black text-black shadow-lg shadow-[#D9A441]/20"
-                  : "rounded-xl border border-[#D9A441]/25 bg-[#0B0610]/70 px-4 py-2 text-sm font-black text-[#F2D27A] transition hover:bg-[#160A12]"
+                  ? "rounded-xl border border-[#C39B55]/60 bg-[#C39B55] px-4 py-2 text-sm font-black text-[#09182D] shadow-lg shadow-[#C39B55]/15"
+                  : "rounded-xl border border-[#C39B55]/25 bg-[#071326]/80 px-4 py-2 text-sm font-black text-[#DBC399] transition hover:bg-[#17345B]"
               }
             >
               {filter.label}
               <span
                 className={
                   active
-                    ? "ml-2 rounded-full bg-black/20 px-2 py-0.5 text-xs"
-                    : "ml-2 rounded-full bg-black/40 px-2 py-0.5 text-xs text-[#D8C7A0]"
+                    ? "ml-2 rounded-full bg-black/15 px-2 py-0.5 text-xs"
+                    : "ml-2 rounded-full bg-[#09182D] px-2 py-0.5 text-xs text-[#CFC6AB]"
                 }
               >
                 {filter.count}
@@ -84,7 +83,7 @@ export default function AdminCompetitionMatchesTable({
         })}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70">
+      <div className="overflow-hidden rounded-xl border border-[#C39B55]/15 bg-[#071326]/70">
         <div className="max-h-[560px] overflow-y-auto overflow-x-hidden">
           <table className="w-full table-fixed border-collapse text-left text-xs xl:text-sm">
             <colgroup>
@@ -97,27 +96,27 @@ export default function AdminCompetitionMatchesTable({
               <col className="w-[11%]" />
             </colgroup>
 
-            <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+            <thead className="sticky top-0 z-10 bg-[#17345B] text-[10px] uppercase tracking-[0.18em] text-[#DBC399]">
               <tr>
-                <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                <th className="border-b border-[#C39B55]/20 px-4 py-3">
                   Date
                 </th>
-                <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                <th className="border-b border-[#C39B55]/20 px-4 py-3">
                   Domicile
                 </th>
-                <th className="border-b border-[#D9A441]/20 px-4 py-3 text-center">
+                <th className="border-b border-[#C39B55]/20 px-4 py-3 text-center">
                   Score
                 </th>
-                <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                <th className="border-b border-[#C39B55]/20 px-4 py-3">
                   Extérieur
                 </th>
-                <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                <th className="border-b border-[#C39B55]/20 px-4 py-3 text-right">
                   Match
                 </th>
-                <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                <th className="border-b border-[#C39B55]/20 px-4 py-3 text-right">
                   Score proposé
                 </th>
-                <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                <th className="border-b border-[#C39B55]/20 px-4 py-3 text-right">
                   Action
                 </th>
               </tr>
@@ -128,7 +127,7 @@ export default function AdminCompetitionMatchesTable({
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-8 text-center text-sm text-[#D8C7A0]"
+                    className="px-4 py-8 text-center text-sm text-[#CFC6AB]"
                   >
                     {emptyText}
                   </td>
@@ -136,31 +135,31 @@ export default function AdminCompetitionMatchesTable({
               ) : (
                 rows.map((row) => (
                   <Fragment key={row.id}>
-                    <tr className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5">
-                      <td className="px-4 py-4 text-[#D8C7A0]">
+                    <tr className="border-b border-[#C39B55]/10 transition hover:bg-[#C39B55]/5">
+                      <td className="px-4 py-4 text-[#CFC6AB]">
                         {row.dateLabel}
                       </td>
 
                       <td className="px-4 py-4">
-                        <p className="truncate font-black text-[#F7E9C5]">
+                        <p className="truncate font-black text-[#DBC399]">
                           {row.homeTitle}
                         </p>
-                        <p className="mt-1 truncate text-xs text-[#8F7B5C]">
+                        <p className="mt-1 truncate text-xs text-[#CFC6AB]/65">
                           {row.homeSubtitle}
                         </p>
                       </td>
 
                       <td className="px-4 py-4 text-center">
-                        <span className="inline-flex min-w-[66px] justify-center rounded-xl border border-[#D9A441]/30 bg-[#160A12] px-3 py-2 text-base font-black text-[#F2D27A]">
+                        <span className="inline-flex min-w-[66px] justify-center rounded-xl border border-[#C39B55]/30 bg-[#0B1B33] px-3 py-2 text-base font-black text-[#DBC399]">
                           {row.scoreLabel}
                         </span>
                       </td>
 
                       <td className="px-4 py-4">
-                        <p className="truncate font-black text-[#F7E9C5]">
+                        <p className="truncate font-black text-[#DBC399]">
                           {row.awayTitle}
                         </p>
-                        <p className="mt-1 truncate text-xs text-[#8F7B5C]">
+                        <p className="mt-1 truncate text-xs text-[#CFC6AB]/65">
                           {row.awaySubtitle}
                         </p>
                       </td>
@@ -182,7 +181,7 @@ export default function AdminCompetitionMatchesTable({
                           </span>
 
                           {row.submittedScoreLabel !== "-" && (
-                            <span className="text-xs font-black text-[#F2D27A]">
+                            <span className="text-xs font-black text-[#DBC399]">
                               {row.submittedScoreLabel}
                             </span>
                           )}
@@ -195,7 +194,7 @@ export default function AdminCompetitionMatchesTable({
                     </tr>
 
                     {row.expandedNode && (
-                      <tr className="border-b border-[#D9A441]/10 bg-black/20">
+                      <tr className="border-b border-[#C39B55]/10 bg-[#09182D]/70">
                         <td colSpan={7} className="px-4 py-4">
                           {row.expandedNode}
                         </td>

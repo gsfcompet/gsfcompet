@@ -473,10 +473,10 @@ export default function CompetitionInscriptionPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <main className="min-h-screen bg-[#071426] text-[#F5E7C0]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="text-[#D8C7A0]">Chargement de l’inscription...</p>
+          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#0D1B2A]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="text-[#C7D2E0]">Chargement de l’inscription...</p>
           </div>
         </section>
       </main>
@@ -509,43 +509,43 @@ export default function CompetitionInscriptionPage() {
   const isTeamsCompetition = competition.participant_type === "teams";
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[#071426] text-[#F5E7C0]">
       <section className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6">
-        <section className="rounded-[28px] border border-[#D9A441]/25 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+        <section className="rounded-[28px] border border-[#D9A441]/25 bg-gradient-to-br from-[#102A43] via-[#091827] to-black p-6 shadow-2xl shadow-black/50">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-5 flex flex-wrap gap-3">
                 <Link
                   href="/competitions"
-                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F0C75E] transition hover:bg-[#0D1B2A]"
                 >
                   ← Retour aux compétitions
                 </Link>
 
                 <Link
                   href={`/competitions/${competition.id}/matchs`}
-                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F0C75E] transition hover:bg-[#0D1B2A]"
                 >
                   Matchs
                 </Link>
 
                 <Link
                   href={`/competitions/${competition.id}/classement`}
-                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                  className="rounded-xl border border-[#D9A441]/30 px-4 py-2 text-sm font-semibold text-[#F0C75E] transition hover:bg-[#0D1B2A]"
                 >
                   Classement
                 </Link>
               </div>
 
-              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F2D27A]">
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-[#F0C75E]">
                 Inscription compétition
               </p>
 
-              <h1 className="mt-3 text-4xl font-black text-[#F7E9C5] md:text-5xl">
+              <h1 className="mt-3 text-4xl font-black text-[#F5E7C0] md:text-5xl">
                 {competitionLabel}
               </h1>
 
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#D8C7A0]">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#C7D2E0]">
                 {isTeamsCompetition
                   ? "Cette compétition est au format Teams esport. Les inscriptions sont gérées depuis l’administration."
                   : "Choisis ton pays, ton championnat puis ton équipe EA FC pour participer."}
@@ -563,7 +563,7 @@ export default function CompetitionInscriptionPage() {
         </section>
 
         {message && (
-          <div className="mt-6 rounded-2xl border border-[#D9A441]/30 bg-[#160A12] px-4 py-3 text-sm font-black text-[#F2D27A]">
+          <div className="mt-6 rounded-2xl border border-[#D9A441]/30 bg-[#0D1B2A] px-4 py-3 text-sm font-black text-[#F0C75E]">
             {message}
           </div>
         )}
@@ -577,8 +577,8 @@ export default function CompetitionInscriptionPage() {
           />
         ) : (
           <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">
+            <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#0D1B2A]/90 p-6 shadow-2xl shadow-black/40">
+              <h2 className="text-2xl font-black text-[#F5E7C0]">
                 Mon inscription
               </h2>
 
@@ -598,14 +598,14 @@ export default function CompetitionInscriptionPage() {
                 />
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#F0C75E]">
                     Plateforme
                   </label>
 
                   <select
                     value={platform}
                     onChange={(event) => setPlatform(event.target.value)}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#071426] px-4 py-3 text-[#F5E7C0] outline-none transition focus:border-[#D9A441]/60"
                   >
                     <option value="">Choisir une plateforme</option>
                     <option value="PS5">PS5</option>
@@ -616,7 +616,7 @@ export default function CompetitionInscriptionPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#F0C75E]">
                     Pays
                   </label>
 
@@ -627,7 +627,7 @@ export default function CompetitionInscriptionPage() {
                       setSelectedLeague("");
                       setSelectedEaTeamId("");
                     }}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#071426] px-4 py-3 text-[#F5E7C0] outline-none transition focus:border-[#D9A441]/60"
                   >
                     <option value="">Choisir un pays</option>
 
@@ -640,7 +640,7 @@ export default function CompetitionInscriptionPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#F0C75E]">
                     Championnat
                   </label>
 
@@ -651,7 +651,7 @@ export default function CompetitionInscriptionPage() {
                       setSelectedLeague(event.target.value);
                       setSelectedEaTeamId("");
                     }}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#071426] px-4 py-3 text-[#F5E7C0] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">
                       {selectedCountry
@@ -668,7 +668,7 @@ export default function CompetitionInscriptionPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#F0C75E]">
                     Équipe
                   </label>
 
@@ -676,7 +676,7 @@ export default function CompetitionInscriptionPage() {
                     value={selectedEaTeamId}
                     disabled={!selectedCountry || !selectedLeague}
                     onChange={(event) => setSelectedEaTeamId(event.target.value)}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#071426] px-4 py-3 text-[#F5E7C0] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <option value="">
                       {selectedCountry && selectedLeague
@@ -695,7 +695,7 @@ export default function CompetitionInscriptionPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-[#1E4D8F] px-6 py-3 font-semibold text-white shadow-lg shadow-[#1E4D8F]/20 transition hover:bg-[#163A70] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving
                     ? "Enregistrement..."
@@ -713,8 +713,8 @@ export default function CompetitionInscriptionPage() {
                 getStatusLabel={getStatusLabel}
               />
 
-              <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
-                <h2 className="text-2xl font-black text-[#F7E9C5]">
+              <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#0D1B2A]/90 p-6 shadow-2xl shadow-black/40">
+                <h2 className="text-2xl font-black text-[#F5E7C0]">
                   Ton choix
                 </h2>
 
@@ -754,21 +754,21 @@ function AccessRequiredCard({
   backOnly?: boolean;
 }) {
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[#071426] text-[#F5E7C0]">
       <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-        <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+        <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#0D1B2A]/90 p-6 text-center shadow-lg shadow-black/30">
+          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#071426] px-4 py-2 text-sm font-semibold text-[#F0C75E]">
             Inscription compétition
           </p>
 
           <h1 className="text-3xl font-black">{title}</h1>
 
-          <p className="mt-3 text-[#D8C7A0]">{text}</p>
+          <p className="mt-3 text-[#C7D2E0]">{text}</p>
 
           <div className="mt-6 flex justify-center gap-3">
             <Link
               href="/competitions"
-              className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+              className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F0C75E] transition hover:bg-[#071426]"
             >
               Retour compétitions
             </Link>
@@ -777,14 +777,14 @@ function AccessRequiredCard({
               <>
                 <Link
                   href="/login"
-                  className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
+                  className="rounded-xl bg-[#1E4D8F] px-6 py-3 font-semibold text-white transition hover:bg-[#163A70]"
                 >
                   Se connecter
                 </Link>
 
                 <Link
                   href="/register"
-                  className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                  className="rounded-xl border border-[#D9A441]/30 px-6 py-3 font-semibold text-[#F0C75E] transition hover:bg-[#071426]"
                 >
                   Créer un compte
                 </Link>
@@ -810,16 +810,16 @@ function TeamsCompetitionInfo({
 }) {
   return (
     <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <section className="rounded-[28px] border border-red-400/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+      <section className="rounded-[28px] border border-red-400/25 bg-[#0D1B2A]/90 p-6 shadow-2xl shadow-black/40">
         <p className="inline-flex rounded-full border border-red-400/35 bg-red-500/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-red-300">
           Format Teams esport
         </p>
 
-        <h2 className="mt-5 text-3xl font-black text-[#F7E9C5]">
+        <h2 className="mt-5 text-3xl font-black text-[#F5E7C0]">
           Inscription gérée par l’admin
         </h2>
 
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-[#D8C7A0]">
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-[#C7D2E0]">
           Cette compétition n’accepte pas les inscriptions individuelles. Les
           teams doivent être créées, composées puis inscrites depuis la gestion
           admin des teams esport.
@@ -828,14 +828,14 @@ function TeamsCompetitionInfo({
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/competitions/${competition.id}/matchs`}
-            className="rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+            className="rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-black text-[#F0C75E] transition hover:bg-[#071426]"
           >
             Voir les matchs
           </Link>
 
           <Link
             href={`/competitions/${competition.id}/classement`}
-            className="rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+            className="rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-black text-[#F0C75E] transition hover:bg-[#071426]"
           >
             Voir le classement
           </Link>
@@ -844,7 +844,7 @@ function TeamsCompetitionInfo({
             <>
               <Link
                 href="/admin/teams"
-                className="rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C]"
+                className="rounded-xl bg-[#1E4D8F] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#1E4D8F]/20 transition hover:bg-[#163A70]"
               >
                 Gérer les teams
               </Link>
@@ -860,7 +860,7 @@ function TeamsCompetitionInfo({
         </div>
 
         {!isAdmin && (
-          <div className="mt-6 rounded-2xl border border-[#D9A441]/20 bg-black/25 p-4 text-sm text-[#D8C7A0]">
+          <div className="mt-6 rounded-2xl border border-[#D9A441]/20 bg-black/25 p-4 text-sm text-[#C7D2E0]">
             Tu veux inscrire une team ? Contacte un administrateur Guardian’s
             Family pour rattacher ta team à cette compétition.
           </div>
@@ -886,8 +886,8 @@ function CompetitionDetailsCard({
   getStatusLabel: (status: string) => string;
 }) {
   return (
-    <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
-      <h2 className="text-2xl font-black text-[#F7E9C5]">
+    <section className="rounded-[28px] border border-[#D9A441]/20 bg-[#0D1B2A]/90 p-6 shadow-2xl shadow-black/40">
+      <h2 className="text-2xl font-black text-[#F5E7C0]">
         Détails compétition
       </h2>
 
@@ -911,11 +911,11 @@ function CompetitionDetailsCard({
 
 function InfoList({ items }: { items: [string, string][] }) {
   return (
-    <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
+    <div className="mt-5 space-y-3 text-sm text-[#C7D2E0]">
       {items.map(([label, value]) => (
         <p key={label}>
           {label} :{" "}
-          <span className="font-semibold text-[#F2D27A]">{value}</span>
+          <span className="font-semibold text-[#F0C75E]">{value}</span>
         </p>
       ))}
     </div>
@@ -935,14 +935,14 @@ function FormInput({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+      <label className="mb-2 block text-sm font-semibold text-[#F0C75E]">
         {label}
       </label>
 
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+        className="w-full rounded-xl border border-[#D9A441]/20 bg-[#071426] px-4 py-3 text-[#F5E7C0] outline-none transition placeholder:text-[#8CA0B8] focus:border-[#D9A441]/60"
         placeholder={placeholder}
       />
     </div>
@@ -952,8 +952,8 @@ function FormInput({
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[#D9A441]/25 bg-black/30 px-5 py-4">
-      <p className="text-xl font-black text-[#F2D27A]">{value}</p>
-      <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+      <p className="text-xl font-black text-[#F0C75E]">{value}</p>
+      <p className="text-xs uppercase tracking-widest text-[#8CA0B8]">
         {label}
       </p>
     </div>

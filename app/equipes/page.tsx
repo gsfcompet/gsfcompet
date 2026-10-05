@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -636,20 +636,20 @@ export default function EquipesPage() {
       : competitionById.get(selectedCompetitionId) ?? null;
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
-      <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
-        <section className="rounded-[28px] border border-yellow-700/30 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+    <main className="min-h-screen bg-[#07111F] text-[#F7E9C5]">
+      <section className="mx-auto max-w-[1024px] px-4 py-3">
+        <section className="rounded-2xl border border-slate-600/40 bg-gradient-to-br from-[#111B2B] via-[#0D1726] to-[#0B1422] px-4 py-3 shadow-xl shadow-black/40">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.45em] text-yellow-400">
-                Guardian&apos;s Family
+              <p className="text-[9px] font-black uppercase tracking-[0.35em] text-yellow-400">
+                Guardian&apos;s
               </p>
 
-              <h1 className="mt-3 text-4xl font-black text-yellow-100 md:text-5xl">
+              <h1 className="mt-1 text-2xl font-black leading-none text-yellow-100 md:text-3xl">
                 Équipes & participants
               </h1>
 
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-yellow-100/70">
+              <p className="mt-1 max-w-3xl text-[10px] leading-4 text-yellow-100/70">
                 Vue hybride prête pour les compétitions individuelles et les
                 futures compétitions entre teams esport.
               </p>
@@ -658,7 +658,7 @@ export default function EquipesPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/competitions"
-                className="rounded-xl border border-yellow-500/40 px-5 py-3 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
+                className="rounded-xl border border-slate-500/50 px-5 py-3 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
               >
                 Compétitions
               </Link>
@@ -667,14 +667,14 @@ export default function EquipesPage() {
                 <>
                   <Link
                     href={`/competitions/${selectedCompetition.id}/matchs`}
-                    className="rounded-xl border border-yellow-500/40 px-5 py-3 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
+                    className="rounded-xl border border-slate-500/50 px-5 py-3 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
                   >
                     Matchs
                   </Link>
 
                   <Link
                     href={`/competitions/${selectedCompetition.id}/classement`}
-                    className="rounded-xl bg-red-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600"
+                    className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-white shadow-lg shadow-amber-950/20 transition hover:bg-amber-300"
                   >
                     Classement
                   </Link>
@@ -685,7 +685,7 @@ export default function EquipesPage() {
         </section>
 
         {loading && (
-          <div className="mt-8 rounded-2xl border border-yellow-700/30 bg-[#140711]/95 p-6 text-yellow-100/60">
+          <div className="mt-8 rounded-2xl border border-slate-600/40 bg-[#111B2B]/95 p-6 text-yellow-100/60">
             Chargement des participants...
           </div>
         )}
@@ -698,10 +698,10 @@ export default function EquipesPage() {
 
         {!loading && !errorMessage && (
           <>
-            <section className="mt-8 rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-6 shadow-2xl shadow-black/40">
+            <section className="mt-3 rounded-2xl border border-slate-600/40 bg-[#111B2B]/95 p-3 shadow-xl shadow-black/30">
               <div className="grid gap-4 xl:grid-cols-[1fr_0.8fr_auto_auto] xl:items-end">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-black text-yellow-200">
+                  <span className="mb-1 block text-[10px] font-black text-yellow-200">
                     Filtrer par compétition
                   </span>
 
@@ -710,7 +710,7 @@ export default function EquipesPage() {
                     onChange={(event) =>
                       setSelectedCompetitionId(event.target.value)
                     }
-                    className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                    className="w-full rounded-lg border border-slate-600/40 bg-black px-3 py-2 text-xs text-yellow-100 outline-none transition focus:border-yellow-400"
                   >
                     <option value="all">Toutes les compétitions</option>
 
@@ -727,24 +727,24 @@ export default function EquipesPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-black text-yellow-200">
+                  <span className="mb-1 block text-[10px] font-black text-yellow-200">
                     Rechercher
                   </span>
 
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    className="w-full rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none transition focus:border-yellow-400"
+                    className="w-full rounded-lg border border-slate-600/40 bg-black px-3 py-2 text-xs text-yellow-100 outline-none transition focus:border-yellow-400"
                     placeholder="Joueur, team, équipe, pays..."
                   />
                 </label>
 
                 <div>
-                  <span className="mb-2 block text-sm font-black text-yellow-200">
+                  <span className="mb-1 block text-[10px] font-black text-yellow-200">
                     Type
                   </span>
 
-                  <div className="flex rounded-xl border border-yellow-700/30 bg-black p-1">
+                  <div className="flex rounded-xl border border-slate-600/40 bg-black p-1">
                     <FilterButton
                       active={participantFilter === "all"}
                       onClick={() => setParticipantFilter("all")}
@@ -769,11 +769,11 @@ export default function EquipesPage() {
                 </div>
 
                 <div>
-                  <span className="mb-2 block text-sm font-black text-yellow-200">
+                  <span className="mb-1 block text-[10px] font-black text-yellow-200">
                     Vue
                   </span>
 
-                  <div className="flex rounded-xl border border-yellow-700/30 bg-black p-1">
+                  <div className="flex rounded-xl border border-slate-600/40 bg-black p-1">
                     <FilterButton
                       active={viewMode === "cards"}
                       onClick={() => setViewMode("cards")}
@@ -800,7 +800,7 @@ export default function EquipesPage() {
               </div>
 
               {scheduledMatchesCount > 0 && (
-                <div className="mt-4 rounded-2xl border border-yellow-700/25 bg-black/25 p-4 text-sm text-yellow-100/65">
+                <div className="mt-4 rounded-2xl border border-slate-600/35 bg-black/25 p-4 text-sm text-yellow-100/65">
                   {scheduledMatchesCount} match(s) programmé(s) dans la
                   sélection actuelle.
                 </div>
@@ -808,7 +808,7 @@ export default function EquipesPage() {
             </section>
 
             {participantRows.length === 0 ? (
-              <section className="mt-8 rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-6 text-yellow-100/60 shadow-2xl shadow-black/40">
+              <section className="mt-8 rounded-[28px] border border-slate-600/40 bg-[#111B2B]/95 p-6 text-yellow-100/60 shadow-2xl shadow-black/40">
                 Aucun participant trouvé pour cette sélection.
               </section>
             ) : viewMode === "cards" ? (
@@ -838,7 +838,7 @@ function FilterButton({
 }: {
   active: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -857,7 +857,7 @@ function FilterButton({
 
 function StatTile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-yellow-700/25 bg-black/25 p-4">
+    <div className="rounded-2xl border border-slate-600/35 bg-black/25 p-4">
       <p className="text-sm text-yellow-100/45">{label}</p>
       <p className="mt-2 text-2xl font-black text-yellow-200">{value}</p>
     </div>
@@ -887,7 +887,7 @@ function PlayerParticipantCard({ row }: { row: ParticipantRow }) {
   const initials = getInitials(playerName || eaTeam);
 
   return (
-    <article className="rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-5 shadow-2xl shadow-black/40 transition hover:border-yellow-500/45">
+    <article className="rounded-[28px] border border-slate-600/40 bg-[#111B2B]/95 p-5 shadow-2xl shadow-black/40 transition hover:border-yellow-500/45">
       <ParticipantHeader
         initials={initials || "J"}
         title={playerName}
@@ -919,7 +919,7 @@ function TeamParticipantCard({ row }: { row: ParticipantRow }) {
   const initials = getInitials(teamName);
 
   return (
-    <article className="rounded-[28px] border border-red-500/35 bg-gradient-to-br from-[#1b0710] via-[#140711] to-black p-5 shadow-2xl shadow-black/40 transition hover:border-red-400/60">
+    <article className="rounded-[28px] border border-slate-600/40 bg-gradient-to-br from-[#111B2B] via-[#0D1726] to-[#0B1422] p-5 shadow-2xl shadow-black/40 transition hover:border-amber-400/60">
       <ParticipantHeader
         initials={initials || "T"}
         title={teamName}
@@ -1002,7 +1002,7 @@ function CompetitionBox({
   competitionLabel: string;
 }) {
   return (
-    <div className="mt-4 rounded-2xl border border-yellow-700/25 bg-black/25 p-4">
+    <div className="mt-4 rounded-2xl border border-slate-600/35 bg-black/25 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-yellow-400">
@@ -1034,7 +1034,7 @@ function CompetitionBox({
 
 function InfoBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-yellow-700/25 bg-black/25 p-4">
+    <div className="rounded-2xl border border-slate-600/35 bg-black/25 p-4">
       <p className="text-xs uppercase tracking-[0.18em] text-yellow-100/45">
         {label}
       </p>
@@ -1077,7 +1077,7 @@ function SmallStat({
       : "text-yellow-200";
 
   return (
-    <div className="rounded-xl border border-yellow-700/25 bg-black/25 p-3">
+    <div className="rounded-xl border border-slate-600/35 bg-black/25 p-3">
       <p className={`text-lg font-black ${color}`}>{value}</p>
       <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-100/45">
         {label}
@@ -1088,10 +1088,10 @@ function SmallStat({
 
 function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
   return (
-    <section className="mt-8 rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-6 shadow-2xl shadow-black/40">
+    <section className="mt-3 rounded-2xl border border-slate-600/40 bg-[#111B2B]/95 p-3 shadow-xl shadow-black/30">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-yellow-100">
+          <h2 className="text-lg font-black text-yellow-100">
             Vue tableur des participants
           </h2>
 
@@ -1100,12 +1100,12 @@ function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
           </p>
         </div>
 
-        <span className="flex h-9 min-w-9 items-center justify-center rounded-full border border-yellow-500/40 bg-black/40 px-3 text-sm font-black text-yellow-200 shadow-inner shadow-yellow-950/30">
+        <span className="flex h-9 min-w-9 items-center justify-center rounded-full border border-slate-500/50 bg-black/40 px-3 text-sm font-black text-yellow-200 shadow-inner shadow-yellow-950/30">
           {rows.length}
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-yellow-700/25 bg-black/25">
+      <div className="overflow-hidden rounded-2xl border border-slate-600/35 bg-black/25">
         <div className="max-h-[660px] overflow-y-auto overflow-x-hidden">
           <table className="w-full table-fixed border-collapse text-left text-[11px] xl:text-xs">
             <colgroup>
@@ -1123,42 +1123,42 @@ function ParticipantsTable({ rows }: { rows: ParticipantRow[] }) {
               <col className="w-[5%]" />
             </colgroup>
 
-            <thead className="sticky top-0 z-10 bg-[#26070b] text-[9px] uppercase tracking-[0.16em] text-yellow-200">
+            <thead className="sticky top-0 z-10 bg-[#172337] text-[9px] uppercase tracking-[0.16em] text-yellow-200">
               <tr>
-                <th className="border-b border-yellow-700/30 px-3 py-3">
+                <th className="border-b border-slate-600/40 px-3 py-3">
                   Type
                 </th>
-                <th className="border-b border-yellow-700/30 px-3 py-3">
+                <th className="border-b border-slate-600/40 px-3 py-3">
                   Participant
                 </th>
-                <th className="border-b border-yellow-700/30 px-3 py-3">
+                <th className="border-b border-slate-600/40 px-3 py-3">
                   Détails
                 </th>
-                <th className="border-b border-yellow-700/30 px-3 py-3">
+                <th className="border-b border-slate-600/40 px-3 py-3">
                   Compétition
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   MJ
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   V
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   N
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   P
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   BP
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   BC
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   GA
                 </th>
-                <th className="border-b border-yellow-700/30 px-2 py-3 text-center">
+                <th className="border-b border-slate-600/40 px-2 py-3 text-center">
                   PTS
                 </th>
               </tr>
@@ -1285,7 +1285,7 @@ function StatCell({
   return (
     <td className="px-2 py-4 text-center">
       <span
-        className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-yellow-700/25 bg-black/35 px-2 font-black ${color} ${
+        className={`inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-slate-600/35 bg-black/35 px-2 font-black ${color} ${
           strong ? "shadow-inner shadow-yellow-950/40" : ""
         }`}
       >

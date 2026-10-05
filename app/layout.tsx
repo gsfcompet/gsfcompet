@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "./global.css";
 import Header from "@/components/Header";
 
 export const metadata: Metadata = {
-  title: "GSF Compet",
-  description:
-    "Site officiel Guardian's Family pour gérer les compétitions EA FC.",
+  title: "Guardian's",
+  description: "Site officiel de la Guardian's",
 };
 
 export default function RootLayout({
@@ -15,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className="bg-[#0B0610] text-[#F7E9C5]">
+      <body className="min-h-screen bg-[#0B1B33] text-[#CFC6AB]">
         <Header />
         {children}
       </body>

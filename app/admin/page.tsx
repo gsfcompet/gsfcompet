@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { canManageCompetitions, canAccessAdminModule, type AppRole } from "@/lib/roles";
+import {
+  canManageCompetitions,
+  canAccessAdminModule,
+  type AppRole,
+} from "@/lib/roles";
 
 type Profile = {
   id: string;
@@ -58,26 +62,26 @@ function getStatusLabel(status: string) {
 
 function getStatusClass(status: string) {
   if (status === "active") {
-    return "border-green-400/40 bg-green-500/15 text-green-300";
+    return "border-[#2EC4B6]/35 bg-[#2EC4B6]/10 text-[#2EC4B6]";
   }
 
   if (status === "planned") {
-    return "border-yellow-400/40 bg-yellow-500/15 text-yellow-300";
+    return "border-[#C39B55]/40 bg-[#C39B55]/10 text-[#DBC399]";
   }
 
   if (status === "draft") {
-    return "border-orange-400/40 bg-orange-500/15 text-orange-300";
+    return "border-orange-300/30 bg-orange-400/10 text-orange-200";
   }
 
   if (status === "completed") {
-    return "border-blue-400/40 bg-blue-500/15 text-blue-300";
+    return "border-blue-300/30 bg-blue-400/10 text-blue-200";
   }
 
   if (status === "archived") {
-    return "border-slate-400/30 bg-slate-500/10 text-slate-300";
+    return "border-slate-300/25 bg-slate-400/10 text-slate-300";
   }
 
-  return "border-[#D9A441]/30 bg-black/30 text-[#F2D27A]";
+  return "border-[#C39B55]/30 bg-black/30 text-[#DBC399]";
 }
 
 function getParticipantTypeLabel(type: ParticipantType) {
@@ -368,13 +372,20 @@ export default function AdminPage() {
     await loadData();
   }
 
-
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <main
+        className="min-h-screen text-[#CFC6AB]"
+        style={{
+          background:
+            "radial-gradient(1200px 700px at 10% -10%, #12274A 0%, #0B1B33 60%)",
+        }}
+      >
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="text-[#D8C7A0]">Chargement de l’administration...</p>
+          <div className="w-full rounded-2xl border border-[#C39B55]/20 bg-[#12274A]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="text-[#DBC399]">
+              Chargement de l’administration...
+            </p>
           </div>
         </section>
       </main>
@@ -404,44 +415,50 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main
+      className="min-h-screen text-[#CFC6AB]"
+      style={{
+        background:
+          "radial-gradient(1200px 700px at 10% -10%, #12274A 0%, #0B1B33 60%)",
+      }}
+    >
       <section className="mx-auto max-w-[1400px] px-4 py-10 sm:px-6">
         <div className="mb-8">
-          <p className="inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-black text-[#F2D27A]">
-            Administration Guardian&apos;s Family
+          <p className="inline-flex rounded-full border border-[#C39B55]/30 bg-[#12274A] px-4 py-2 text-sm font-black text-[#DBC399]">
+            Administration Guardian's Family
           </p>
 
-          <h1 className="mt-5 text-4xl font-black text-[#F7E9C5] md:text-5xl">
+          <h1 className="mt-5 text-4xl font-black text-[#CFC6AB] md:text-5xl">
             Panneau admin
           </h1>
 
-          <p className="mt-3 text-[#D8C7A0]">
+          <p className="mt-3 text-[#DBC399]">
             Crée, modifie et gère les compétitions du site.
           </p>
         </div>
 
-        <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+        <section className="rounded-[28px] border border-[#C39B55]/25 bg-[#12274A]/90 p-6 shadow-2xl shadow-black/40">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#F2D27A]">
+              <p className="text-xs font-black uppercase tracking-[0.35em] text-[#C39B55]">
                 Navigation admin
               </p>
 
-              <h2 className="mt-2 text-2xl font-black text-[#F7E9C5]">
+              <h2 className="mt-2 text-2xl font-black text-[#CFC6AB]">
                 Accès admin
               </h2>
 
-              <p className="mt-2 text-sm text-[#D8C7A0]">
+              <p className="mt-2 text-sm text-[#DBC399]">
                 Accède rapidement aux modules d’administration du site.
               </p>
             </div>
 
-            <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-[#D9A441]/35 bg-black/30 px-3 text-sm font-black text-[#F2D27A]">
+            <span className="inline-flex h-10 min-w-10 items-center justify-center rounded-full border border-[#C39B55]/35 bg-black/30 px-3 text-sm font-black text-[#DBC399]">
               5
             </span>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-[#D9A441]/20 bg-black/20">
+          <div className="overflow-hidden rounded-2xl border border-[#C39B55]/20 bg-black/20">
             <table className="w-full table-fixed border-collapse text-left text-sm">
               <colgroup>
                 <col className="w-[22%]" />
@@ -449,17 +466,17 @@ export default function AdminPage() {
                 <col className="w-[20%]" />
               </colgroup>
 
-              <thead className="bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-[#F2D27A]">
+              <thead className="bg-[#0B1B33] text-[10px] uppercase tracking-[0.18em] text-[#DBC399]">
                 <tr>
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3">
                     Module
                   </th>
 
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3">
                     Description
                   </th>
 
-                  <th className="border-b border-[#D9A441]/20 px-4 py-3 text-right">
+                  <th className="border-b border-[#C39B55]/20 px-4 py-3 text-right">
                     Action
                   </th>
                 </tr>
@@ -483,22 +500,6 @@ export default function AdminPage() {
                 />
 
                 <AdminAccessRow
-                  badge="CP"
-                  title="Compétitions"
-                  description="Créer les compétitions, gérer les participants, matchs, scores et programmations."
-                  href="/admin"
-                  tone="gold"
-                />
-
-                <AdminAccessRow
-                  badge="PDF"
-                  title="Gazette"
-                  description="Publier, archiver et supprimer les PDF de la gazette mensuelle."
-                  href="/admin/gazette"
-                  tone="red"
-                />
-
-                <AdminAccessRow
                   badge="EM"
                   title="Vue membre"
                   description="Vérifier la carte membre, les matchs à jouer et les résultats."
@@ -511,54 +512,54 @@ export default function AdminPage() {
         </section>
 
         {message && (
-          <div className="mt-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] p-4 text-sm text-[#F2D27A]">
+          <div className="mt-6 rounded-xl border border-[#C39B55]/30 bg-[#12274A] p-4 text-sm text-[#DBC399]">
             {message}
           </div>
         )}
 
         <section className="mt-8 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
-            <h2 className="text-2xl font-black text-[#F7E9C5]">
+          <section className="rounded-[28px] border border-[#C39B55]/25 bg-[#12274A]/90 p-6 shadow-2xl shadow-black/40">
+            <h2 className="text-2xl font-black text-[#CFC6AB]">
               {editingId ? "Modifier une compétition" : "Créer une compétition"}
             </h2>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-5">
               <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#F2D27A]">
+                <span className="mb-2 block text-sm font-black text-[#DBC399]">
                   Nom
                 </span>
 
                 <input
                   value={form.name}
                   onChange={(event) => updateForm("name", event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#0B1B33] px-4 py-3 text-[#CFC6AB] outline-none transition placeholder:text-[#8F8063] focus:border-[#C39B55]/60"
                   placeholder="Ex : GSF League"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#F2D27A]">
+                <span className="mb-2 block text-sm font-black text-[#DBC399]">
                   Saison
                 </span>
 
                 <input
                   value={form.season}
                   onChange={(event) => updateForm("season", event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#0B1B33] px-4 py-3 text-[#CFC6AB] outline-none transition placeholder:text-[#8F8063] focus:border-[#C39B55]/60"
                   placeholder="Ex : Saison 1"
                 />
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#F2D27A]">
+                  <span className="mb-2 block text-sm font-black text-[#DBC399]">
                     Type
                   </span>
 
                   <select
                     value={form.type}
                     onChange={(event) => updateForm("type", event.target.value)}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    className="w-full rounded-xl border border-[#C39B55]/20 bg-[#0B1B33] px-4 py-3 text-[#CFC6AB] outline-none transition focus:border-[#C39B55]/60"
                   >
                     <option value="league">Championnat</option>
                     <option value="cup">Coupe</option>
@@ -567,7 +568,7 @@ export default function AdminPage() {
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#F2D27A]">
+                  <span className="mb-2 block text-sm font-black text-[#DBC399]">
                     Format
                   </span>
 
@@ -579,7 +580,7 @@ export default function AdminPage() {
                         event.target.value as ParticipantType
                       )
                     }
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    className="w-full rounded-xl border border-[#C39B55]/20 bg-[#0B1B33] px-4 py-3 text-[#CFC6AB] outline-none transition focus:border-[#C39B55]/60"
                   >
                     <option value="players">Joueurs</option>
                     <option value="teams">Équipes</option>
@@ -588,14 +589,14 @@ export default function AdminPage() {
               </div>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-black text-[#F2D27A]">
+                <span className="mb-2 block text-sm font-black text-[#DBC399]">
                   Statut
                 </span>
 
                 <select
                   value={form.status}
                   onChange={(event) => updateForm("status", event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#0B1B33] px-4 py-3 text-[#CFC6AB] outline-none transition focus:border-[#C39B55]/60"
                 >
                   <option value="draft">Brouillon</option>
                   <option value="planned">Planifiée</option>
@@ -609,7 +610,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-xl bg-[#A61E22] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-[#C39B55] px-6 py-3 text-sm font-black text-[#0B1B33] shadow-lg shadow-black/20 transition hover:bg-[#DBC399] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving
                     ? "Enregistrement..."
@@ -622,7 +623,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="rounded-xl border border-[#D9A441]/30 px-6 py-3 text-sm font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                    className="rounded-xl border border-[#C39B55]/30 px-6 py-3 text-sm font-black text-[#DBC399] transition hover:bg-[#0B1B33]"
                   >
                     Annuler
                   </button>
@@ -631,25 +632,25 @@ export default function AdminPage() {
             </form>
           </section>
 
-          <section className="rounded-[28px] border border-[#D9A441]/25 bg-[#160A12]/90 p-6 shadow-2xl shadow-black/40">
+          <section className="rounded-[28px] border border-[#C39B55]/25 bg-[#12274A]/90 p-6 shadow-2xl shadow-black/40">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-black text-[#F7E9C5]">
+                <h2 className="text-2xl font-black text-[#CFC6AB]">
                   Compétitions
                 </h2>
 
-                <p className="mt-2 text-sm text-[#D8C7A0]">
+                <p className="mt-2 text-sm text-[#DBC399]">
                   Accède directement au tableau de bord admin d’une compétition.
                 </p>
               </div>
 
-              <span className="inline-flex h-14 min-w-14 items-center justify-center rounded-2xl border border-[#D9A441]/35 bg-black/30 px-4 text-center text-lg font-black text-[#F2D27A]">
+              <span className="inline-flex h-14 min-w-14 items-center justify-center rounded-2xl border border-[#C39B55]/35 bg-black/30 px-4 text-center text-lg font-black text-[#DBC399]">
                 {competitions.length}
               </span>
             </div>
 
             {competitions.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-[#D9A441]/20 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+              <div className="rounded-xl border border-dashed border-[#C39B55]/20 bg-[#0B1B33]/70 p-4 text-sm text-[#DBC399]">
                 Aucune compétition créée pour le moment.
               </div>
             ) : (
@@ -657,21 +658,21 @@ export default function AdminPage() {
                 {competitions.map((competition) => (
                   <article
                     key={competition.id}
-                    className="rounded-2xl border border-[#D9A441]/20 bg-black/25 p-5"
+                    className="rounded-2xl border border-[#C39B55]/20 bg-black/20 p-5"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <h3 className="text-xl font-black text-[#F7E9C5]">
+                        <h3 className="text-xl font-black text-[#CFC6AB]">
                           {competition.name}
                         </h3>
 
-                        <p className="mt-2 text-sm text-[#D8C7A0]">
+                        <p className="mt-2 text-sm text-[#DBC399]">
                           {competition.season || "Saison non définie"} ·{" "}
                           {getCompetitionTypeLabel(competition.type)} ·{" "}
                           {getParticipantTypeLabel(competition.participant_type)}
                         </p>
 
-                        <p className="mt-1 text-xs uppercase tracking-widest text-[#8F7B5C]">
+                        <p className="mt-1 text-xs uppercase tracking-widest text-[#A99B7B]">
                           Statut : {getStatusLabel(competition.status)}
                         </p>
                       </div>
@@ -688,21 +689,21 @@ export default function AdminPage() {
                     <div className="mt-5 flex flex-wrap gap-2">
                       <Link
                         href={`/admin/competitions/${competition.id}`}
-                        className="rounded-lg bg-[#A61E22] px-4 py-2 text-xs font-black text-white transition hover:bg-[#8E171C]"
+                        className="rounded-lg bg-[#C39B55] px-4 py-2 text-xs font-black text-[#0B1B33] transition hover:bg-[#DBC399]"
                       >
                         Gérer
                       </Link>
 
                       <Link
                         href={`/admin/competitions/${competition.id}`}
-                        className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                        className="rounded-lg border border-[#C39B55]/30 px-4 py-2 text-xs font-black text-[#DBC399] transition hover:bg-[#0B1B33]"
                       >
                         Matchs
                       </Link>
 
                       <Link
                         href={`/competitions/${competition.id}/classement`}
-                        className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+                        className="rounded-lg border border-[#C39B55]/30 px-4 py-2 text-xs font-black text-[#DBC399] transition hover:bg-[#0B1B33]"
                       >
                         Classement
                       </Link>
@@ -710,7 +711,7 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => startEdit(competition)}
-                        className="rounded-lg border border-blue-400/35 bg-blue-500/10 px-4 py-2 text-xs font-black text-blue-300 transition hover:bg-blue-500/20"
+                        className="rounded-lg border border-blue-300/30 bg-blue-400/10 px-4 py-2 text-xs font-black text-blue-200 transition hover:bg-blue-400/20"
                       >
                         Modifier
                       </button>
@@ -722,7 +723,7 @@ export default function AdminPage() {
                           onClick={() =>
                             updateCompetitionStatus(competition, "active")
                           }
-                          className="rounded-lg border border-green-400/35 bg-green-500/10 px-4 py-2 text-xs font-black text-green-300 transition hover:bg-green-500/20 disabled:opacity-50"
+                          className="rounded-lg border border-[#2EC4B6]/35 bg-[#2EC4B6]/10 px-4 py-2 text-xs font-black text-[#2EC4B6] transition hover:bg-[#2EC4B6]/20 disabled:opacity-50"
                         >
                           Réactiver
                         </button>
@@ -733,7 +734,7 @@ export default function AdminPage() {
                           onClick={() =>
                             updateCompetitionStatus(competition, "archived")
                           }
-                          className="rounded-lg border border-slate-400/35 bg-slate-500/10 px-4 py-2 text-xs font-black text-slate-300 transition hover:bg-slate-500/20 disabled:opacity-50"
+                          className="rounded-lg border border-slate-300/25 bg-slate-400/10 px-4 py-2 text-xs font-black text-slate-300 transition hover:bg-slate-400/20 disabled:opacity-50"
                         >
                           Archiver
                         </button>
@@ -743,7 +744,7 @@ export default function AdminPage() {
                         type="button"
                         disabled={deletingId === competition.id}
                         onClick={() => deleteCompetition(competition)}
-                        className="rounded-lg border border-red-400/35 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                        className="rounded-lg border border-[#371015]/70 bg-[#371015]/40 px-4 py-2 text-xs font-black text-[#CFC6AB] transition hover:bg-[#371015]/70 disabled:opacity-50"
                       >
                         {deletingId === competition.id ? "..." : "Supprimer"}
                       </button>
@@ -774,15 +775,15 @@ function AdminAccessRow({
 }) {
   const toneClass =
     tone === "red"
-      ? "border-red-400/35 bg-red-500/10 text-red-200"
+      ? "border-[#371015]/70 bg-[#371015]/40 text-[#CFC6AB]"
       : tone === "green"
-        ? "border-green-400/35 bg-green-500/10 text-green-200"
+        ? "border-[#2EC4B6]/35 bg-[#2EC4B6]/10 text-[#2EC4B6]"
         : tone === "blue"
-          ? "border-blue-400/35 bg-blue-500/10 text-blue-200"
-          : "border-[#D9A441]/35 bg-[#D9A441]/10 text-[#F2D27A]";
+          ? "border-blue-300/30 bg-blue-400/10 text-blue-200"
+          : "border-[#C39B55]/35 bg-[#C39B55]/10 text-[#DBC399]";
 
   return (
-    <tr className="border-b border-[#D9A441]/10 transition hover:bg-[#D9A441]/5">
+    <tr className="border-b border-[#C39B55]/10 transition hover:bg-[#C39B55]/5">
       <td className="px-4 py-4">
         <div className="flex items-center gap-3">
           <span
@@ -791,16 +792,16 @@ function AdminAccessRow({
             {badge}
           </span>
 
-          <span className="font-black text-[#F7E9C5]">{title}</span>
+          <span className="font-black text-[#CFC6AB]">{title}</span>
         </div>
       </td>
 
-      <td className="px-4 py-4 text-[#D8C7A0]">{description}</td>
+      <td className="px-4 py-4 text-[#DBC399]">{description}</td>
 
       <td className="px-4 py-4 text-right">
         <Link
           href={href}
-          className="rounded-lg border border-[#D9A441]/30 px-4 py-2 text-xs font-black text-[#F2D27A] transition hover:bg-[#0B0610]"
+          className="rounded-lg border border-[#C39B55]/30 px-4 py-2 text-xs font-black text-[#DBC399] transition hover:bg-[#0B1B33]"
         >
           Ouvrir
         </Link>
@@ -821,16 +822,22 @@ function AccessCard({
   linkText: string;
 }) {
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main
+      className="min-h-screen text-[#CFC6AB]"
+      style={{
+        background:
+          "radial-gradient(1200px 700px at 10% -10%, #12274A 0%, #0B1B33 60%)",
+      }}
+    >
       <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-        <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
+        <div className="w-full rounded-2xl border border-[#C39B55]/20 bg-[#12274A]/90 p-6 text-center shadow-lg shadow-black/30">
           <h1 className="text-3xl font-black">{title}</h1>
 
-          <p className="mt-3 text-[#D8C7A0]">{text}</p>
+          <p className="mt-3 text-[#DBC399]">{text}</p>
 
           <Link
             href={linkHref}
-            className="mt-6 inline-flex rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
+            className="mt-6 inline-flex rounded-xl bg-[#C39B55] px-6 py-3 font-semibold text-[#0B1B33] transition hover:bg-[#DBC399]"
           >
             {linkText}
           </Link>

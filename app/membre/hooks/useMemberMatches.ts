@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
+import type {
   Competition,
   CompetitionPlayer,
   Match,
@@ -34,108 +34,144 @@ export function useMemberMatches(
   const [submittingMatchId, setSubmittingMatchId] = useState<string | null>(null);
 
   const stats = useMemo(() => {
-    const s = { mj: 0, v: 0, n: 0, p: 0, bp: 0, bc: 0, ga: 0, pts: 0 };
+    const result = {
+      mj: 0,
+      v: 0,
+      n: 0,
+      p: 0,
+      bp: 0,
+      bc: 0,
+      ga: 0,
+      pts: 0,
+    };
 
-    if (!player?.id) return s;
+    if (!player?.id) return result;
 
-    const myRegs = regs.filter((r) => r.player_id === player.id).map((r) => r.id);
+    const myRegistrationIds = new Set(
+      regs
+        .filter((registration) => registration.player_id === player.id)
+        .map((registration) => registration.id)
+    );
 
-    matches.forEach((m) => {
-      const hs = m.home_score ?? m.score_home;
-      const as = m.away_score ?? m.score_away;
-      if (hs == null || as == null) return;
+    matches.forEach((match) => {
+      const homeScore = match.home_score ?? match.score_home;
+      const awayScore = match.away_score ?? match.score_away;
 
-      const home = Number(hs);
-      const away = Number(as);
+      if (homeScore == null || awayScore == null) return;
+
+      const home = Number(homeScore);
+      const away = Number(awayScore);
+
       if (!Number.isFinite(home) || !Number.isFinite(away)) return;
 
-      const isHome = myRegs.includes(m.home_competition_player_id ?? "");
-      const isAway = myRegs.includes(m.away_competition_player_id ?? "");
+      const isHome = myRegistrationIds.has(
+        match.home_competition_player_id ?? ""
+      );
+      const isAway = myRegistrationIds.has(
+        match.away_competition_player_id ?? ""
+      );
+
       if (!isHome && !isAway) return;
 
-      const gf = isHome ? home : away;
-      const ga = isHome ? away : home;
+      const goalsFor = isHome ? home : away;
+      const goalsAgainst = isHome ? away : home;
 
-      s.mj++;
-      s.bp += gf;
-      s.bc += ga;
+      result.mj++;
+      result.bp += goalsFor;
+      result.bc += goalsAgainst;
 
-      if (gf > ga) {
-        s.v++;
-        s.pts += 3;
-      } else if (gf === ga) {
-        s.n++;
-        s.pts += 1;
+      if (goalsFor > goalsAgainst) {
+        result.v++;
+        result.pts += 3;
+      } else if (goalsFor === goalsAgainst) {
+        result.n++;
+        result.pts += 1;
       } else {
-        s.p++;
+        result.p++;
       }
     });
 
-    s.ga = s.bp - s.bc;
-    return s;
+    result.ga = result.bp - result.bc;
+    return result;
   }, [matches, player, regs]);
 
-  const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
-  const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
-  const regMap = useMemo(() => new Map(allRegs.map((r) => [r.id, r])), [allRegs]);
+  const teamMap = useMemo(
+    () => new Map(teams.map((team) => [team.id, team])),
+    [teams]
+  );
+
+  const playerMap = useMemo(
+    () => new Map(players.map((item) => [item.id, item])),
+    [players]
+  );
+
+  const registrationMap = useMemo(
+    () => new Map(allRegs.map((registration) => [registration.id, registration])),
+    [allRegs]
+  );
 
   const memberMatches = useMemo(
-    () => matches.filter((m) => isMatchForPlayer(m, player, regs)),
+    () => matches.filter((match) => isMatchForPlayer(match, player, regs)),
     [matches, player, regs]
   );
 
   const matchesToPlay = useMemo(
-    () => memberMatches.filter((m) => !hasFinalScore(m)),
+    () => memberMatches.filter((match) => !hasFinalScore(match)),
     [memberMatches]
   );
 
   const finishedMatches = useMemo(
-    () => memberMatches.filter((m) => hasFinalScore(m)),
+    () => memberMatches.filter(hasFinalScore),
     [memberMatches]
   );
 
-  const matchesToPlayRows = useMemo(() => {
-    return matchesToPlay.map((m) => {
-      const scoreStatus = getScoreStatus(m);
-      const isFormOpen = openScoreMatchId === m.id;
-      const isSubmitting = submittingMatchId === m.id;
+  const matchesToPlayRows = useMemo(
+    () =>
+      matchesToPlay.map((match) => {
+        const scoreStatus = getScoreStatus(match);
 
-      return {
-        id: m.id,
-        competition: getCompetitionName(competitions, m),
-        date: getMatchDate(m),
-        homeName: getSideName(m, "home", teamMap, playerMap, regMap),
-        awayName: getSideName(m, "away", teamMap, playerMap, regMap),
-        scoreLabel:
-          m.submitted_home_score != null && m.submitted_away_score != null
-            ? `${m.submitted_home_score} - ${m.submitted_away_score}`
-            : "VS",
-        scoreStatus,
-        isFormOpen,
-        isSubmitting,
-      };
-    });
-  }, [
-    matchesToPlay,
-    competitions,
-    teamMap,
-    playerMap,
-    regMap,
-    openScoreMatchId,
-    submittingMatchId,
-  ]);
+        return {
+          id: match.id,
+          competition: getCompetitionName(competitions, match),
+          date: getMatchDate(match),
+          homeName: getSideName(match, "home", teamMap, playerMap, registrationMap),
+          awayName: getSideName(match, "away", teamMap, playerMap, registrationMap),
+          scoreLabel:
+            match.submitted_home_score != null &&
+            match.submitted_away_score != null
+              ? `${match.submitted_home_score} - ${match.submitted_away_score}`
+              : "VS",
+          scoreStatus,
+          isFormOpen: openScoreMatchId === match.id,
+          isSubmitting: submittingMatchId === match.id,
+        };
+      }),
+    [
+      matchesToPlay,
+      competitions,
+      teamMap,
+      playerMap,
+      registrationMap,
+      openScoreMatchId,
+      submittingMatchId,
+    ]
+  );
 
-  const finishedMatchRows = useMemo(() => {
-    return finishedMatches.map((m) => ({
-      id: m.id,
-      competition: getCompetitionName(competitions, m),
-      date: getMatchDate(m),
-      homeName: getSideName(m, "home", teamMap, playerMap, regMap),
-      awayName: getSideName(m, "away", teamMap, playerMap, regMap),
-      scoreLabel: `${getFinalHomeScore(m) ?? "-"} - ${getFinalAwayScore(m) ?? "-"}`,
-      scoreStatus: getScoreStatus(m) || "validated",
-    }));
-  }, [finishedMatches, competitions, teamMap, playerMap, regMap]);
+  const finishedMatchRows = useMemo(
+    () =>
+      finishedMatches.map((match) => ({
+        id: match.id,
+        competition: getCompetitionName(competitions, match),
+        date: getMatchDate(match),
+        homeName: getSideName(match, "home", teamMap, playerMap, registrationMap),
+        awayName: getSideName(match, "away", teamMap, playerMap, registrationMap),
+        scoreLabel: `${getFinalHomeScore(match) ?? "-"} - ${
+          getFinalAwayScore(match) ?? "-"
+        }`,
+        scoreStatus: getScoreStatus(match) || "validated",
+      })),
+    [finishedMatches, competitions, teamMap, playerMap, registrationMap]
+  );
 
   return {
     stats,

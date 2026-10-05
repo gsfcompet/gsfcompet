@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { canManageTeams, type AppRole } from "@/lib/roles";
+import type { AppRole } from "@/lib/roles";
 
 type Profile = {
   id: string;
@@ -44,7 +44,7 @@ export default function AdminCompetitionParticipantsManager({
   competitionId,
   onChanged,
 }: AdminCompetitionParticipantsManagerProps) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -60,9 +60,9 @@ export default function AdminCompetitionParticipantsManager({
   const [selectedLeague, setSelectedLeague] = useState("");
   const [selectedEaTeamId, setSelectedEaTeamId] = useState("");
 
-  const [editingRegistrationId, setEditingRegistrationId] = useState<string | null>(
-    null
-  );
+  const [editingRegistrationId, setEditingRegistrationId] = useState<
+    string | null
+  >(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,9 +82,7 @@ export default function AdminCompetitionParticipantsManager({
   }, [competitionId]);
 
   useEffect(() => {
-    if (!selectedProfileId) {
-      return;
-    }
+    if (!selectedProfileId) return;
 
     const selectedProfile = profiles.find(
       (profile) => profile.id === selectedProfileId
@@ -108,11 +106,7 @@ export default function AdminCompetitionParticipantsManager({
     setEaName(existingPlayer?.ea_name || selectedProfile?.username || "");
     setPlatform(existingPlayer?.platform || "PC");
 
-    if (existingRegistration) {
-      setEditingRegistrationId(existingRegistration.id);
-    } else {
-      setEditingRegistrationId(null);
-    }
+    setEditingRegistrationId(existingRegistration?.id ?? null);
 
     if (existingEaTeam) {
       setSelectedCountry(existingEaTeam.country || "");
@@ -183,7 +177,6 @@ export default function AdminCompetitionParticipantsManager({
     setPlayers((playersResult.data ?? []) as Player[]);
     setRegistrations((registrationsResult.data ?? []) as CompetitionPlayer[]);
     setEaTeams((eaTeamsResult.data ?? []) as EaTeam[]);
-
     setLoading(false);
   }
 
@@ -209,9 +202,10 @@ export default function AdminCompetitionParticipantsManager({
   }, [eaTeams, selectedCountry]);
 
   const filteredEaTeams = useMemo(() => {
-    return eaTeams.filter((team) => {
-      return team.country === selectedCountry && team.league === selectedLeague;
-    });
+    return eaTeams.filter(
+      (team) =>
+        team.country === selectedCountry && team.league === selectedLeague
+    );
   }, [eaTeams, selectedCountry, selectedLeague]);
 
   function getPlayerById(playerId: string) {
@@ -273,7 +267,9 @@ export default function AdminCompetitionParticipantsManager({
     }
 
     const selectedProfile = getProfileById(selectedProfileId);
-    const selectedEaTeam = eaTeams.find((team) => team.id === selectedEaTeamId);
+    const selectedEaTeam = eaTeams.find(
+      (team) => team.id === selectedEaTeamId
+    );
 
     if (!selectedProfile) {
       setMessage("Profil membre introuvable.");
@@ -315,7 +311,8 @@ export default function AdminCompetitionParticipantsManager({
       }
     );
 
-const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setSaving(false);
@@ -339,7 +336,9 @@ const result: { error?: string; message?: string } = await response.json();
       : null;
 
     if (!player || !profile) {
-      setMessage("Impossible de modifier ce participant : fiche joueur incomplète.");
+      setMessage(
+        "Impossible de modifier ce participant : fiche joueur incomplète."
+      );
       return;
     }
 
@@ -397,7 +396,8 @@ const result: { error?: string; message?: string } = await response.json();
       }
     );
 
-const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setRemovingRegistrationId(null);
@@ -416,47 +416,53 @@ const result: { error?: string; message?: string } = await response.json();
     await onChanged?.();
   }
 
+  const inputClassName =
+    "w-full rounded-xl border border-[#C39B55]/20 bg-[#09182D] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/40 focus:border-[#C39B55]/60";
+
+  const selectClassName =
+    "w-full rounded-xl border border-[#C39B55]/20 bg-[#09182D] px-4 py-3 text-[#DBC399] outline-none transition focus:border-[#C39B55]/60 disabled:cursor-not-allowed disabled:opacity-50";
+
   return (
-    <section className="mt-8 rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+    <section className="mt-8 rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#F7E9C5]">
+          <h2 className="text-2xl font-black text-[#DBC399]">
             Gestion des participants
           </h2>
 
-          <p className="mt-2 text-sm text-[#D8C7A0]">
+          <p className="mt-2 text-sm text-[#CFC6AB]">
             Ajoute un membre à la compétition, modifie son équipe EA FC ou retire
             un participant.
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#D9A441]/25 bg-[#0B0610]/70 px-5 py-3 text-center">
-          <p className="text-2xl font-black text-[#F2D27A]">
+        <div className="rounded-xl border border-[#C39B55]/25 bg-[#071326]/80 px-5 py-3 text-center">
+          <p className="text-2xl font-black text-[#DBC399]">
             {registrations.length}
           </p>
-          <p className="text-xs uppercase tracking-widest text-[#8F7B5C]">
+          <p className="text-xs uppercase tracking-widest text-[#CFC6AB]/70">
             participants
           </p>
         </div>
       </div>
 
       {message && (
-        <div className="mb-5 rounded-xl border border-[#D9A441]/30 bg-[#0B0610]/70 px-4 py-3 text-sm font-semibold text-[#F2D27A]">
+        <div className="mb-5 rounded-xl border border-[#C39B55]/30 bg-[#071326]/80 px-4 py-3 text-sm font-semibold text-[#DBC399]">
           {message}
         </div>
       )}
 
       {loading ? (
-        <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4 text-sm text-[#D8C7A0]">
+        <div className="rounded-xl border border-[#C39B55]/15 bg-[#071326]/70 p-4 text-sm text-[#CFC6AB]">
           Chargement des participants...
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
           <form
             onSubmit={handleSubmit}
-            className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4"
+            className="rounded-xl border border-[#C39B55]/15 bg-[#071326]/70 p-4"
           >
-            <h3 className="text-lg font-black text-[#F7E9C5]">
+            <h3 className="text-lg font-black text-[#DBC399]">
               {editingRegistrationId
                 ? "Modifier un participant"
                 : "Ajouter un membre"}
@@ -464,14 +470,14 @@ const result: { error?: string; message?: string } = await response.json();
 
             <div className="mt-5 grid gap-4">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Membre
                 </label>
 
                 <select
                   value={selectedProfileId}
                   onChange={(event) => setSelectedProfileId(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  className={selectClassName}
                 >
                   <option value="">Choisir un membre</option>
                   {profiles.map((profile) => (
@@ -484,41 +490,41 @@ const result: { error?: string; message?: string } = await response.json();
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                     Nom joueur
                   </label>
 
                   <input
                     value={playerName}
                     onChange={(event) => setPlayerName(event.target.value)}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                    className={inputClassName}
                     placeholder="Ex : Cecell27II"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                     Pseudo EA FC
                   </label>
 
                   <input
                     value={eaName}
                     onChange={(event) => setEaName(event.target.value)}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                    className={inputClassName}
                     placeholder="Ex : Cecell27II"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Plateforme
                 </label>
 
                 <select
                   value={platform}
                   onChange={(event) => setPlatform(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  className={selectClassName}
                 >
                   <option value="PC">PC</option>
                   <option value="PS5">PS5</option>
@@ -529,7 +535,7 @@ const result: { error?: string; message?: string } = await response.json();
 
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                     Pays équipe
                   </label>
 
@@ -540,7 +546,7 @@ const result: { error?: string; message?: string } = await response.json();
                       setSelectedLeague("");
                       setSelectedEaTeamId("");
                     }}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                    className={selectClassName}
                   >
                     <option value="">Pays</option>
                     {countries.map((country) => (
@@ -552,7 +558,7 @@ const result: { error?: string; message?: string } = await response.json();
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                     Championnat
                   </label>
 
@@ -563,7 +569,7 @@ const result: { error?: string; message?: string } = await response.json();
                       setSelectedLeague(event.target.value);
                       setSelectedEaTeamId("");
                     }}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={selectClassName}
                   >
                     <option value="">Championnat</option>
                     {leagues.map((league) => (
@@ -575,15 +581,17 @@ const result: { error?: string; message?: string } = await response.json();
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                  <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                     Équipe EA FC
                   </label>
 
                   <select
                     value={selectedEaTeamId}
                     disabled={!selectedLeague}
-                    onChange={(event) => setSelectedEaTeamId(event.target.value)}
-                    className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    onChange={(event) =>
+                      setSelectedEaTeamId(event.target.value)
+                    }
+                    className={selectClassName}
                   >
                     <option value="">Équipe</option>
                     {filteredEaTeams.map((team) => (
@@ -599,7 +607,7 @@ const result: { error?: string; message?: string } = await response.json();
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-xl bg-[#A61E22] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl border border-[#C39B55]/40 bg-[#17345B] px-5 py-3 text-sm font-semibold text-[#DBC399] shadow-lg shadow-black/20 transition hover:bg-[#204575] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving
                     ? "Enregistrement..."
@@ -612,7 +620,7 @@ const result: { error?: string; message?: string } = await response.json();
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="rounded-xl border border-[#D9A441]/30 px-5 py-3 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#160A12]"
+                    className="rounded-xl border border-[#C39B55]/30 px-5 py-3 text-sm font-semibold text-[#DBC399] transition hover:bg-[#17345B]"
                   >
                     Annuler modification
                   </button>
@@ -621,13 +629,13 @@ const result: { error?: string; message?: string } = await response.json();
             </div>
           </form>
 
-          <div className="rounded-xl border border-[#D9A441]/15 bg-[#0B0610]/70 p-4">
-            <h3 className="text-lg font-black text-[#F7E9C5]">
+          <div className="rounded-xl border border-[#C39B55]/15 bg-[#071326]/70 p-4">
+            <h3 className="text-lg font-black text-[#DBC399]">
               Participants inscrits
             </h3>
 
             {registrations.length === 0 ? (
-              <div className="mt-5 rounded-xl border border-dashed border-[#D9A441]/20 p-4 text-sm text-[#D8C7A0]">
+              <div className="mt-5 rounded-xl border border-dashed border-[#C39B55]/20 p-4 text-sm text-[#CFC6AB]">
                 Aucun participant inscrit pour le moment.
               </div>
             ) : (
@@ -635,37 +643,40 @@ const result: { error?: string; message?: string } = await response.json();
                 {registrations.map((registration) => {
                   const player = getPlayerById(registration.player_id);
                   const profile = getProfileById(player?.user_id ?? null);
-                  const isRemoving = removingRegistrationId === registration.id;
+                  const isRemoving =
+                    removingRegistrationId === registration.id;
 
                   return (
                     <article
                       key={registration.id}
-                      className="rounded-xl border border-[#D9A441]/15 bg-[#160A12]/80 p-4"
+                      className="rounded-xl border border-[#C39B55]/15 bg-[#0B1B33]/80 p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="font-black text-[#F7E9C5]">
-                            {player?.name || profile?.username || "Joueur inconnu"}
+                          <p className="font-black text-[#DBC399]">
+                            {player?.name ||
+                              profile?.username ||
+                              "Joueur inconnu"}
                           </p>
 
-                          <div className="mt-1 space-y-1 text-sm text-[#8F7B5C]">
+                          <div className="mt-1 space-y-1 text-sm text-[#CFC6AB]/70">
                             <p>
                               EA FC :{" "}
-                              <span className="font-semibold text-[#F2D27A]">
+                              <span className="font-semibold text-[#DBC399]">
                                 {player?.ea_name || "Non renseigné"}
                               </span>
                             </p>
 
                             <p>
                               Plateforme :{" "}
-                              <span className="font-semibold text-[#F2D27A]">
+                              <span className="font-semibold text-[#DBC399]">
                                 {player?.platform || "Non renseignée"}
                               </span>
                             </p>
 
                             <p>
                               Équipe :{" "}
-                              <span className="font-semibold text-[#F2D27A]">
+                              <span className="font-semibold text-[#DBC399]">
                                 {registration.ea_team_name || "Non définie"}
                               </span>
                             </p>
@@ -676,7 +687,7 @@ const result: { error?: string; message?: string } = await response.json();
                           <button
                             type="button"
                             onClick={() => editRegistration(registration)}
-                            className="rounded-lg border border-[#D9A441]/30 px-3 py-2 text-xs font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                            className="rounded-lg border border-[#C39B55]/30 px-3 py-2 text-xs font-semibold text-[#DBC399] transition hover:bg-[#17345B]"
                           >
                             Modifier
                           </button>
@@ -685,7 +696,7 @@ const result: { error?: string; message?: string } = await response.json();
                             type="button"
                             disabled={isRemoving}
                             onClick={() => removeRegistration(registration)}
-                            className="rounded-lg bg-red-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-xs font-semibold text-rose-300 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {isRemoving ? "..." : "Retirer"}
                           </button>

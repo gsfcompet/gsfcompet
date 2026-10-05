@@ -60,7 +60,13 @@ const emptyCreateTeamForm: CreateTeamForm = {
 function getMemberLabel(member: MemberOption | null) {
   if (!member) return "Membre inconnu";
 
-  return member.name || member.username || member.ea_name || member.email || "Membre";
+  return (
+    member.name ||
+    member.username ||
+    member.ea_name ||
+    member.email ||
+    "Membre"
+  );
 }
 
 function getRoleLabel(role: TeamRole) {
@@ -106,7 +112,9 @@ export default function AdminTeamsPage() {
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
-  const [competitionTeams, setCompetitionTeams] = useState<CompetitionTeam[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<CompetitionTeam[]>(
+    []
+  );
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [createForm, setCreateForm] =
@@ -236,7 +244,9 @@ export default function AdminTeamsPage() {
   }, [selectedTeamMembers]);
 
   const availableMembers = useMemo(() => {
-    return members.filter((member) => !selectedTeamMemberIds.has(member.player_id));
+    return members.filter(
+      (member) => !selectedTeamMemberIds.has(member.player_id)
+    );
   }, [members, selectedTeamMemberIds]);
 
   const selectedCompetitionIds = useMemo(() => {
@@ -455,36 +465,36 @@ export default function AdminTeamsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#07000d] px-4 py-10 text-white">
+    <main className="min-h-screen bg-[var(--navy)] px-4 py-10 text-[var(--parchment)]">
       <section className="mx-auto max-w-[1400px]">
         <div className="mb-8 flex flex-wrap gap-3">
           <Link
             href="/admin"
-            className="rounded-xl border border-yellow-500/40 px-4 py-2 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
+            className="rounded-xl border border-[var(--line)] px-4 py-2 text-sm font-black text-[var(--gold-soft)] transition hover:border-[var(--gold)] hover:bg-[var(--gold)]/10"
           >
             ← Retour admin
           </Link>
 
           <Link
             href="/equipes"
-            className="rounded-xl border border-yellow-500/40 px-4 py-2 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
+            className="rounded-xl border border-[var(--line)] px-4 py-2 text-sm font-black text-[var(--gold-soft)] transition hover:border-[var(--gold)] hover:bg-[var(--gold)]/10"
           >
             Vue publique équipes
           </Link>
         </div>
 
-        <section className="rounded-[28px] border border-yellow-700/30 bg-gradient-to-br from-[#21070b] via-[#12040d] to-black p-6 shadow-2xl shadow-black/50">
+        <section className="rounded-[28px] border border-[var(--line)] bg-gradient-to-br from-[var(--navy-2)] to-[var(--navy)] p-6 shadow-2xl shadow-black/30">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.45em] text-yellow-400">
-                Guardian&apos;s Family
+              <p className="text-xs font-black uppercase tracking-[0.45em] text-[var(--gold)]">
+                Guardian's Family
               </p>
 
-              <h1 className="mt-3 text-4xl font-black text-yellow-100 md:text-5xl">
+              <h1 className="mt-3 text-4xl font-black text-[var(--gold-soft)] md:text-5xl">
                 Gestion teams esport
               </h1>
 
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-yellow-100/70">
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--parchment-dim)]">
                 Crée les teams, rattache les membres, définis les rôles et
                 inscris les teams aux compétitions dédiées.
               </p>
@@ -502,13 +512,13 @@ export default function AdminTeamsPage() {
         </section>
 
         {message && (
-          <div className="mt-6 rounded-2xl border border-yellow-500/30 bg-[#140711] px-4 py-3 text-sm font-black text-yellow-200">
+          <div className="mt-6 rounded-2xl border border-[var(--gold)]/30 bg-[var(--navy-2)] px-4 py-3 text-sm font-black text-[var(--gold-soft)]">
             {message}
           </div>
         )}
 
-        <section className="mt-8 rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-6 shadow-2xl shadow-black/40">
-          <h2 className="text-2xl font-black text-yellow-100">
+        <section className="mt-8 rounded-[28px] border border-[var(--line)] bg-[var(--navy-2)]/95 p-6 shadow-2xl shadow-black/30">
+          <h2 className="text-2xl font-black text-[var(--gold-soft)]">
             Créer une team esport
           </h2>
 
@@ -521,7 +531,7 @@ export default function AdminTeamsPage() {
                   name: event.target.value,
                 }))
               }
-              className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+              className="rounded-xl border border-[var(--line)] bg-[var(--navy)] px-4 py-3 text-[var(--parchment)] outline-none placeholder:text-[var(--parchment-dim)]/50 focus:border-[var(--gold)]"
               placeholder="Nom de la team"
             />
 
@@ -533,7 +543,7 @@ export default function AdminTeamsPage() {
                   manager: event.target.value,
                 }))
               }
-              className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+              className="rounded-xl border border-[var(--line)] bg-[var(--navy)] px-4 py-3 text-[var(--parchment)] outline-none placeholder:text-[var(--parchment-dim)]/50 focus:border-[var(--gold)]"
               placeholder="Manager"
             />
 
@@ -541,21 +551,21 @@ export default function AdminTeamsPage() {
               type="button"
               disabled={savingAction === "create_team"}
               onClick={createTeam}
-              className="rounded-xl bg-red-700 px-5 py-3 font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-[var(--gold)] px-5 py-3 font-black text-[var(--navy)] shadow-lg shadow-black/20 transition hover:bg-[var(--gold-soft)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {savingAction === "create_team" ? "Création..." : "Créer"}
             </button>
           </div>
         </section>
 
-        <section className="mt-8 rounded-[28px] border border-yellow-700/30 bg-[#140711]/95 p-6 shadow-2xl shadow-black/40">
+        <section className="mt-8 rounded-[28px] border border-[var(--line)] bg-[var(--navy-2)]/95 p-6 shadow-2xl shadow-black/30">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-2xl font-black text-yellow-100">
+              <h2 className="text-2xl font-black text-[var(--gold-soft)]">
                 Teams existantes
               </h2>
 
-              <p className="mt-2 text-sm text-yellow-100/60">
+              <p className="mt-2 text-sm text-[var(--parchment-dim)]">
                 Tableur compact des teams. Clique sur gérer pour ouvrir la fiche.
               </p>
             </div>
@@ -563,21 +573,21 @@ export default function AdminTeamsPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+              className="rounded-xl border border-[var(--line)] bg-[var(--navy)] px-4 py-3 text-[var(--parchment)] outline-none placeholder:text-[var(--parchment-dim)]/50 focus:border-[var(--gold)]"
               placeholder="Rechercher..."
             />
           </div>
 
           {loading ? (
-            <div className="rounded-2xl border border-yellow-700/25 bg-black/25 p-6 text-yellow-100/60">
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--navy)]/60 p-6 text-[var(--parchment-dim)]">
               Chargement des teams...
             </div>
           ) : filteredTeams.length === 0 ? (
-            <div className="rounded-2xl border border-yellow-700/25 bg-black/25 p-6 text-yellow-100/60">
+            <div className="rounded-2xl border border-[var(--line)] bg-[var(--navy)]/60 p-6 text-[var(--parchment-dim)]">
               Aucune team trouvée.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-yellow-700/25 bg-black/25">
+            <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--navy)]/60">
               <div className="max-h-[620px] overflow-y-auto">
                 <table className="w-full table-fixed border-collapse text-left text-sm">
                   <colgroup>
@@ -589,24 +599,24 @@ export default function AdminTeamsPage() {
                     <col className="w-[12%]" />
                   </colgroup>
 
-                  <thead className="sticky top-0 z-10 bg-[#26070b] text-[10px] uppercase tracking-[0.18em] text-yellow-200">
+                  <thead className="sticky top-0 z-10 bg-[var(--navy-2)] text-[10px] uppercase tracking-[0.18em] text-[var(--gold-soft)]">
                     <tr>
-                      <th className="border-b border-yellow-700/30 px-4 py-3">
+                      <th className="border-b border-[var(--line)] px-4 py-3">
                         Team
                       </th>
-                      <th className="border-b border-yellow-700/30 px-4 py-3">
+                      <th className="border-b border-[var(--line)] px-4 py-3">
                         Manager
                       </th>
-                      <th className="border-b border-yellow-700/30 px-4 py-3 text-center">
+                      <th className="border-b border-[var(--line)] px-4 py-3 text-center">
                         Membres
                       </th>
-                      <th className="border-b border-yellow-700/30 px-4 py-3 text-center">
+                      <th className="border-b border-[var(--line)] px-4 py-3 text-center">
                         Compétitions
                       </th>
-                      <th className="border-b border-yellow-700/30 px-4 py-3">
+                      <th className="border-b border-[var(--line)] px-4 py-3">
                         Statut
                       </th>
-                      <th className="border-b border-yellow-700/30 px-4 py-3 text-right">
+                      <th className="border-b border-[var(--line)] px-4 py-3 text-right">
                         Action
                       </th>
                     </tr>
@@ -615,49 +625,51 @@ export default function AdminTeamsPage() {
                   <tbody>
                     {filteredTeams.map((team) => {
                       const membersCount = getTeamMembersCount(team.id);
-                      const competitionsCount = getTeamCompetitionsCount(team.id);
+                      const competitionsCount = getTeamCompetitionsCount(
+                        team.id
+                      );
                       const initials = getInitials(team.name);
 
                       return (
                         <tr
                           key={team.id}
-                          className="border-b border-yellow-900/25 transition hover:bg-yellow-400/5"
+                          className="border-b border-[var(--line)] transition hover:bg-[var(--gold)]/5"
                         >
                           <td className="px-4 py-4">
                             <div className="flex min-w-0 items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-yellow-500/35 bg-red-900/20 text-sm font-black text-yellow-200">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--gold)]/35 bg-[var(--navy-2)] text-sm font-black text-[var(--gold-soft)]">
                                 {initials}
                               </div>
 
                               <div className="min-w-0">
-                                <p className="truncate font-black text-yellow-100">
+                                <p className="truncate font-black text-[var(--parchment)]">
                                   {team.name}
                                 </p>
-                                <p className="mt-1 text-xs text-yellow-100/45">
+                                <p className="mt-1 text-xs text-[var(--parchment-dim)]">
                                   Team esport
                                 </p>
                               </div>
                             </div>
                           </td>
 
-                          <td className="px-4 py-4 text-yellow-100/70">
+                          <td className="px-4 py-4 text-[var(--parchment-dim)]">
                             {team.manager || "À définir"}
                           </td>
 
                           <td className="px-4 py-4 text-center">
-                            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-yellow-500/35 bg-black/40 px-2 text-sm font-black text-yellow-200">
+                            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[var(--gold)]/35 bg-[var(--navy)] px-2 text-sm font-black text-[var(--gold-soft)]">
                               {membersCount}
                             </span>
                           </td>
 
                           <td className="px-4 py-4 text-center">
-                            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-red-500/35 bg-black/40 px-2 text-sm font-black text-red-200">
+                            <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[var(--gold)]/35 bg-[var(--navy)] px-2 text-sm font-black text-[var(--gold-soft)]">
                               {competitionsCount}
                             </span>
                           </td>
 
                           <td className="px-4 py-4">
-                            <span className="rounded-full border border-green-400/40 bg-green-500/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-300">
+                            <span className="rounded-full border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[var(--gold-soft)]">
                               Active
                             </span>
                           </td>
@@ -667,7 +679,7 @@ export default function AdminTeamsPage() {
                               <button
                                 type="button"
                                 onClick={() => openTeamModal(team)}
-                                className="rounded-lg border border-yellow-700/30 px-4 py-2 text-xs font-black text-yellow-200 transition hover:bg-yellow-500/10"
+                                className="rounded-lg border border-[var(--line)] px-4 py-2 text-xs font-black text-[var(--gold-soft)] transition hover:border-[var(--gold)] hover:bg-[var(--gold)]/10"
                               >
                                 Gérer
                               </button>
@@ -675,7 +687,7 @@ export default function AdminTeamsPage() {
                               <button
                                 type="button"
                                 onClick={() => deleteTeam(team)}
-                                className="rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 transition hover:bg-red-500/20"
+                                className="rounded-lg border border-[#371015] bg-[#371015]/40 px-4 py-2 text-xs font-black text-[var(--parchment)] transition hover:bg-[#371015]/70"
                               >
                                 Supprimer
                               </button>
@@ -778,20 +790,27 @@ function TeamManagementModal({
   competitionById: Map<string, Competition>;
   unregisterTeamFromCompetition: (competitionId: string) => void;
 }) {
+  const inputClass =
+    "rounded-xl border border-[var(--line)] bg-[var(--navy)] px-4 py-3 text-[var(--parchment)] outline-none focus:border-[var(--gold)]";
+  const actionButtonClass =
+    "rounded-xl bg-[var(--gold)] px-5 py-3 font-black text-[var(--navy)] shadow-lg shadow-black/20 transition hover:bg-[var(--gold-soft)] disabled:opacity-60";
+  const sectionClass =
+    "rounded-2xl border border-[var(--line)] bg-[var(--navy-2)]/70 p-5";
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 py-8 backdrop-blur-sm">
-      <section className="max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[28px] border border-yellow-700/40 bg-[#140711] shadow-2xl shadow-black/70">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-yellow-900/40 p-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--navy)]/85 px-4 py-8 backdrop-blur-sm">
+      <section className="max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[28px] border border-[var(--line)] bg-[var(--navy-2)] shadow-2xl shadow-black/70">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] p-6">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.35em] text-yellow-400">
+            <p className="text-xs font-black uppercase tracking-[0.35em] text-[var(--gold)]">
               Gestion team esport
             </p>
 
-            <h2 className="mt-3 text-3xl font-black text-yellow-100">
+            <h2 className="mt-3 text-3xl font-black text-[var(--gold-soft)]">
               {selectedTeam.name}
             </h2>
 
-            <p className="mt-2 text-sm text-yellow-100/55">
+            <p className="mt-2 text-sm text-[var(--parchment-dim)]">
               Manager : {selectedTeam.manager || "À définir"}
             </p>
           </div>
@@ -799,7 +818,7 @@ function TeamManagementModal({
           <button
             type="button"
             onClick={closeTeamModal}
-            className="rounded-xl border border-yellow-700/35 px-4 py-2 text-sm font-black text-yellow-200 transition hover:bg-yellow-500/10"
+            className="rounded-xl border border-[var(--line)] px-4 py-2 text-sm font-black text-[var(--gold-soft)] transition hover:border-[var(--gold)] hover:bg-[var(--gold)]/10"
           >
             Fermer
           </button>
@@ -807,8 +826,8 @@ function TeamManagementModal({
 
         <div className="max-h-[calc(92vh-120px)] overflow-y-auto p-6">
           <div className="grid gap-6">
-            <section className="rounded-2xl border border-yellow-700/25 bg-black/25 p-5">
-              <h3 className="text-lg font-black text-yellow-100">
+            <section className={sectionClass}>
+              <h3 className="text-lg font-black text-[var(--gold-soft)]">
                 Informations team
               </h3>
 
@@ -816,14 +835,14 @@ function TeamManagementModal({
                 <input
                   value={editName}
                   onChange={(event) => setEditName(event.target.value)}
-                  className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+                  className={inputClass}
                   placeholder="Nom de team"
                 />
 
                 <input
                   value={editManager}
                   onChange={(event) => setEditManager(event.target.value)}
-                  className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+                  className={inputClass}
                   placeholder="Manager"
                 />
 
@@ -831,15 +850,15 @@ function TeamManagementModal({
                   type="button"
                   disabled={savingAction === "update_team"}
                   onClick={updateTeam}
-                  className="rounded-xl bg-red-700 px-5 py-3 font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600 disabled:opacity-60"
+                  className={actionButtonClass}
                 >
                   {savingAction === "update_team" ? "..." : "Enregistrer"}
                 </button>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-yellow-700/25 bg-black/25 p-5">
-              <h3 className="text-lg font-black text-yellow-100">
+            <section className={sectionClass}>
+              <h3 className="text-lg font-black text-[var(--gold-soft)]">
                 Membres de la team
               </h3>
 
@@ -847,7 +866,7 @@ function TeamManagementModal({
                 <select
                   value={memberToAdd}
                   onChange={(event) => setMemberToAdd(event.target.value)}
-                  className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+                  className={inputClass}
                 >
                   <option value="">Choisir un membre</option>
                   {availableMembers.map((member) => (
@@ -862,7 +881,7 @@ function TeamManagementModal({
                   onChange={(event) =>
                     setRoleToAdd(event.target.value as TeamRole)
                   }
-                  className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+                  className={inputClass}
                 >
                   <option value="player">Joueur</option>
                   <option value="captain">Capitaine</option>
@@ -873,15 +892,15 @@ function TeamManagementModal({
                   type="button"
                   disabled={savingAction === "add_member"}
                   onClick={addMemberToTeam}
-                  className="rounded-xl bg-red-700 px-5 py-3 font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600 disabled:opacity-60"
+                  className={actionButtonClass}
                 >
                   Ajouter
                 </button>
               </div>
 
-              <div className="mt-5 overflow-hidden rounded-xl border border-yellow-700/25">
+              <div className="mt-5 overflow-hidden rounded-xl border border-[var(--line)]">
                 {selectedTeamMembers.length === 0 ? (
-                  <div className="p-4 text-sm text-yellow-100/55">
+                  <div className="p-4 text-sm text-[var(--parchment-dim)]">
                     Aucun membre rattaché.
                   </div>
                 ) : (
@@ -901,18 +920,18 @@ function TeamManagementModal({
                         return (
                           <tr
                             key={teamMember.id}
-                            className="border-b border-yellow-900/25"
+                            className="border-b border-[var(--line)]"
                           >
                             <td className="px-4 py-3">
-                              <p className="font-black text-yellow-100">
+                              <p className="font-black text-[var(--parchment)]">
                                 {getMemberLabel(member)}
                               </p>
-                              <p className="mt-1 text-xs text-yellow-100/45">
+                              <p className="mt-1 text-xs text-[var(--parchment-dim)]">
                                 EA : {member?.ea_name || "Non renseigné"}
                               </p>
                             </td>
 
-                            <td className="px-4 py-3 text-yellow-100/65">
+                            <td className="px-4 py-3 text-[var(--parchment-dim)]">
                               {member?.platform || "PC"}
                             </td>
 
@@ -925,7 +944,7 @@ function TeamManagementModal({
                                     event.target.value as TeamRole
                                   )
                                 }
-                                className="w-full rounded-lg border border-yellow-700/30 bg-black px-3 py-2 text-yellow-100"
+                                className="w-full rounded-lg border border-[var(--line)] bg-[var(--navy)] px-3 py-2 text-[var(--parchment)]"
                               >
                                 <option value="player">Joueur</option>
                                 <option value="captain">Capitaine</option>
@@ -939,7 +958,7 @@ function TeamManagementModal({
                                 onClick={() =>
                                   removeMemberFromTeam(teamMember.player_id)
                                 }
-                                className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-500/20"
+                                className="rounded-lg border border-[#371015] bg-[#371015]/40 px-3 py-2 text-xs font-black text-[var(--parchment)] transition hover:bg-[#371015]/70"
                               >
                                 Retirer
                               </button>
@@ -953,8 +972,8 @@ function TeamManagementModal({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-yellow-700/25 bg-black/25 p-5">
-              <h3 className="text-lg font-black text-yellow-100">
+            <section className={sectionClass}>
+              <h3 className="text-lg font-black text-[var(--gold-soft)]">
                 Inscriptions compétitions
               </h3>
 
@@ -962,7 +981,7 @@ function TeamManagementModal({
                 <select
                   value={competitionToAdd}
                   onChange={(event) => setCompetitionToAdd(event.target.value)}
-                  className="rounded-xl border border-yellow-700/30 bg-black px-4 py-3 text-yellow-100 outline-none focus:border-yellow-400"
+                  className={inputClass}
                 >
                   <option value="">Choisir une compétition teams</option>
                   {availableCompetitions.map((competition) => (
@@ -976,15 +995,15 @@ function TeamManagementModal({
                   type="button"
                   disabled={savingAction === "register_competition"}
                   onClick={registerTeamToCompetition}
-                  className="rounded-xl bg-red-700 px-5 py-3 font-black text-white shadow-lg shadow-red-950/30 transition hover:bg-red-600 disabled:opacity-60"
+                  className={actionButtonClass}
                 >
                   Inscrire
                 </button>
               </div>
 
-              <div className="mt-5 overflow-hidden rounded-xl border border-yellow-700/25">
+              <div className="mt-5 overflow-hidden rounded-xl border border-[var(--line)]">
                 {selectedCompetitionTeams.length === 0 ? (
-                  <div className="p-4 text-sm text-yellow-100/55">
+                  <div className="p-4 text-sm text-[var(--parchment-dim)]">
                     Cette team n’est inscrite à aucune compétition teams.
                   </div>
                 ) : (
@@ -998,13 +1017,13 @@ function TeamManagementModal({
                         return (
                           <tr
                             key={competitionTeam.id}
-                            className="border-b border-yellow-900/25"
+                            className="border-b border-[var(--line)]"
                           >
                             <td className="px-4 py-3">
-                              <p className="font-black text-yellow-100">
+                              <p className="font-black text-[var(--parchment)]">
                                 {getCompetitionLabel(competition ?? null)}
                               </p>
-                              <p className="mt-1 text-xs text-yellow-100/45">
+                              <p className="mt-1 text-xs text-[var(--parchment-dim)]">
                                 Statut :{" "}
                                 {competition
                                   ? getStatusLabel(competition.status)
@@ -1020,7 +1039,7 @@ function TeamManagementModal({
                                     competitionTeam.competition_id
                                   )
                                 }
-                                className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-500/20"
+                                className="rounded-lg border border-[#371015] bg-[#371015]/40 px-3 py-2 text-xs font-black text-[var(--parchment)] transition hover:bg-[#371015]/70"
                               >
                                 Retirer
                               </button>
@@ -1042,9 +1061,9 @@ function TeamManagementModal({
 
 function SummaryTile({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-yellow-500/25 bg-black/30 px-5 py-4">
-      <p className="text-2xl font-black text-yellow-200">{value}</p>
-      <p className="text-xs uppercase tracking-widest text-yellow-100/45">
+    <div className="rounded-2xl border border-[var(--line)] bg-[var(--navy)]/60 px-5 py-4">
+      <p className="text-2xl font-black text-[var(--gold-soft)]">{value}</p>
+      <p className="text-xs uppercase tracking-widest text-[var(--parchment-dim)]">
         {label}
       </p>
     </div>

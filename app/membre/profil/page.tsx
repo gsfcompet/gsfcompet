@@ -223,7 +223,8 @@ export default function MemberProfilePage() {
       method: "DELETE",
     });
 
-const result: { error?: string; message?: string } = await response.json();
+    const result: { error?: string; message?: string } =
+      await response.json();
 
     if (!response.ok) {
       setDeleting(false);
@@ -238,10 +239,10 @@ const result: { error?: string; message?: string } = await response.json();
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <main className="min-h-screen bg-[#09182D] text-[#DBC399]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="text-[#D8C7A0]">Chargement du profil...</p>
+          <div className="w-full rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="text-[#CFC6AB]">Chargement du profil...</p>
           </div>
         </section>
       </main>
@@ -250,22 +251,22 @@ const result: { error?: string; message?: string } = await response.json();
 
   if (!profile) {
     return (
-      <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+      <main className="min-h-screen bg-[#09182D] text-[#DBC399]">
         <section className="mx-auto flex min-h-screen max-w-xl items-center px-6 py-12">
-          <div className="w-full rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 text-center shadow-lg shadow-black/30">
-            <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#0B0610] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+          <div className="w-full rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 text-center shadow-lg shadow-black/30">
+            <p className="mb-3 inline-flex rounded-full border border-[#C39B55]/30 bg-[#071326] px-4 py-2 text-sm font-semibold text-[#DBC399]">
               Profil membre
             </p>
 
             <h1 className="text-3xl font-black">Connexion requise</h1>
 
-            <p className="mt-3 text-[#D8C7A0]">
+            <p className="mt-3 text-[#CFC6AB]">
               Connecte-toi pour modifier ton profil.
             </p>
 
             <Link
               href="/login"
-              className="mt-6 inline-flex rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white transition hover:bg-[#8E171C]"
+              className="mt-6 inline-flex rounded-xl border border-[#C39B55]/40 bg-[#C39B55] px-6 py-3 font-semibold text-[#09182D] transition hover:bg-[#DBC399]"
             >
               Se connecter
             </Link>
@@ -276,10 +277,10 @@ const result: { error?: string; message?: string } = await response.json();
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0610] text-[#F7E9C5]">
+    <main className="min-h-screen bg-[#09182D] text-[#DBC399]">
       <section className="mx-auto max-w-5xl px-6 py-12">
         <div className="mb-10">
-          <p className="mb-3 inline-flex rounded-full border border-[#D9A441]/30 bg-[#160A12] px-4 py-2 text-sm font-semibold text-[#F2D27A]">
+          <p className="mb-3 inline-flex rounded-full border border-[#C39B55]/30 bg-[#0B1B33] px-4 py-2 text-sm font-semibold text-[#DBC399]">
             Profil membre
           </p>
 
@@ -287,52 +288,52 @@ const result: { error?: string; message?: string } = await response.json();
             Modifier mon profil
           </h1>
 
-          <p className="mt-3 max-w-2xl text-[#D8C7A0]">
+          <p className="mt-3 max-w-2xl text-[#CFC6AB]">
             Mets à jour tes informations membre, ta fiche joueur, ton numéro de
             maillot et ton avatar de carte UT.
           </p>
         </div>
 
         {message && (
-          <div className="mb-6 rounded-xl border border-[#D9A441]/30 bg-[#160A12] px-4 py-3 text-sm text-[#F2D27A]">
+          <div className="mb-6 rounded-xl border border-[#C39B55]/30 bg-[#0B1B33] px-4 py-3 text-sm text-[#DBC399]">
             {message}
           </div>
         )}
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-            <h2 className="text-2xl font-black text-[#F7E9C5]">
+          <section className="rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
+            <h2 className="text-2xl font-black text-[#DBC399]">
               Informations personnelles
             </h2>
 
             <form onSubmit={handleSave} className="mt-8 grid gap-5">
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Email
                 </label>
 
                 <input
                   value={profile.email}
                   disabled
-                  className="w-full cursor-not-allowed rounded-xl border border-[#D9A441]/10 bg-[#0B0610]/70 px-4 py-3 text-[#8F7B5C] outline-none"
+                  className="w-full cursor-not-allowed rounded-xl border border-[#C39B55]/10 bg-[#071326]/70 px-4 py-3 text-[#8A96A8] outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Pseudo membre
                 </label>
 
                 <input
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-[#C39B55]/60"
                   placeholder="Ex : CeceII27II"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Numéro de maillot
                 </label>
 
@@ -342,24 +343,24 @@ const result: { error?: string; message?: string } = await response.json();
                   max="99"
                   value={numeroMaillot}
                   onChange={(event) => setNumeroMaillot(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-[#C39B55]/60"
                   placeholder="Ex : 27"
                 />
 
-                <p className="mt-2 text-xs text-[#D8C7A0]">
+                <p className="mt-2 text-xs text-[#CFC6AB]">
                   Ce numéro apparaîtra en haut à gauche de ta carte membre.
                 </p>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Pays membre
                 </label>
 
                 <select
                   value={pays}
                   onChange={(event) => setPays(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition focus:border-[#C39B55]/60"
                 >
                   <option value="France">France</option>
                   <option value="Angleterre">Angleterre</option>
@@ -374,46 +375,46 @@ const result: { error?: string; message?: string } = await response.json();
                   <option value="Tunisie">Tunisie</option>
                 </select>
 
-                <p className="mt-2 text-xs text-[#D8C7A0]">
+                <p className="mt-2 text-xs text-[#CFC6AB]">
                   Ce pays apparaîtra en haut à droite de ta carte membre.
                 </p>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Nom joueur
                 </label>
 
                 <input
                   value={playerName}
                   onChange={(event) => setPlayerName(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-[#C39B55]/60"
                   placeholder="Ex : Cece"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Pseudo EA FC
                 </label>
 
                 <input
                   value={eaName}
                   onChange={(event) => setEaName(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-[#C39B55]/60"
                   placeholder="Ex : Cece_GSF"
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-semibold text-[#F2D27A]">
+                <label className="mb-2 block text-sm font-semibold text-[#DBC399]">
                   Plateforme
                 </label>
 
                 <select
                   value={platform}
                   onChange={(event) => setPlatform(event.target.value)}
-                  className="w-full rounded-xl border border-[#D9A441]/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition focus:border-[#D9A441]/60"
+                  className="w-full rounded-xl border border-[#C39B55]/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition focus:border-[#C39B55]/60"
                 >
                   <option value="">Choisir une plateforme</option>
                   <option value="PS5">PS5</option>
@@ -426,7 +427,7 @@ const result: { error?: string; message?: string } = await response.json();
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-xl bg-[#A61E22] px-6 py-3 font-semibold text-white shadow-lg shadow-[#A61E22]/20 transition hover:bg-[#8E171C] disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl border border-[#C39B55]/40 bg-[#C39B55] px-6 py-3 font-semibold text-[#09182D] shadow-lg shadow-[#C39B55]/15 transition hover:bg-[#DBC399] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? "Enregistrement..." : "Enregistrer les modifications"}
               </button>
@@ -447,41 +448,41 @@ const result: { error?: string; message?: string } = await response.json();
               }}
             />
 
-            <section className="rounded-2xl border border-[#D9A441]/20 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
-              <h2 className="text-2xl font-black text-[#F7E9C5]">Compte</h2>
+            <section className="rounded-2xl border border-[#C39B55]/20 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
+              <h2 className="text-2xl font-black text-[#DBC399]">Compte</h2>
 
-              <div className="mt-5 space-y-3 text-sm text-[#D8C7A0]">
+              <div className="mt-5 space-y-3 text-sm text-[#CFC6AB]">
                 <p>
                   Rôle :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
+                  <span className="font-semibold text-[#DBC399]">
                     {roleLabels[normalizeRole(profile.role)]}
                   </span>
                 </p>
 
                 <p>
                   Pays membre :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
+                  <span className="font-semibold text-[#DBC399]">
                     {profile.pays || "France"}
                   </span>
                 </p>
 
                 <p>
                   Numéro de maillot :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
+                  <span className="font-semibold text-[#DBC399]">
                     {profile.numero_maillot ?? 0}
                   </span>
                 </p>
 
                 <p>
                   Fiche joueur :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
+                  <span className="font-semibold text-[#DBC399]">
                     {player ? "Créée" : "Non créée"}
                   </span>
                 </p>
 
                 <p>
                   Avatar :{" "}
-                  <span className="font-semibold text-[#F2D27A]">
+                  <span className="font-semibold text-[#DBC399]">
                     {profile.avatar_url ? "Ajouté" : "Non ajouté"}
                   </span>
                 </p>
@@ -489,18 +490,18 @@ const result: { error?: string; message?: string } = await response.json();
 
               <Link
                 href="/membre"
-                className="mt-6 inline-flex rounded-xl border border-[#D9A441]/30 px-5 py-2.5 text-sm font-semibold text-[#F2D27A] transition hover:bg-[#0B0610]"
+                className="mt-6 inline-flex rounded-xl border border-[#C39B55]/30 px-5 py-2.5 text-sm font-semibold text-[#DBC399] transition hover:bg-[#071326]"
               >
                 Retour au panel membre
               </Link>
             </section>
 
-            <section className="rounded-2xl border border-red-400/30 bg-[#160A12]/90 p-6 shadow-lg shadow-black/30">
+            <section className="rounded-2xl border border-red-400/30 bg-[#0B1B33]/90 p-6 shadow-lg shadow-black/30">
               <h2 className="text-2xl font-black text-red-300">
                 Supprimer mon compte
               </h2>
 
-              <p className="mt-3 text-sm text-[#D8C7A0]">
+              <p className="mt-3 text-sm text-[#CFC6AB]">
                 Cette action supprimera ton compte, ton profil membre, ta fiche
                 joueur et tes inscriptions. Elle est irréversible.
               </p>
@@ -513,7 +514,7 @@ const result: { error?: string; message?: string } = await response.json();
                 <input
                   value={deleteConfirmation}
                   onChange={(event) => setDeleteConfirmation(event.target.value)}
-                  className="w-full rounded-xl border border-red-400/20 bg-[#0B0610] px-4 py-3 text-[#F7E9C5] outline-none transition placeholder:text-[#8F7B5C] focus:border-red-400/60"
+                  className="w-full rounded-xl border border-red-400/20 bg-[#071326] px-4 py-3 text-[#DBC399] outline-none transition placeholder:text-[#CFC6AB]/50 focus:border-red-400/60"
                   placeholder="SUPPRIMER"
                 />
               </div>
