@@ -69,47 +69,49 @@ export default function HomePage() {
               l’histoire de la Guardian's.
             </p>
 
-            <div className="mt-8 grid gap-4 lg:grid-cols-2">
-              <Link
-                href="/competitions"
-                className="group rounded-2xl border border-[#C39B55]/35 bg-black/25 p-5 transition hover:border-[#C39B55]/70 hover:bg-black/40 sm:p-6"
-              >
-                <span className="text-3xl" aria-hidden="true">
-                  🏆
-                </span>
-                <h2 className="mt-4 text-xl font-black text-[#CFC6AB]">
-                  Guardian's Compétition
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#DBC399]">
-                  Compétitions, équipes, matchs et résultats.
-                </p>
-                <span className="mt-5 inline-flex rounded-lg bg-[#C39B55] px-4 py-2.5 text-sm font-black text-[#0B1B33] transition group-hover:bg-[#DBC399]">
-                  Accéder aux compétitions{" "}
-                  <span aria-hidden="true">→</span>
-                </span>
-              </Link>
+            {isLoggedIn && (
+              <div className="mt-8 grid gap-4 lg:grid-cols-2">
+                <Link
+                  href="/competitions"
+                  className="group rounded-2xl border border-[#C39B55]/35 bg-black/25 p-5 transition hover:border-[#C39B55]/70 hover:bg-black/40 sm:p-6"
+                >
+                  <span className="text-3xl" aria-hidden="true">
+                    🏆
+                  </span>
+                  <h2 className="mt-4 text-xl font-black text-[#CFC6AB]">
+                    Guardian's Compétition
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[#DBC399]">
+                    Compétitions, équipes, matchs et résultats.
+                  </p>
+                  <span className="mt-5 inline-flex rounded-lg bg-[#C39B55] px-4 py-2.5 text-sm font-black text-[#0B1B33] transition group-hover:bg-[#DBC399]">
+                    Accéder aux compétitions{" "}
+                    <span aria-hidden="true">→</span>
+                  </span>
+                </Link>
 
-              <a
-                href="https://guardiansfamily.netlify.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group rounded-2xl border border-[#C39B55]/35 bg-black/25 p-5 transition hover:border-[#C39B55]/70 hover:bg-black/40 sm:p-6"
-              >
-                <span className="text-3xl" aria-hidden="true">
-                  📊
-                </span>
-                <h2 className="mt-4 text-xl font-black text-[#CFC6AB]">
-                  Stats & histoire
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#DBC399]">
-                  Statistiques, effectifs, gazettes et archives de la team.
-                </p>
-                <span className="mt-5 inline-flex rounded-lg border border-[#C39B55]/40 px-4 py-2.5 text-sm font-black text-[#DBC399] transition hover:bg-[#C39B55]/10">
-                  Découvrir les statistiques{" "}
-                  <span aria-hidden="true">→</span>
-                </span>
-              </a>
-            </div>
+                <a
+                  href="https://guardiansfamily.netlify.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-2xl border border-[#C39B55]/35 bg-black/25 p-5 transition hover:border-[#C39B55]/70 hover:bg-black/40 sm:p-6"
+                >
+                  <span className="text-3xl" aria-hidden="true">
+                    📊
+                  </span>
+                  <h2 className="mt-4 text-xl font-black text-[#CFC6AB]">
+                    Stats & histoire
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-[#DBC399]">
+                    Statistiques, effectifs, gazettes et archives de la team.
+                  </p>
+                  <span className="mt-5 inline-flex rounded-lg border border-[#C39B55]/40 px-4 py-2.5 text-sm font-black text-[#DBC399] transition hover:bg-[#C39B55]/10">
+                    Découvrir les statistiques{" "}
+                    <span aria-hidden="true">→</span>
+                  </span>
+                </a>
+              </div>
+            )}
 
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
